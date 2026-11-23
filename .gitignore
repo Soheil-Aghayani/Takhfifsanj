@@ -1,0 +1,11 @@
+node_modules/
+backup/
+.env
+.env.*
+!.env.example
+.DS_Store
+*.log
+dist/*
+!dist/Takhfifsanj_15.user.js
+extension/dist/*
+!extension/dist/.gitkeep

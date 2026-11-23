@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "تخفیف‌سنج",
+  "version": "15.2.1",
+  "description": "نسخهٔ بلک‌فرایدی — مقایسهٔ قیمت فروشندگان، تاریخچهٔ رسمی دیجی‌کالا، بازرس تخفیف واقعی، واچ‌لیست و هشدار قیمت — توسعه: RealMahdi_a · بر پایهٔ موتور GHAFEL_com",
+  "homepage_url": "https://aqilistudio.ir/",
+  "icons": { "16": "icons/icon16.png", "32": "icons/icon32.png", "48": "icons/icon48.png", "128": "icons/icon128.png" },
+  "action": { "default_title": "تخفیف‌سنج — باز/بسته‌کردن پنل", "default_icon": { "16": "icons/icon16.png", "32": "icons/icon32.png" }, "default_popup": "popup.html" },
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [ { "matches": ["https://*/*"], "js": ["content.js"], "run_at": "document_idle", "all_frames": false } ],
+  "permissions": ["storage", "alarms", "notifications", "tabs"],
+  "host_permissions": ["https://api.torob.com/*", "https://torob.com/*", "https://api.digikala.com/*", "https://www.digikala.com/*"]
+}

@@ -1,0 +1,16 @@
+{
+  "name": "takhfifsanj",
+  "version": "15.2.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs && node extension/build-ext.mjs",
+    "build:userscript": "node build.mjs",
+    "build:extension": "node extension/build-ext.mjs",
+    "test": "node --test tests/all.test.mjs extension/tests/ext.test.mjs"
+  },
+  "devDependencies": {
+    "jsdom": "^26.1.0",
+    "terser": "^5.43.1"
+  }
+}
