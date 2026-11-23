@@ -74,7 +74,9 @@ const App = (() => {
       const retryMs = e.retryAfterMs > 0 ? e.retryAfterMs : (e.status === 429 ? 90000 : 20000);
       state.historyCooldownUntil = Date.now() + retryMs; state.historyCooldownNote = e.status === 429 ? 'rate-limit' : 'error';
       state.chartError = e.status === 429 ? 'HTTP 429' : e.message;
-      const message = e.message + (e.retryAfterMs ? ` (Retry-After: ${Math.round(e.retryAfterMs / 1000)}s)` : '');
+      const message = e.status === 429
+        ? `HTTP 429؛ تلاش بعدی پس از ${Math.ceil(retryMs / 1000)} ثانیه`
+        : e.message;
       if (e.status === 429) Log.warn('history', message); else Log.error('history', message);
     }
     state.chartLoading = false; emit();
