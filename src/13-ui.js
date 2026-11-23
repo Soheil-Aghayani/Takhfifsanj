@@ -29,12 +29,11 @@ header{cursor:move;padding:12px 14px 10px;background:linear-gradient(135deg,rgba
 .name{font-weight:700;font-size:13px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .price{font-size:24px;font-weight:800;color:var(--acc2);margin:2px 0}.price small{font-size:12px;color:var(--mut);font-weight:400}
 .meta{font-size:11px;color:var(--mut)}.meta s{opacity:.8}
-.workspace{display:flex;direction:ltr;flex:1 1 auto;min-height:0;overflow:hidden}
-.tabs{position:relative;display:flex;flex:0 0 72px;width:72px;min-height:0;flex-direction:column;align-items:stretch;gap:0;padding:10px 7px;overflow-x:hidden;overflow-y:auto;border-right:1px solid var(--line);background:linear-gradient(180deg,var(--panel),var(--bg));isolation:isolate;scrollbar-width:thin}
-.tab-main{direction:rtl;display:flex;flex:1 1 auto;min-height:0;width:100%;flex-direction:column;align-items:stretch;justify-content:space-evenly;gap:0;padding:4px 0}
-.tab-dock{display:flex;flex:0 0 58px;width:100%;align-items:center;justify-content:center;margin-top:7px;padding-top:8px;border-top:1px solid var(--line)}
-.tab-indicator{position:absolute;z-index:1;left:0;top:0;width:0;height:0;border-radius:14px;background:linear-gradient(145deg,var(--acc2),var(--acc));box-shadow:0 5px 16px color-mix(in srgb,var(--acc) 34%,transparent);pointer-events:none;transform:translateZ(0);transform-origin:0 0;will-change:transform,width,height,border-radius}
-.tab{all:unset;box-sizing:border-box;position:relative;z-index:2;cursor:pointer;display:inline-flex;flex:0 0 44px;align-items:center;justify-content:center;width:100%;min-width:0;height:44px;margin:2px 0;padding:4px 2px;overflow:hidden;border-radius:12px;color:var(--mut);font-size:10.5px;font-family:inherit;transition:color .18s ease}
+.workspace{display:flex;flex:1 1 auto;min-height:0;flex-direction:column;overflow:hidden}
+.tabs{position:relative;z-index:2;display:flex;flex:0 0 56px;width:100%;min-height:56px;flex-direction:row;align-items:center;gap:12px;padding:6px 10px;overflow:hidden;border-bottom:1px solid var(--line);background:var(--panel);isolation:isolate}
+.tab-main{direction:rtl;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));flex:1 1 auto;align-items:center;gap:4px;min-width:0;height:44px}
+.tab-indicator{position:absolute;z-index:1;left:0;top:6px;width:0;height:44px;border-radius:14px;background:linear-gradient(145deg,var(--acc2),var(--acc));box-shadow:0 5px 16px color-mix(in srgb,var(--acc) 34%,transparent);pointer-events:none;transform:translateZ(0);transform-origin:0 0;will-change:transform,width,height,border-radius}
+.tab{all:unset;box-sizing:border-box;position:relative;z-index:2;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:100%;min-width:0;height:44px;padding:4px 5px;overflow:hidden;border-radius:12px;color:var(--mut);font-size:11px;font-family:inherit;transition:color .18s ease}
 .tab:focus-visible{outline:2px solid var(--acc2);outline-offset:1px}
 .tab-icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 20px;width:20px;height:20px;line-height:0;transition:opacity .18s ease,transform .28s cubic-bezier(.2,.8,.2,1)}
 .tab-icon .icon{display:block;width:20px;height:20px}
@@ -211,7 +210,7 @@ svg text{font-family:inherit}
 .dark .v-confirmed{background:var(--good-soft);border-color:var(--good);color:var(--good)}
 .dark .v-rise-signal{background:var(--warn-soft);border-color:var(--warn);color:var(--warn)}
 .dark .v-insufficient{background:rgba(167,171,180,.08);border-color:var(--line);color:var(--mut)}
-@media(max-width:380px){.tabs{flex-basis:62px;width:62px;padding-inline:5px}.tab{font-size:10px}.body{padding:10px}.history-toolbar{align-items:flex-start;flex-direction:column}.watch-target-controls input{width:110px!important}.collection-icon-choice{width:34px;height:34px}}
+@media(max-width:380px){.tabs{gap:6px;padding-inline:6px}.tab-main{gap:1px}.tab{font-size:10px;padding-inline:2px}.body{padding:10px}.history-toolbar{align-items:flex-start;flex-direction:column}.watch-target-controls input{width:110px!important}.collection-icon-choice{width:34px;height:34px}}
 @media(prefers-reduced-motion:reduce){.tab,.tab-icon,.tab-label,.switch-track,.switch-track:after{transition:none}}
 `;
   let host, root, S;
@@ -423,7 +422,6 @@ svg text{font-family:inherit}
   }
 
   const TABS = [['compare', 'compare', 'مقایسه', 'مقایسهٔ قیمت'], ['history', 'history', 'تاریخچه', 'تاریخچهٔ قیمت'], ['inspect', 'search', 'بازرس', 'بازرس تخفیف'], ['watch', 'heart', 'واچ‌لیست', 'واچ‌لیست قیمت'], ['settings', 'settings', 'تنظیمات', 'تنظیمات افزونه']];
-  const DOCK_TABS = [['log', 'bug', 'عیب‌یابی', 'گزارش و عیب‌یابی']];
   let lastIndicatorTarget = null;
   const tabScrollPositions = Object.create(null);
   const expandedCollections = new Set();
@@ -470,12 +468,11 @@ svg text{font-family:inherit}
   }
   function renderTabs(fromRect = null) {
     const nav = $('#tabs'); if (!nav) return;
-    if (![...TABS, ...DOCK_TABS].some(([key]) => key === S.tab)) S.tab = 'compare';
+    if (!TABS.some(([key]) => key === S.tab) && S.tab !== 'log') S.tab = 'compare';
     if (!nav.querySelector('.tab-indicator')) {
       const indicator = document.createElement('span'); indicator.className = 'tab-indicator'; indicator.setAttribute('aria-hidden', 'true');
       const main = document.createElement('div'); main.className = 'tab-main';
-      const dock = document.createElement('div'); dock.className = 'tab-dock'; dock.setAttribute('role', 'group'); dock.setAttribute('aria-label', 'ابزارهای مستقل');
-      nav.append(indicator, main, dock);
+      nav.append(indicator, main);
       const appendTab = (parent, [key, ico, labelText, title]) => {
         const button = document.createElement('button'); button.type = 'button'; button.id = 'tab-' + key; button.className = 'tab'; button.dataset.tab = key;
         button.setAttribute('role', 'tab'); button.setAttribute('aria-label', title); button.setAttribute('aria-controls', 'body'); button.setAttribute('title', title);
@@ -485,11 +482,10 @@ svg text{font-family:inherit}
         parent.appendChild(button);
       };
       TABS.forEach(item => appendTab(main, item));
-      DOCK_TABS.forEach(item => appendTab(dock, item));
       nav.addEventListener('scroll', () => positionTabIndicator(), { passive: true });
     }
-    for (const [key] of [...TABS, ...DOCK_TABS]) {
-      const button = nav.querySelector('#tab-' + key), active = key === S.tab;
+    for (const [key] of TABS) {
+      const button = nav.querySelector('#tab-' + key), active = key === S.tab || (key === 'settings' && S.tab === 'log');
       button.classList.toggle('on', active); button.setAttribute('aria-selected', String(active));
     }
     positionTabIndicator(fromRect);
@@ -520,7 +516,7 @@ svg text{font-family:inherit}
   }
 
   function tabMorphOrigin(bodyNode, tabKey) {
-    const target = $('#tab-' + tabKey), bodyRect = bodyNode.getBoundingClientRect();
+    const target = $('#tab-' + (tabKey === 'log' ? 'settings' : tabKey)), bodyRect = bodyNode.getBoundingClientRect();
     if (!target || !bodyRect.width || !bodyRect.height) return '0px 50%';
     const rect = target.getBoundingClientRect();
     const x = Math.max(0, Math.min(bodyRect.width, rect.right - bodyRect.left));
@@ -543,7 +539,7 @@ svg text{font-family:inherit}
     renderTabs(transition.indicatorRect || null);
     const body = { compare: tabCompare, history: tabHistory, inspect: tabInspector, watch: tabWatch, settings: tabSettings, log: tabLog }[S.tab]();
     const bodyNode = $('#body');
-    bodyNode.setAttribute('aria-labelledby', `tab-${S.tab}`);
+    bodyNode.setAttribute('aria-labelledby', `tab-${S.tab === 'log' ? 'settings' : S.tab}`);
     const keep = bodyNode.scrollTop;
     const exitScroll = Number.isFinite(transition.oldScrollTop) ? transition.oldScrollTop : keep;
     const tamper = (typeof CreditGuard !== 'undefined' && CreditGuard.isOk() === false)
