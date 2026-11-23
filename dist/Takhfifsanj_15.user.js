@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         تخفیف‌سنج
 // @namespace    ghafel-com-pro
-// @version      15.2.8
+// @version      15.2.9
 // @description  مقایسهٔ قیمت فروشندگان، تاریخچهٔ قیمت دیجی‌کالا، بازرس تخفیف، واچ‌لیست و هشدار قیمت
 // @author       GHAFEL_com (Original Creator)
 // @contributor  RealMahdi_a (Upgrade & Development)
@@ -19,7 +19,7 @@
 // @noframes
 // @run-at       document-idle
 // ==/UserScript==
-/* تخفیف‌سنج 15.2.8 — Original Creator: GHAFEL_com (https://t.me/GHAFEL_com) · Upgrade & Development: RealMahdi_a (https://t.me/RealMahdi_a) · Website: https://aqilistudio.ir/
+/* تخفیف‌سنج 15.2.9 — Original Creator: GHAFEL_com (https://t.me/GHAFEL_com) · Upgrade & Development: RealMahdi_a (https://t.me/RealMahdi_a) · Website: https://aqilistudio.ir/
    Built from readable modules in /src. The 8.7 engine logic is preserved in src/06-extract.js (extraction),
    src/07-match.js (baseline rule) and src/08-sources.js (Torob flow). */
 (function () {
@@ -1086,7 +1086,7 @@ const Exporter = (() => {
     for (const x of (p?.local || [])) rows.push([key, p?.title || '', new Date(x.t).toISOString(), x.p, 'local', x.src || 'local']);
     return rows.map(r => r.map(q).join(',')).join('\n');
   }
-  const jsonAll = extra => JSON.stringify({ app: 'تخفیف‌سنج 15.2.8', exportedAt: new Date().toISOString(), db: Store.get(), ...extra }, null, 2);
+  const jsonAll = extra => JSON.stringify({ app: 'تخفیف‌سنج 15.2.9', exportedAt: new Date().toISOString(), db: Store.get(), ...extra }, null, 2);
   function parseCsv(text) {
     const out = []; const lines = String(text || '').replace(/^\uFEFF/, '').split(/\r?\n/).filter(Boolean); if (!lines.length) return out;
     const head = lines[0].toLowerCase().split(',').map(s => s.trim().replace(/"/g, ''));
@@ -1175,10 +1175,8 @@ header{cursor:move;padding:12px 14px 10px;background:linear-gradient(135deg,rgba
 .name{font-weight:700;font-size:13px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .price{font-size:24px;font-weight:800;color:var(--acc2);margin:2px 0}.price small{font-size:12px;color:var(--mut);font-weight:400}
 .meta{font-size:11px;color:var(--mut)}.meta s{opacity:.8}
-.tabs{position:relative;display:flex;direction:ltr;align-items:center;gap:9px;padding:6px 10px;min-height:56px;overflow:hidden;border-bottom:1px solid var(--line);isolation:isolate}
+.tabs{position:relative;display:flex;direction:ltr;align-items:center;padding:6px 10px;min-height:56px;overflow:hidden;border-bottom:1px solid var(--line);isolation:isolate}
 .tab-main{direction:rtl;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));align-items:center;gap:4px;flex:1 1 auto;min-width:0;height:44px}
-.tab-dock{position:relative;display:grid;place-items:center;flex:0 0 44px;width:44px;height:44px;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none}
-.tab-dock::after{content:"";position:absolute;right:-5px;top:9px;width:1px;height:26px;background:var(--line);pointer-events:none}
 .tab-indicator{position:absolute;z-index:1;left:0;top:6px;height:44px;width:0;border-radius:13px;background:linear-gradient(145deg,var(--acc2),var(--acc));box-shadow:0 4px 12px color-mix(in srgb,var(--acc) 32%,transparent);pointer-events:none;transform:translateZ(0);transform-origin:0 0;will-change:transform,width,height,border-radius}
 .tab{all:unset;box-sizing:border-box;position:relative;z-index:2;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:100%;min-width:0;height:44px;padding:5px 6px;border-radius:10px;color:var(--mut);font-size:11.5px;font-family:inherit;transition:color .18s ease}
 .tab:focus-visible{outline:2px solid var(--acc2);outline-offset:1px}
@@ -1188,8 +1186,6 @@ header{cursor:move;padding:12px 14px 10px;background:linear-gradient(135deg,rgba
 .tab.on{background:transparent;color:#fff;font-weight:700}
 .tab.on .tab-icon{opacity:0;transform:scale(.65)}
 .tab.on .tab-label{opacity:1;transform:translate(-50%,0) scale(1)}
-.tab-dock .tab{width:44px;height:44px;padding:0}
-.tab-dock .tab:hover:not(.on){background:var(--card);color:var(--ink)}
 .body{padding:12px 14px;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--scroll-thumb) var(--panel);scrollbar-gutter:stable;overscroll-behavior:contain}
 .body-content{position:relative;z-index:1;min-height:100%;transform-origin:top center;will-change:transform,opacity,clip-path}
 .body-transition-exit{position:absolute;inset:0;z-index:3;overflow:hidden;padding:12px 14px;background:var(--panel);pointer-events:none;transform-origin:top center;will-change:transform,opacity,clip-path}
@@ -1291,6 +1287,13 @@ details.card summary{cursor:pointer;list-style:none}details.card summary::-webki
 .settings-section{margin-bottom:13px}
 .settings-heading{display:flex;align-items:center;gap:7px;margin:2px 3px 6px;font-size:12px;font-weight:800;color:var(--ink)}
 .settings-card{padding:4px 10px}
+.settings-link{all:unset;box-sizing:border-box;cursor:pointer;display:flex;align-items:center;gap:10px;width:100%;min-height:48px;padding:5px 3px;border-radius:9px;color:var(--ink);text-align:right;transition:background .16s ease}
+.settings-link:hover{background:color-mix(in srgb,var(--acc) 9%,transparent)}
+.settings-link:focus-visible{outline:2px solid var(--acc2);outline-offset:1px}
+.settings-link-icon{display:grid;place-items:center;flex:0 0 34px;width:34px;height:34px;border-radius:10px;background:var(--warn-soft);color:var(--warn)}
+.settings-link-copy{display:grid;gap:2px;min-width:0;flex:1}
+.settings-link-copy small{color:var(--mut);font-size:10.5px}
+.diagnostics-back{margin-bottom:9px}
 .setting-input-row{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:42px;padding:6px 2px;border-top:1px solid var(--line)}
 .setting-input-row label{display:flex;align-items:center;gap:7px;color:var(--ink);font-size:11.5px}
 .setting-input-row input{width:84px;height:34px}
@@ -1337,7 +1340,7 @@ svg text{font-family:inherit}
 .dark .v-confirmed{background:var(--good-soft);border-color:var(--good);color:var(--good)}
 .dark .v-rise-signal{background:var(--warn-soft);border-color:var(--warn);color:var(--warn)}
 .dark .v-insufficient{background:rgba(167,171,180,.08);border-color:var(--line);color:var(--mut)}
-@media(max-width:380px){.tabs{gap:7px;padding-inline:7px}.tab-main{gap:1px}.tab-dock{flex-basis:44px;width:44px}.tab-dock .tab{width:44px}.tab{font-size:10.5px}.history-toolbar{align-items:flex-start;flex-direction:column}.watch-target-controls input{width:110px!important}.collection-icon-choice{width:34px;height:34px}}
+@media(max-width:380px){.tabs{padding-inline:7px}.tab-main{gap:1px}.tab{font-size:10.5px}.history-toolbar{align-items:flex-start;flex-direction:column}.watch-target-controls input{width:110px!important}.collection-icon-choice{width:34px;height:34px}}
 @media(prefers-reduced-motion:reduce){.tab-icon,.tab-label,.switch-track,.switch-track:after{transition:none}}
 `;
   let host, root, S;
@@ -1525,6 +1528,7 @@ svg text{font-family:inherit}
     const alertSettings = switchRow('فعال‌کردن هشدار قیمت', 'data-set="alertsEnabled"', !!alerts.enabled, 'bell') +
       `<div class="setting-input-row"><label for="ival">${icon('clock')}<span>فاصلهٔ بررسی (دقیقه)</span></label><input type="number" id="ival" aria-label="فاصلهٔ بررسی هشدار به دقیقه، حداقل ۱۵" min="15" value="${alerts.intervalMin || 60}"></div><div class="muted setting-note">حداقل ۱۵ دقیقه</div>`;
     h += settingsSection('هشدار قیمت', 'bell', alertSettings);
+    h += settingsSection('گزارش و عیب‌یابی', 'bug', `<button type="button" class="settings-link" data-tab="log" aria-label="بازکردن گزارش و عیب‌یابی"><span class="settings-link-icon">${icon('bug', 18)}</span><span class="settings-link-copy"><b>گزارش و عیب‌یابی</b><small>رویدادها، خطاها و وضعیت منابع</small></span></button>`);
     const dataActions = `<div class="btns"><button class="btn sec icon-btn" data-act="expCsv">${iconText('download', 'خروجی CSV')}</button><button class="btn sec icon-btn" data-act="expJson">${iconText('download', 'خروجی JSON')}</button><button class="btn sec icon-btn" data-act="impCsv">${iconText('upload', 'ورود CSV')}</button><button class="btn bad icon-btn" data-act="clearProd" title="پاک‌کردن تاریخچهٔ محلی این محصول">${iconText('trash', 'حذف محصول')}</button><button class="btn bad icon-btn" data-act="clearAll" title="پاک‌کردن همهٔ داده‌ها و تنظیمات">${iconText('trash', 'حذف همه')}</button></div><input type="file" id="file" accept=".csv" style="display:none">`;
     h += settingsSection('داده‌های ذخیره‌شده', 'file', dataActions);
     return h;
@@ -1532,12 +1536,13 @@ svg text{font-family:inherit}
   function tabLog() {
     const legacy = ['ghpro12-host', 'ghafel-pc-btn', 'ghafel-pc-panel'].filter(id => document.getElementById(id));
     let h = legacy.length ? `<div class="banner">نسخه‌های قدیمی هم‌زمان فعال‌اند (${legacy.join('، ')}). در Tampermonkey آن‌ها را غیرفعال کنید تا فقط یک پنل بماند.</div>` : '';
-    h += `<div class="card muted">نسخه ۱۵.۲.۷ · محصول: ${U.esc(S.key)} · منبع قیمت: ${U.esc((S.product || {}).priceSource || '—')}${(S.product || {}).priceNote ? ' · ' + U.esc(S.product.priceNote) : ''}</div>`;
+    h += `<button type="button" class="btn sec icon-btn diagnostics-back" data-tab="settings">${icon('settings')}<span>بازگشت به تنظیمات</span></button>`;
+    h += `<div class="card muted">نسخه ۱۵.۲.۹ · محصول: ${U.esc(S.key)} · منبع قیمت: ${U.esc((S.product || {}).priceSource || '—')}${(S.product || {}).priceNote ? ' · ' + U.esc(S.product.priceNote) : ''}</div>`;
     h += `<div class="card log">${Log.all().slice(-60).reverse().map(e => `<div class="${e.level === 'error' ? 'e' : e.level === 'warn' ? 'w' : ''}">${new Date(e.t).toLocaleTimeString('en-GB')} [${U.esc(e.scope)}] ${U.esc(e.msg)}</div>`).join('') || 'بدون رویداد'}</div>`;
     return h;
   }
 
-  const TABS = [['compare', 'compare', 'مقایسه', 'مقایسهٔ قیمت'], ['history', 'history', 'تاریخچه', 'تاریخچهٔ قیمت'], ['inspect', 'search', 'بازرس', 'بازرس تخفیف'], ['watch', 'heart', 'واچ‌لیست', 'واچ‌لیست قیمت'], ['settings', 'settings', 'تنظیمات', 'تنظیمات افزونه'], ['log', 'bug', 'عیب‌یابی', 'گزارش و عیب‌یابی']];
+  const TABS = [['compare', 'compare', 'مقایسه', 'مقایسهٔ قیمت'], ['history', 'history', 'تاریخچه', 'تاریخچهٔ قیمت'], ['inspect', 'search', 'بازرس', 'بازرس تخفیف'], ['watch', 'heart', 'واچ‌لیست', 'واچ‌لیست قیمت'], ['settings', 'settings', 'تنظیمات', 'تنظیمات افزونه']];
   let lastIndicatorTarget = null;
   const tabScrollPositions = Object.create(null);
   function positionTabIndicator(fromRect = null) {
@@ -1581,24 +1586,23 @@ svg text{font-family:inherit}
   }
   function renderTabs(fromRect = null) {
     const nav = $('#tabs'); if (!nav) return;
-    if (!TABS.some(([key]) => key === S.tab)) S.tab = 'compare';
+    if (!TABS.some(([key]) => key === S.tab) && S.tab !== 'log') S.tab = 'compare';
     if (!nav.querySelector('.tab-indicator')) {
       const indicator = document.createElement('span'); indicator.className = 'tab-indicator'; indicator.setAttribute('aria-hidden', 'true');
       const main = document.createElement('div'); main.className = 'tab-main';
-      const dock = document.createElement('div'); dock.className = 'tab-dock'; dock.setAttribute('role', 'group'); dock.setAttribute('aria-label', 'گزارش و عیب‌یابی');
-      nav.append(indicator, dock, main);
+      nav.append(indicator, main);
       for (const [key, ico, labelText, title] of TABS) {
         const button = document.createElement('button'); button.type = 'button'; button.id = 'tab-' + key; button.className = 'tab'; button.dataset.tab = key;
         button.setAttribute('role', 'tab'); button.setAttribute('aria-label', title); button.setAttribute('aria-controls', 'body'); button.setAttribute('title', title);
         const iconNode = document.createElement('span'); iconNode.className = 'tab-icon'; iconNode.setAttribute('aria-hidden', 'true'); iconNode.innerHTML = icon(ico);
         const labelNode = document.createElement('span'); labelNode.className = 'tab-label'; labelNode.setAttribute('aria-hidden', 'true'); labelNode.textContent = labelText;
         button.append(iconNode, labelNode);
-        (key === 'log' ? dock : main).appendChild(button);
+        main.appendChild(button);
       }
       nav.addEventListener('scroll', () => positionTabIndicator(), { passive: true });
     }
     for (const [key] of TABS) {
-      const button = nav.querySelector('#tab-' + key), active = key === S.tab;
+      const button = nav.querySelector('#tab-' + key), active = key === (S.tab === 'log' ? 'settings' : S.tab);
       button.classList.toggle('on', active); button.setAttribute('aria-selected', String(active));
     }
     positionTabIndicator(fromRect);
@@ -1645,7 +1649,7 @@ svg text{font-family:inherit}
     renderTabs(transition.indicatorRect || null);
     const body = { compare: tabCompare, history: tabHistory, inspect: tabInspector, watch: tabWatch, settings: tabSettings, log: tabLog }[S.tab]();
     const bodyNode = $('#body');
-    bodyNode.setAttribute('aria-labelledby', `tab-${S.tab}`);
+    bodyNode.setAttribute('aria-labelledby', `tab-${S.tab === 'log' ? 'settings' : S.tab}`);
     const keep = bodyNode.scrollTop;
     const exitScroll = Number.isFinite(transition.oldScrollTop) ? transition.oldScrollTop : keep;
     const tamper = (typeof CreditGuard !== 'undefined' && CreditGuard.isOk() === false)
@@ -1822,7 +1826,7 @@ const Main = (() => {
     };
     const run = () => { try { check(); } catch (e) { Log.error('main', e.message); } };
     setTimeout(run, 600); setInterval(run, 1500);
-    Log.info('main', 'تخفیف‌سنج 15.2.8 آماده شد');
+    Log.info('main', 'تخفیف‌سنج 15.2.9 آماده شد');
   }
   return { init };
 })();
