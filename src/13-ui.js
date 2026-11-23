@@ -273,10 +273,9 @@ svg text{font-family:inherit}
   }
   function bind() {
     const hdr = $('header'), pill = $('#pill');
-    pill.addEventListener('click', e => { if (e.detail === 0) setOpen(true); });
     function makeDraggable(el, { ignore, onTap }) {
-      let drag = null;
-      el.addEventListener('pointerdown', e => { if (ignore && e.target.closest(ignore)) return; const r = host.getBoundingClientRect(); drag = { dx: e.clientX - r.left, dy: e.clientY - r.top, x0: e.clientX, y0: e.clientY, moved: false }; try { el.setPointerCapture(e.pointerId); } catch {} });
+      let drag = null, suppressClick = false;
+      el.addEventListener('pointerdown', e => { if (ignore && e.target.closest(ignore)) return; suppressClick = false; const r = host.getBoundingClientRect(); drag = { dx: e.clientX - r.left, dy: e.clientY - r.top, x0: e.clientX, y0: e.clientY, moved: false }; try { el.setPointerCapture(e.pointerId); } catch {} });
       el.addEventListener('pointermove', e => {
         if (!drag) return; if (!drag.moved && Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < 5) return; drag.moved = true;
         const r = host.getBoundingClientRect(), w = r.width || 150, h = r.height || 40;
@@ -284,9 +283,13 @@ svg text{font-family:inherit}
       });
       el.addEventListener('pointerup', () => {
         if (!drag) return; const d = drag; drag = null;
-        if (d.moved) { snapToEdges(); const r = host.getBoundingClientRect(); Store.get().settings.pos = { left: r.left, top: r.top }; Store.save(); } else if (onTap) onTap();
+        if (d.moved) { suppressClick = true; snapToEdges(); const r = host.getBoundingClientRect(); Store.get().settings.pos = { left: r.left, top: r.top }; Store.save(); }
       });
-      el.addEventListener('pointercancel', () => { drag = null; });
+      el.addEventListener('pointercancel', () => { drag = null; suppressClick = false; });
+      if (onTap) el.addEventListener('click', e => {
+        if (suppressClick && e.detail > 0) { suppressClick = false; e.preventDefault(); return; }
+        suppressClick = false; onTap();
+      });
     }
     makeDraggable(hdr, { ignore: '.x' }); makeDraggable(pill, { onTap: () => setOpen(true) });
     $('#wide').onclick = () => { const st = Store.get().settings; st.wide = !st.wide; st.size = null; Store.save(); render(); requestAnimationFrame(applyPos); };
