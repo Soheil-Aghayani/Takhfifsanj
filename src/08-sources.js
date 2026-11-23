@@ -5,13 +5,17 @@ const Sources = (() => {
   // Origin is a forbidden header for GM requests; cookies are sent (anonymous:false) so Digikala's CDN accepts the call; page fetch is the fallback.
   const DK_OPTS = { referer: DK_REF, headers: { 'x-web-client': 'desktop', 'x-web-client-id': 'web' }, anonymous: false, pageFetchFallback: true };
   // Torob can attach an unrelated marketplace page to an otherwise relevant base product.
-  // Match canonical host + path so changing tracking parameters cannot bring this known false offer back.
+  // Match direct pages, Torob redirect keys, and Basalam relay links; tracking parameters are ignored.
   const EXCLUDED_TOROB_SELLER_PAGES = new Set(['basalam.com/pakhshshop/product/25406964']);
+  const EXCLUDED_TOROB_REDIRECT_KEYS = new Set(['2db1d0a1-c8f0-455b-82fc-9d64497dfed4']);
   function isExcludedTorobSellerPage(raw) {
     try {
       const u = new URL(raw), host = u.hostname.toLowerCase().replace(/^www\./, '');
       const path = u.pathname.replace(/\/+$/, '').toLowerCase();
-      return EXCLUDED_TOROB_SELLER_PAGES.has(host + path);
+      if (EXCLUDED_TOROB_SELLER_PAGES.has(host + path)) return true;
+      if (host === 'api.torob.com' && path === '/v4/product-page/redirect' && EXCLUDED_TOROB_REDIRECT_KEYS.has(u.searchParams.get('prk'))) return true;
+      if (host === 'relay.basalam.com' && path === '/r') return isExcludedTorobSellerPage(u.searchParams.get('to'));
+      return false;
     } catch { return false; }
   }
 

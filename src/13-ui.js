@@ -30,9 +30,14 @@ header{cursor:move;padding:12px 14px 10px;background:linear-gradient(135deg,rgba
 .name{font-weight:700;font-size:13px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .price{font-size:24px;font-weight:800;color:var(--acc2);margin:2px 0}.price small{font-size:12px;color:var(--mut);font-weight:400}
 .meta{font-size:11px;color:var(--mut)}.meta s{opacity:.8}
-.tabs{display:flex;gap:3px;padding:6px 8px;overflow-x:auto;border-bottom:1px solid var(--line);scrollbar-width:none}
-.tab{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;padding:5px 9px;border-radius:9px;color:var(--mut);font-size:11.5px;font-family:inherit}
-.tab.on{background:var(--acc);color:#fff;font-weight:700}
+.tabs{display:flex;align-items:center;gap:3px;padding:6px 8px;overflow-x:auto;border-bottom:1px solid var(--line);scrollbar-width:none;isolation:isolate}
+.tab-indicator{position:absolute;z-index:0;left:0;top:6px;bottom:6px;width:0;border-radius:9px;background:var(--acc);pointer-events:none;transition:transform .38s cubic-bezier(.2,.8,.2,1),width .38s cubic-bezier(.2,.8,.2,1)}
+.tab{all:unset;box-sizing:border-box;position:relative;z-index:1;flex:0 0 auto;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:34px;height:30px;padding:5px 9px;border-radius:9px;color:var(--mut);font-size:11.5px;font-family:inherit;transition:color .2s ease}
+.tab-icon{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;transition:opacity .16s ease,transform .24s ease}
+.tab-label{position:absolute;left:50%;white-space:nowrap;opacity:0;transform:translate(-50%,4px) scale(.96);pointer-events:none;transition:opacity .18s ease,transform .24s ease}
+.tab.on{background:transparent;color:#fff;font-weight:700}
+.tab.on .tab-icon{opacity:0;transform:scale(.65)}
+.tab.on .tab-label{opacity:1;transform:translate(-50%,0) scale(1)}
 .body{padding:12px 14px;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--scroll-thumb) var(--panel);scrollbar-gutter:stable;overscroll-behavior:contain}
 .body::-webkit-scrollbar{width:7px}
 .body::-webkit-scrollbar-track{background:var(--panel);border-radius:999px}
@@ -68,7 +73,9 @@ svg text{font-family:inherit}
 .dark #pill{background:linear-gradient(145deg,#20242c,#0c0e12);border-color:#d4aa45;color:#f0c65a}
 .dark header{background:linear-gradient(135deg,rgba(240,198,90,.13),rgba(18,20,25,.12))}
 .dark .bf-badge{background:linear-gradient(135deg,#f0c65a,#d4aa45);color:#17191d;letter-spacing:.35px}
-.dark .tab.on,.dark .btn:not(.sec):not(.bad){background:var(--acc2);color:var(--on-acc)}
+.dark .tab-indicator{background:var(--acc2)}
+.dark .tab.on{color:var(--on-acc)}
+.dark .btn:not(.sec):not(.bad){background:var(--acc2);color:var(--on-acc)}
 .dark .btn.bad{color:#231516}
 .dark .good,.dark .chip.good{color:var(--good)}
 .dark .chip.good{border-color:var(--good)}
@@ -76,6 +83,7 @@ svg text{font-family:inherit}
 .dark .v-confirmed{background:var(--good-soft);border-color:var(--good);color:var(--good)}
 .dark .v-rise-signal{background:var(--warn-soft);border-color:var(--warn);color:var(--warn)}
 .dark .v-insufficient{background:rgba(167,171,180,.08);border-color:var(--line);color:var(--mut)}
+@media(prefers-reduced-motion:reduce){.tab-indicator,.tab-icon,.tab-label{transition:none}}
 `;
   let host, root, S;
   const $ = s => root.querySelector(s);
@@ -206,12 +214,40 @@ svg text{font-family:inherit}
   function tabLog() {
     const legacy = ['ghpro12-host', 'ghafel-pc-btn', 'ghafel-pc-panel'].filter(id => document.getElementById(id));
     let h = legacy.length ? `<div class="banner">نسخه‌های قدیمی هم‌زمان فعال‌اند (${legacy.join('، ')}). در Tampermonkey آن‌ها را غیرفعال کنید تا فقط یک پنل بماند.</div>` : '';
-    h += `<div class="card muted">نسخه ۱۵.۲.۴ (Black Friday) · محصول: ${U.esc(S.key)} · منبع قیمت: ${U.esc((S.product || {}).priceSource || '—')}${(S.product || {}).priceNote ? ' · ' + U.esc(S.product.priceNote) : ''}</div>`;
+    h += `<div class="card muted">نسخه ۱۵.۲.۵ (Black Friday) · محصول: ${U.esc(S.key)} · منبع قیمت: ${U.esc((S.product || {}).priceSource || '—')}${(S.product || {}).priceNote ? ' · ' + U.esc(S.product.priceNote) : ''}</div>`;
     h += `<div class="card log">${Log.all().slice(-60).reverse().map(e => `<div class="${e.level === 'error' ? 'e' : e.level === 'warn' ? 'w' : ''}">${new Date(e.t).toLocaleTimeString('en-GB')} [${U.esc(e.scope)}] ${U.esc(e.msg)}</div>`).join('') || 'بدون رویداد'}</div>`;
     return h;
   }
 
   const TABS = [['compare', 'compare', 'مقایسه', 'مقایسهٔ قیمت'], ['history', 'history', 'تاریخچه', 'تاریخچهٔ قیمت'], ['inspect', 'search', 'بازرس', 'بازرس تخفیف'], ['watch', 'heart', 'واچ‌لیست', 'واچ‌لیست قیمت'], ['settings', 'settings', 'تنظیمات', 'تنظیمات افزونه'], ['log', 'bug', 'عیب‌یابی', 'گزارش و عیب‌یابی']];
+  function positionTabIndicator() {
+    const nav = $('#tabs'), indicator = nav?.querySelector('.tab-indicator'), active = nav?.querySelector('.tab.on');
+    if (!nav || !indicator || !active) return;
+    const navRect = nav.getBoundingClientRect(), activeRect = active.getBoundingClientRect();
+    indicator.style.width = activeRect.width + 'px';
+    indicator.style.transform = `translate3d(${activeRect.left - navRect.left}px,0,0)`;
+  }
+  function renderTabs() {
+    const nav = $('#tabs'); if (!nav) return;
+    if (!TABS.some(([key]) => key === S.tab)) S.tab = 'compare';
+    if (!nav.querySelector('.tab-indicator')) {
+      const indicator = document.createElement('span'); indicator.className = 'tab-indicator'; indicator.setAttribute('aria-hidden', 'true'); nav.appendChild(indicator);
+      for (const [key, ico, labelText, title] of TABS) {
+        const button = document.createElement('button'); button.type = 'button'; button.id = 'tab-' + key; button.className = 'tab'; button.dataset.tab = key;
+        button.setAttribute('role', 'tab'); button.setAttribute('aria-label', title); button.setAttribute('title', title);
+        const iconNode = document.createElement('span'); iconNode.className = 'tab-icon'; iconNode.setAttribute('aria-hidden', 'true'); iconNode.innerHTML = icon(ico);
+        const labelNode = document.createElement('span'); labelNode.className = 'tab-label'; labelNode.setAttribute('aria-hidden', 'true'); labelNode.textContent = labelText;
+        button.append(iconNode, labelNode); nav.appendChild(button);
+      }
+      nav.addEventListener('scroll', positionTabIndicator, { passive: true });
+    }
+    for (const [key] of TABS) {
+      const button = nav.querySelector('#tab-' + key), active = key === S.tab;
+      button.classList.toggle('on', active); button.setAttribute('aria-selected', String(active));
+      button.style.width = active ? Math.ceil(button.querySelector('.tab-label').getBoundingClientRect().width + 18) + 'px' : '34px';
+    }
+    positionTabIndicator();
+  }
   let countdownTimer = null;
   function scheduleCountdownTick() { if (countdownTimer) return; countdownTimer = setTimeout(() => { countdownTimer = null; if (S.tab === 'history') render(); }, 1000); }
   function render() {
@@ -226,10 +262,7 @@ svg text{font-family:inherit}
     $('#price').innerHTML = p.price ? `${U.fmt(p.price)} <small>تومان · ${U.esc(p.priceSource || '')}</small>` : '<span class="warn" style="font-size:16px">قیمت شناسایی نشد — «ثبت دستی قیمت»</span>';
     const dk = S.dk && S.dk.chosen;
     $('#meta').innerHTML = [p.oldPrice ? `قبل از تخفیف: <s>${U.fmt(p.oldPrice)}</s>` : '', p.seller ? 'فروشنده: ' + U.esc(p.seller) : '', p.warranty ? 'گارانتی: ' + U.esc(p.warranty) : '', dk && S.dk.lowest30dOfficial ? 'کمینهٔ ۳۰روزهٔ اعلامی دیجی‌کالا: ' + U.fmt(S.dk.lowest30dOfficial) : ''].filter(Boolean).join(' · ');
-    $('#tabs').innerHTML = TABS.map(([k, ico, l, title]) => {
-      const active = S.tab === k;
-      return `<button type="button" id="tab-${k}" role="tab" aria-selected="${active}" aria-label="${U.esc(title)}" title="${U.esc(title)}" class="tab ${active ? 'on' : ''}" data-tab="${k}">${active ? `<span>${l}</span>` : icon(ico)}</button>`;
-    }).join('');
+    renderTabs();
     const body = { compare: tabCompare, history: tabHistory, inspect: tabInspector, watch: tabWatch, settings: tabSettings, log: tabLog }[S.tab]();
     $('#body').setAttribute('aria-labelledby', `tab-${S.tab}`);
     const keep = $('#body').scrollTop;
@@ -334,7 +367,7 @@ svg text{font-family:inherit}
       <div class="hero"><div class="name" id="name"></div><div class="price" id="price"></div><div class="meta" id="meta"></div></div>
       <nav class="tabs" id="tabs" role="tablist" aria-label="بخش‌های تخفیف‌سنج"></nav><div class="body" id="body" role="tabpanel"></div></section></div>`;
     bind(); App.on(render); render(); requestAnimationFrame(applyPos);
-    addEventListener('resize', applyPos);
+    addEventListener('resize', () => { applyPos(); positionTabIndicator(); });
     if (Store.get().settings.open) setOpen(true);
   }
   const toggle = () => {

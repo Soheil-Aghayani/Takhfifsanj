@@ -1,4 +1,4 @@
-# تخفیف‌سنج (نسخهٔ Black Friday، 15.2.4) — راهنمای نصب (Firefox + Tampermonkey)
+# تخفیف‌سنج (نسخهٔ Black Friday، 15.2.5) — راهنمای نصب (Firefox + Tampermonkey)
 
 **Original Creator: [@GHAFEL_com](https://t.me/GHAFEL_com) · Developed & upgraded by: [@RealMahdi_a](https://t.me/RealMahdi_a)
 
@@ -30,7 +30,7 @@
 - در تب مقایسه: جست‌وجوی دستی در ترب، و تغییر محصول تطبیق‌یافته (رنگ/مدل دیگر).
 
 ## نسخهٔ افزونه (Chrome / Firefox) — بدون نیاز به Tampermonkey
-فایل‌های `Takhfifsanj_15.2.4_Chrome.zip` و `Takhfifsanj_15.2.4_Firefox.zip` را جداگانه دریافت کن. راهنمای کامل نصب: `extension/docs/EXTENSION_INSTALL_FA.md` در پروژهٔ کامل. برای نسخه‌های تازه و آموزش استفاده هم به [سایت](https://aqilistudio.ir/) یا [تلگرام](https://t.me/RealMahdi_a) سر بزن. فرق مهم: هشدار قیمت در این نسخه واقعاً در پس‌زمینه کار می‌کند (نیازی به تب باز نیست)، چون Chrome/Firefox به background script اجازه می‌دهند، برخلاف Tampermonkey.
+فایل‌های `Takhfifsanj_15.2.5_Chrome.zip` و `Takhfifsanj_15.2.5_Firefox.zip` را جداگانه دریافت کن. راهنمای کامل نصب: `extension/docs/EXTENSION_INSTALL_FA.md` در پروژهٔ کامل. برای نسخه‌های تازه و آموزش استفاده هم به [سایت](https://aqilistudio.ir/) یا [تلگرام](https://t.me/RealMahdi_a) سر بزن. فرق مهم: هشدار قیمت در این نسخه واقعاً در پس‌زمینه کار می‌کند (نیازی به تب باز نیست)، چون Chrome/Firefox به background script اجازه می‌دهند، برخلاف Tampermonkey.
 ## دربارهٔ محافظت از اعتبار سازندگان
 فایل `extension/docs/ANTI_TAMPER_FA.md` و `extension/LICENSE_FA.md` را بخوان — به‌صورت صادقانه توضیح می‌دهد چه کاری واقعاً انجام شده (هش یکپارچگی + فشرده‌سازی + پروانهٔ استفاده) و چرا «قفل غیرقابل‌شکست» برای کد سمت کاربر ممکن نیست.
 
