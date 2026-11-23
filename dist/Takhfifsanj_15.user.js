@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         تخفیف‌سنج
 // @namespace    ghafel-com-pro
-// @version      15.2.2
+// @version      15.2.3
 // @description  نسخهٔ بلک‌فرایدی — مقایسهٔ قیمت فروشندگان، تاریخچهٔ رسمی قیمت دیجی‌کالا، بازرس تخفیف واقعی، واچ‌لیست و هشدار — یک پنل واحد
 // @author       GHAFEL_com (Original Creator)
 // @contributor  RealMahdi_a (Upgrade & Development)
@@ -19,7 +19,7 @@
 // @noframes
 // @run-at       document-idle
 // ==/UserScript==
-/* تخفیف‌سنج 15.2.2 — Original Creator: GHAFEL_com (https://t.me/GHAFEL_com) · Upgrade & Development: RealMahdi_a (https://t.me/RealMahdi_a) · Website: https://aqilistudio.ir/
+/* تخفیف‌سنج 15.2.3 — Original Creator: GHAFEL_com (https://t.me/GHAFEL_com) · Upgrade & Development: RealMahdi_a (https://t.me/RealMahdi_a) · Website: https://aqilistudio.ir/
    Built from readable modules in /src. The 8.7 engine logic is preserved in src/06-extract.js (extraction),
    src/07-match.js (baseline rule) and src/08-sources.js (Torob flow). */
 (function () {
@@ -579,6 +579,16 @@ const Sources = (() => {
   const DK_REF = 'https://www.digikala.com/';
   // Origin is a forbidden header for GM requests; cookies are sent (anonymous:false) so Digikala's CDN accepts the call; page fetch is the fallback.
   const DK_OPTS = { referer: DK_REF, headers: { 'x-web-client': 'desktop', 'x-web-client-id': 'web' }, anonymous: false, pageFetchFallback: true };
+  // Torob can attach an unrelated marketplace page to an otherwise relevant base product.
+  // Match canonical host + path so changing tracking parameters cannot bring this known false offer back.
+  const EXCLUDED_TOROB_SELLER_PAGES = new Set(['basalam.com/pakhshshop/product/25406964']);
+  function isExcludedTorobSellerPage(raw) {
+    try {
+      const u = new URL(raw), host = u.hostname.toLowerCase().replace(/^www\./, '');
+      const path = u.pathname.replace(/\/+$/, '').toLowerCase();
+      return EXCLUDED_TOROB_SELLER_PAGES.has(host + path);
+    } catch { return false; }
+  }
 
   // ---------- Torob: seller prices (engine 8.7 flow, unchanged endpoints) ----------
   const torob = {
@@ -621,12 +631,15 @@ const Sources = (() => {
       if (searchId) params.set('search_id', searchId);
       const res = await Net.json('https://api.torob.com/v4/base-product/sellers/?' + params, { referer: TOROB_REF, timeout: 15000 });
       const list = res?.results || res?.products_info?.result || [], ts = Date.now();
-      const raw = list.map(s => {
+      const mapped = list.map(s => {
         const shop = String(s.shop_name || s.domain || s.shop_text || '').replace(/^www\./, '');
         const key = Extract.matchKnownSite(s.domain || shop) || Extract.matchKnownSite(shop);
         return Model.offer({ sourceId: 'torob', productId: prod.id, seller: key ? (Extract.KNOWN[key][0] || key) : shop, sellerKey: key || '', sellerUrl: String(s.page_url || ''), price: Number(s.price ?? s.price_value),
           ts, dataSource: 'torob:base-product/sellers', matchConfidence: ev.score, matchLevel: ev.level, matchTitle: baseTitle, flags: ev.flags });
-      }).filter(o => o.seller && o.price > 0);
+      });
+      const excluded = mapped.filter(o => isExcludedTorobSellerPage(o.sellerUrl)).length;
+      if (excluded) Log.info('torob', `${excluded} صفحهٔ فروش نامرتبط حذف شد`);
+      const raw = mapped.filter(o => o.seller && o.price > 0 && !isExcludedTorobSellerPage(o.sellerUrl));
       const byS = new Map(), dup = {};
       for (const o of raw) { const k = o.sellerKey || o.seller; dup[k] = (dup[k] || 0) + 1; const cur = byS.get(k); if (!cur || o.price < cur.price) byS.set(k, o); }
       const offers = [...byS.values()].map(o => { const k = o.sellerKey || o.seller; if (dup[k] > 1) o.flags = [...o.flags, 'dedup:' + dup[k]]; return o; });
@@ -1050,7 +1063,7 @@ const Exporter = (() => {
     for (const x of (p?.local || [])) rows.push([key, p?.title || '', new Date(x.t).toISOString(), x.p, 'local', x.src || 'local']);
     return rows.map(r => r.map(q).join(',')).join('\n');
   }
-  const jsonAll = extra => JSON.stringify({ app: 'تخفیف‌سنج 15.2.2', exportedAt: new Date().toISOString(), db: Store.get(), ...extra }, null, 2);
+  const jsonAll = extra => JSON.stringify({ app: 'تخفیف‌سنج 15.2.3', exportedAt: new Date().toISOString(), db: Store.get(), ...extra }, null, 2);
   function parseCsv(text) {
     const out = []; const lines = String(text || '').replace(/^\uFEFF/, '').split(/\r?\n/).filter(Boolean); if (!lines.length) return out;
     const head = lines[0].toLowerCase().split(',').map(s => s.trim().replace(/"/g, ''));
@@ -1329,7 +1342,7 @@ svg text{font-family:inherit}
   function tabLog() {
     const legacy = ['ghpro12-host', 'ghafel-pc-btn', 'ghafel-pc-panel'].filter(id => document.getElementById(id));
     let h = legacy.length ? `<div class="banner">نسخه‌های قدیمی هم‌زمان فعال‌اند (${legacy.join('، ')}). در Tampermonkey آن‌ها را غیرفعال کنید تا فقط یک پنل بماند.</div>` : '';
-    h += `<div class="card muted">نسخه ۱۵.۲.۲ (Black Friday) · محصول: ${U.esc(S.key)} · منبع قیمت: ${U.esc((S.product || {}).priceSource || '—')}${(S.product || {}).priceNote ? ' · ' + U.esc(S.product.priceNote) : ''}</div>`;
+    h += `<div class="card muted">نسخه ۱۵.۲.۳ (Black Friday) · محصول: ${U.esc(S.key)} · منبع قیمت: ${U.esc((S.product || {}).priceSource || '—')}${(S.product || {}).priceNote ? ' · ' + U.esc(S.product.priceNote) : ''}</div>`;
     h += `<div class="card log">${Log.all().slice(-60).reverse().map(e => `<div class="${e.level === 'error' ? 'e' : e.level === 'warn' ? 'w' : ''}">${new Date(e.t).toLocaleTimeString('en-GB')} [${U.esc(e.scope)}] ${U.esc(e.msg)}</div>`).join('') || 'بدون رویداد'}</div>`;
     return h;
   }
@@ -1349,7 +1362,10 @@ svg text{font-family:inherit}
     $('#price').innerHTML = p.price ? `${U.fmt(p.price)} <small>تومان · ${U.esc(p.priceSource || '')}</small>` : '<span class="warn" style="font-size:16px">قیمت شناسایی نشد — «ثبت دستی قیمت»</span>';
     const dk = S.dk && S.dk.chosen;
     $('#meta').innerHTML = [p.oldPrice ? `قبل از تخفیف: <s>${U.fmt(p.oldPrice)}</s>` : '', p.seller ? 'فروشنده: ' + U.esc(p.seller) : '', p.warranty ? 'گارانتی: ' + U.esc(p.warranty) : '', dk && S.dk.lowest30dOfficial ? 'کمینهٔ ۳۰روزهٔ اعلامی دیجی‌کالا: ' + U.fmt(S.dk.lowest30dOfficial) : ''].filter(Boolean).join(' · ');
-    $('#tabs').innerHTML = TABS.map(([k, ico, l, title]) => `<button type="button" id="tab-${k}" role="tab" aria-selected="${S.tab === k}" aria-label="${U.esc(title)}" title="${U.esc(title)}" class="tab ${S.tab === k ? 'on' : ''}" data-tab="${k}">${icon(ico)}<span>${l}</span></button>`).join('');
+    $('#tabs').innerHTML = TABS.map(([k, ico, l, title]) => {
+      const active = S.tab === k;
+      return `<button type="button" id="tab-${k}" role="tab" aria-selected="${active}" aria-label="${U.esc(title)}" title="${U.esc(title)}" class="tab ${active ? 'on' : ''}" data-tab="${k}">${active ? `<span>${l}</span>` : icon(ico)}</button>`;
+    }).join('');
     const body = { compare: tabCompare, history: tabHistory, inspect: tabInspector, watch: tabWatch, settings: tabSettings, log: tabLog }[S.tab]();
     $('#body').setAttribute('aria-labelledby', `tab-${S.tab}`);
     const keep = $('#body').scrollTop;
@@ -1492,7 +1508,7 @@ const Main = (() => {
     };
     const run = () => { try { check(); } catch (e) { Log.error('main', e.message); } };
     setTimeout(run, 600); setInterval(run, 1500);
-    Log.info('main', 'تخفیف‌سنج 15.2.2 آماده شد');
+    Log.info('main', 'تخفیف‌سنج 15.2.3 آماده شد');
   }
   return { init };
 })();

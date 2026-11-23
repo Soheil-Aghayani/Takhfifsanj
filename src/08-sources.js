@@ -4,6 +4,16 @@ const Sources = (() => {
   const DK_REF = 'https://www.digikala.com/';
   // Origin is a forbidden header for GM requests; cookies are sent (anonymous:false) so Digikala's CDN accepts the call; page fetch is the fallback.
   const DK_OPTS = { referer: DK_REF, headers: { 'x-web-client': 'desktop', 'x-web-client-id': 'web' }, anonymous: false, pageFetchFallback: true };
+  // Torob can attach an unrelated marketplace page to an otherwise relevant base product.
+  // Match canonical host + path so changing tracking parameters cannot bring this known false offer back.
+  const EXCLUDED_TOROB_SELLER_PAGES = new Set(['basalam.com/pakhshshop/product/25406964']);
+  function isExcludedTorobSellerPage(raw) {
+    try {
+      const u = new URL(raw), host = u.hostname.toLowerCase().replace(/^www\./, '');
+      const path = u.pathname.replace(/\/+$/, '').toLowerCase();
+      return EXCLUDED_TOROB_SELLER_PAGES.has(host + path);
+    } catch { return false; }
+  }
 
   // ---------- Torob: seller prices (engine 8.7 flow, unchanged endpoints) ----------
   const torob = {
@@ -46,12 +56,15 @@ const Sources = (() => {
       if (searchId) params.set('search_id', searchId);
       const res = await Net.json('https://api.torob.com/v4/base-product/sellers/?' + params, { referer: TOROB_REF, timeout: 15000 });
       const list = res?.results || res?.products_info?.result || [], ts = Date.now();
-      const raw = list.map(s => {
+      const mapped = list.map(s => {
         const shop = String(s.shop_name || s.domain || s.shop_text || '').replace(/^www\./, '');
         const key = Extract.matchKnownSite(s.domain || shop) || Extract.matchKnownSite(shop);
         return Model.offer({ sourceId: 'torob', productId: prod.id, seller: key ? (Extract.KNOWN[key][0] || key) : shop, sellerKey: key || '', sellerUrl: String(s.page_url || ''), price: Number(s.price ?? s.price_value),
           ts, dataSource: 'torob:base-product/sellers', matchConfidence: ev.score, matchLevel: ev.level, matchTitle: baseTitle, flags: ev.flags });
-      }).filter(o => o.seller && o.price > 0);
+      });
+      const excluded = mapped.filter(o => isExcludedTorobSellerPage(o.sellerUrl)).length;
+      if (excluded) Log.info('torob', `${excluded} صفحهٔ فروش نامرتبط حذف شد`);
+      const raw = mapped.filter(o => o.seller && o.price > 0 && !isExcludedTorobSellerPage(o.sellerUrl));
       const byS = new Map(), dup = {};
       for (const o of raw) { const k = o.sellerKey || o.seller; dup[k] = (dup[k] || 0) + 1; const cur = byS.get(k); if (!cur || o.price < cur.price) byS.set(k, o); }
       const offers = [...byS.values()].map(o => { const k = o.sellerKey || o.seller; if (dup[k] > 1) o.flags = [...o.flags, 'dedup:' + dup[k]]; return o; });

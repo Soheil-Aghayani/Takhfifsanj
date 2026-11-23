@@ -219,7 +219,7 @@ svg text{font-family:inherit}
   function tabLog() {
     const legacy = ['ghpro12-host', 'ghafel-pc-btn', 'ghafel-pc-panel'].filter(id => document.getElementById(id));
     let h = legacy.length ? `<div class="banner">نسخه‌های قدیمی هم‌زمان فعال‌اند (${legacy.join('، ')}). در Tampermonkey آن‌ها را غیرفعال کنید تا فقط یک پنل بماند.</div>` : '';
-    h += `<div class="card muted">نسخه ۱۵.۲.۲ (Black Friday) · محصول: ${U.esc(S.key)} · منبع قیمت: ${U.esc((S.product || {}).priceSource || '—')}${(S.product || {}).priceNote ? ' · ' + U.esc(S.product.priceNote) : ''}</div>`;
+    h += `<div class="card muted">نسخه ۱۵.۲.۳ (Black Friday) · محصول: ${U.esc(S.key)} · منبع قیمت: ${U.esc((S.product || {}).priceSource || '—')}${(S.product || {}).priceNote ? ' · ' + U.esc(S.product.priceNote) : ''}</div>`;
     h += `<div class="card log">${Log.all().slice(-60).reverse().map(e => `<div class="${e.level === 'error' ? 'e' : e.level === 'warn' ? 'w' : ''}">${new Date(e.t).toLocaleTimeString('en-GB')} [${U.esc(e.scope)}] ${U.esc(e.msg)}</div>`).join('') || 'بدون رویداد'}</div>`;
     return h;
   }
@@ -239,7 +239,10 @@ svg text{font-family:inherit}
     $('#price').innerHTML = p.price ? `${U.fmt(p.price)} <small>تومان · ${U.esc(p.priceSource || '')}</small>` : '<span class="warn" style="font-size:16px">قیمت شناسایی نشد — «ثبت دستی قیمت»</span>';
     const dk = S.dk && S.dk.chosen;
     $('#meta').innerHTML = [p.oldPrice ? `قبل از تخفیف: <s>${U.fmt(p.oldPrice)}</s>` : '', p.seller ? 'فروشنده: ' + U.esc(p.seller) : '', p.warranty ? 'گارانتی: ' + U.esc(p.warranty) : '', dk && S.dk.lowest30dOfficial ? 'کمینهٔ ۳۰روزهٔ اعلامی دیجی‌کالا: ' + U.fmt(S.dk.lowest30dOfficial) : ''].filter(Boolean).join(' · ');
-    $('#tabs').innerHTML = TABS.map(([k, ico, l, title]) => `<button type="button" id="tab-${k}" role="tab" aria-selected="${S.tab === k}" aria-label="${U.esc(title)}" title="${U.esc(title)}" class="tab ${S.tab === k ? 'on' : ''}" data-tab="${k}">${icon(ico)}<span>${l}</span></button>`).join('');
+    $('#tabs').innerHTML = TABS.map(([k, ico, l, title]) => {
+      const active = S.tab === k;
+      return `<button type="button" id="tab-${k}" role="tab" aria-selected="${active}" aria-label="${U.esc(title)}" title="${U.esc(title)}" class="tab ${active ? 'on' : ''}" data-tab="${k}">${active ? `<span>${l}</span>` : icon(ico)}</button>`;
+    }).join('');
     const body = { compare: tabCompare, history: tabHistory, inspect: tabInspector, watch: tabWatch, settings: tabSettings, log: tabLog }[S.tab]();
     $('#body').setAttribute('aria-labelledby', `tab-${S.tab}`);
     const keep = $('#body').scrollTop;
