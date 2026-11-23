@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         تخفیف‌سنج
 // @namespace    ghafel-com-pro
-// @version      15.2.7
+// @version      15.2.8
 // @description  مقایسهٔ قیمت فروشندگان، تاریخچهٔ قیمت دیجی‌کالا، بازرس تخفیف، واچ‌لیست و هشدار قیمت
 // @author       GHAFEL_com (Original Creator)
 // @contributor  RealMahdi_a (Upgrade & Development)
@@ -19,7 +19,7 @@
 // @noframes
 // @run-at       document-idle
 // ==/UserScript==
-/* تخفیف‌سنج 15.2.7 — Original Creator: GHAFEL_com (https://t.me/GHAFEL_com) · Upgrade & Development: RealMahdi_a (https://t.me/RealMahdi_a) · Website: https://aqilistudio.ir/
+/* تخفیف‌سنج 15.2.8 — Original Creator: GHAFEL_com (https://t.me/GHAFEL_com) · Upgrade & Development: RealMahdi_a (https://t.me/RealMahdi_a) · Website: https://aqilistudio.ir/
    Built from readable modules in /src. The 8.7 engine logic is preserved in src/06-extract.js (extraction),
    src/07-match.js (baseline rule) and src/08-sources.js (Torob flow). */
 (function () {
@@ -1086,7 +1086,7 @@ const Exporter = (() => {
     for (const x of (p?.local || [])) rows.push([key, p?.title || '', new Date(x.t).toISOString(), x.p, 'local', x.src || 'local']);
     return rows.map(r => r.map(q).join(',')).join('\n');
   }
-  const jsonAll = extra => JSON.stringify({ app: 'تخفیف‌سنج 15.2.7', exportedAt: new Date().toISOString(), db: Store.get(), ...extra }, null, 2);
+  const jsonAll = extra => JSON.stringify({ app: 'تخفیف‌سنج 15.2.8', exportedAt: new Date().toISOString(), db: Store.get(), ...extra }, null, 2);
   function parseCsv(text) {
     const out = []; const lines = String(text || '').replace(/^\uFEFF/, '').split(/\r?\n/).filter(Boolean); if (!lines.length) return out;
     const head = lines[0].toLowerCase().split(',').map(s => s.trim().replace(/"/g, ''));
@@ -1175,18 +1175,21 @@ header{cursor:move;padding:12px 14px 10px;background:linear-gradient(135deg,rgba
 .name{font-weight:700;font-size:13px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .price{font-size:24px;font-weight:800;color:var(--acc2);margin:2px 0}.price small{font-size:12px;color:var(--mut);font-weight:400}
 .meta{font-size:11px;color:var(--mut)}.meta s{opacity:.8}
-.tabs{position:relative;display:flex;direction:ltr;align-items:center;gap:9px;padding:6px 10px;min-height:54px;overflow:hidden;border-bottom:1px solid var(--line);isolation:isolate}
-.tab-main{direction:rtl;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));align-items:center;gap:4px;flex:1 1 auto;min-width:0;height:42px}
-.tab-dock{position:relative;display:grid;place-items:center;flex:0 0 58px;width:58px;height:42px;padding:3px;border:1px solid var(--line);border-radius:13px;background:linear-gradient(145deg,var(--card),var(--panel));box-shadow:0 4px 12px rgba(0,0,0,.2),inset 0 1px rgba(255,255,255,.04)}
-.tab-indicator{position:absolute;z-index:1;left:0;top:6px;height:42px;width:0;border-radius:13px;background:linear-gradient(145deg,var(--acc2),var(--acc));box-shadow:0 4px 12px color-mix(in srgb,var(--acc) 32%,transparent);pointer-events:none;transform:translateZ(0);transform-origin:0 0;will-change:transform,width,height,border-radius}
-.tab{all:unset;box-sizing:border-box;position:relative;z-index:2;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:100%;min-width:0;height:40px;padding:5px 6px;border-radius:10px;color:var(--mut);font-size:11.5px;font-family:inherit;transition:color .18s ease}
+.tabs{position:relative;display:flex;direction:ltr;align-items:center;gap:9px;padding:6px 10px;min-height:56px;overflow:hidden;border-bottom:1px solid var(--line);isolation:isolate}
+.tab-main{direction:rtl;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));align-items:center;gap:4px;flex:1 1 auto;min-width:0;height:44px}
+.tab-dock{position:relative;display:grid;place-items:center;flex:0 0 44px;width:44px;height:44px;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none}
+.tab-dock::after{content:"";position:absolute;right:-5px;top:9px;width:1px;height:26px;background:var(--line);pointer-events:none}
+.tab-indicator{position:absolute;z-index:1;left:0;top:6px;height:44px;width:0;border-radius:13px;background:linear-gradient(145deg,var(--acc2),var(--acc));box-shadow:0 4px 12px color-mix(in srgb,var(--acc) 32%,transparent);pointer-events:none;transform:translateZ(0);transform-origin:0 0;will-change:transform,width,height,border-radius}
+.tab{all:unset;box-sizing:border-box;position:relative;z-index:2;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:100%;min-width:0;height:44px;padding:5px 6px;border-radius:10px;color:var(--mut);font-size:11.5px;font-family:inherit;transition:color .18s ease}
+.tab:focus-visible{outline:2px solid var(--acc2);outline-offset:1px}
 .tab-icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 18px;width:18px;height:18px;line-height:0;transition:opacity .16s ease,transform .24s ease}
 .tab-icon .icon{display:block;width:18px;height:18px}
 .tab-label{position:absolute;left:50%;white-space:nowrap;opacity:0;transform:translate(-50%,4px) scale(.96);pointer-events:none;transition:opacity .18s ease,transform .24s ease}
 .tab.on{background:transparent;color:#fff;font-weight:700}
 .tab.on .tab-icon{opacity:0;transform:scale(.65)}
 .tab.on .tab-label{opacity:1;transform:translate(-50%,0) scale(1)}
-.tab-dock .tab{width:50px;height:34px;padding:4px}
+.tab-dock .tab{width:44px;height:44px;padding:0}
+.tab-dock .tab:hover:not(.on){background:var(--card);color:var(--ink)}
 .body{padding:12px 14px;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--scroll-thumb) var(--panel);scrollbar-gutter:stable;overscroll-behavior:contain}
 .body-content{position:relative;z-index:1;min-height:100%;transform-origin:top center;will-change:transform,opacity,clip-path}
 .body-transition-exit{position:absolute;inset:0;z-index:3;overflow:hidden;padding:12px 14px;background:var(--panel);pointer-events:none;transform-origin:top center;will-change:transform,opacity,clip-path}
@@ -1334,7 +1337,7 @@ svg text{font-family:inherit}
 .dark .v-confirmed{background:var(--good-soft);border-color:var(--good);color:var(--good)}
 .dark .v-rise-signal{background:var(--warn-soft);border-color:var(--warn);color:var(--warn)}
 .dark .v-insufficient{background:rgba(167,171,180,.08);border-color:var(--line);color:var(--mut)}
-@media(max-width:380px){.tabs{gap:7px;padding-inline:7px}.tab-main{gap:1px}.tab-dock{flex-basis:54px;width:54px}.tab-dock .tab{width:48px}.tab{font-size:10.5px}.history-toolbar{align-items:flex-start;flex-direction:column}.watch-target-controls input{width:110px!important}.collection-icon-choice{width:34px;height:34px}}
+@media(max-width:380px){.tabs{gap:7px;padding-inline:7px}.tab-main{gap:1px}.tab-dock{flex-basis:44px;width:44px}.tab-dock .tab{width:44px}.tab{font-size:10.5px}.history-toolbar{align-items:flex-start;flex-direction:column}.watch-target-controls input{width:110px!important}.collection-icon-choice{width:34px;height:34px}}
 @media(prefers-reduced-motion:reduce){.tab-icon,.tab-label,.switch-track,.switch-track:after{transition:none}}
 `;
   let host, root, S;
@@ -1819,7 +1822,7 @@ const Main = (() => {
     };
     const run = () => { try { check(); } catch (e) { Log.error('main', e.message); } };
     setTimeout(run, 600); setInterval(run, 1500);
-    Log.info('main', 'تخفیف‌سنج 15.2.7 آماده شد');
+    Log.info('main', 'تخفیف‌سنج 15.2.8 آماده شد');
   }
   return { init };
 })();
