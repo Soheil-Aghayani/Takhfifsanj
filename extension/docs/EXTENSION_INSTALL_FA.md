@@ -1,9 +1,9 @@
 # نصب افزونه (Chrome / Firefox) — بدون Tampermonkey
 
 ## Chrome, Edge, Brave (و هر Chromium دیگر)
-1. از ریشهٔ مخزن، `npm run build` را اجرا کن تا پوشه‌های مستقل Chrome و Firefox ساخته شوند.
+1. فایل `extension/releases/Takhfifsanj_15.2.7_Chrome.zip` را از مخزن دانلود و Extract کن. برای ساخت از سورس، در ریشهٔ مخزن `npm run build` را اجرا کن.
 2. `chrome://extensions` را باز کن و **Developer mode** را روشن کن.
-3. **Load unpacked** را بزن و دقیقاً پوشهٔ `extension/build/chrome` را انتخاب کن؛ خود این پوشه باید مستقیماً فایل `manifest.json` داشته باشد. پوشهٔ `extension` یا ریشهٔ پروژه را انتخاب نکن.
+3. **Load unpacked** را بزن و پوشهٔ Extractشده‌ای را انتخاب کن که فایل `manifest.json` مستقیماً داخلش است؛ هنگام ساخت از سورس، همان `extension/build/chrome` را انتخاب کن. پوشهٔ `extension` یا ریشهٔ پروژه را انتخاب نکن.
 4. صفحهٔ جزئیات افزونه باید نسخهٔ **15.2.7** را نشان دهد. اگر هنوز 15.2.1 می‌بینی، Reload همان افزونه را بزن و صفحهٔ محصول را هم تازه‌سازی کن.
 5. آیکون افزونه را به نوار ابزار پین کن. صفحهٔ یک محصول دیجی‌کالا را باز کن.
 
@@ -15,7 +15,7 @@
   2. **Load Temporary Add-on…** و فایل `manifest.json` داخل `extension/build/firefox` را انتخاب کن.
 - **نصب دائمی (خودت امضا کن، رایگان):**
   1. حساب رایگان در https://addons.mozilla.org بساز.
-  2. پوشهٔ `extension/build/firefox` را همان‌طور که هست zip کن.
+  2. فایل `extension/releases/Takhfifsanj_15.2.7_Firefox.zip` را آپلود و امضا کن.
   3. در «Developer Hub» به‌صورت **Unlisted** آپلود و امضا کن؛ فایل `.xpi` امضاشده را دانلود و نصب کن. این بار دیگر دائمی می‌ماند.
   من این مرحله را برایت انجام نداده‌ام چون به حساب AMO شخص نیاز دارد و من از این محیط به آن سایت دسترسی ندارم.
 
