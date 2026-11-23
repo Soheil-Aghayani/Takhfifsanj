@@ -11,13 +11,12 @@ const UI = (() => {
 #pill{all:unset;cursor:pointer;display:inline-flex;gap:7px;align-items:center;padding:9px 16px;border-radius:999px;background:linear-gradient(135deg,#1a1a1a,#000);border:1px solid #d4af37;color:#f1c94e;font-weight:700;box-shadow:var(--shadow);user-select:none;font-family:inherit;font-size:13px}
 .icon{display:inline-block;width:16px;height:16px;flex:0 0 auto;vertical-align:middle}.icon-sm{width:14px;height:14px}
 #pill:hover{filter:brightness(1.1)}
-#panel{position:relative;display:none;width:min(420px,calc(100vw - 20px));max-height:min(84vh,680px);flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);overflow:hidden}
+#panel{position:relative;display:none;width:min(420px,calc(100vw - 20px));height:84vh;max-height:84vh;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);overflow:hidden}
 #panel.open{display:flex}
 #panel.wide{width:min(560px,calc(100vw - 20px))}
-header,.hero,.tabs,.foot{flex-shrink:0}
+header,.hero,.tabs{flex-shrink:0}
 .tb{width:100%;border-collapse:collapse;font-size:12px}.tb td{padding:5px 3px;border-bottom:1px solid var(--line);vertical-align:middle}.tb tr.best td{background:rgba(52,211,153,.08)}.dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-left:4px}.dot.high{background:var(--acc2)}.dot.medium{background:var(--warn)}.dot.low{background:var(--bad)}
 input[type=text]{min-width:0}#q{flex:1}
-#rs{position:absolute;right:0;bottom:0;width:18px;height:18px;cursor:nwse-resize;touch-action:none;background:linear-gradient(135deg,transparent 50%,var(--mut) 50%);opacity:.55;border-bottom-right-radius:18px;z-index:5}#rs:hover{opacity:1}
 .tabs{position:relative;z-index:2;background:var(--panel)}
 .body{min-height:0;overscroll-behavior:contain}
 #panel.compact .meta{display:none}#panel.compact .price{font-size:16px;margin:0}#panel.compact .name{-webkit-line-clamp:1;font-size:12px}#panel.compact .hero{padding:6px 14px}
@@ -25,16 +24,6 @@ input[type=text]{min-width:0}#q{flex:1}
 header{cursor:move;padding:12px 14px 10px;background:linear-gradient(135deg,rgba(212,175,55,.18),rgba(0,0,0,.25));border-bottom:1px solid var(--line);position:relative}
 .bf-badge{display:inline-block;margin-right:6px;padding:1px 8px;border-radius:999px;background:linear-gradient(135deg,#d4af37,#f1c94e);color:#111;font-size:10px;font-weight:800;vertical-align:middle}
 .brand{font-weight:800;font-size:15px;letter-spacing:.2px}.brand b{color:var(--acc2)}
-.credit{display:flex;gap:5px;flex-wrap:wrap;justify-content:center;align-items:center;margin-top:3px}
-.credit.primary-links .cr{flex:0 1 auto;min-width:0;min-height:30px;justify-content:center;padding:4px 9px;white-space:nowrap;font-size:10.5px}
-.credit.secondary-link{margin-top:2px}
-.credit.secondary-link .cr{min-height:25px;padding:2px 8px}
-.cr{all:unset;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:3px 10px;border-radius:10px;font-size:11px;border:1px solid var(--line);color:var(--ink);background:var(--card);font-family:inherit;text-decoration:none}
-.cr small{color:var(--mut);font-size:10px}.cr:hover{border-color:var(--acc)}
-.cr.site{background:linear-gradient(135deg,#d4af37,#f1c94e);border-color:transparent;color:#1a1400;font-weight:800;box-shadow:0 2px 10px rgba(212,175,55,.3)}
-.dark .cr.site{background:linear-gradient(135deg,#f0c65a,#d4aa45);color:#17191d}
-.cr.telegram{font-weight:700}
-.cr.orig{font-size:10.5px;padding:3px 9px;opacity:.85}
 .x{all:unset;cursor:pointer;position:absolute;left:10px;top:10px;display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;color:var(--mut)}.x .icon{width:15px;height:15px}.x:hover{background:var(--card);color:var(--ink)}
 .x2{left:40px}.x3{left:70px}
 .hero{padding:10px 14px;border-bottom:1px solid var(--line)}
@@ -75,12 +64,10 @@ label.ck{display:flex;gap:6px;align-items:center;margin:5px 0;font-size:12px}
 ul{margin:4px 0 0;padding:0 16px}li{margin:3px 0}
 .log{font-family:ui-monospace,Consolas,monospace;font-size:10.5px;direction:ltr;text-align:left;white-space:pre-wrap;word-break:break-all;color:var(--mut)}.log .e{color:var(--bad)}.log .w{color:var(--warn)}
 svg text{font-family:inherit}
-.foot{padding:5px 12px;border-top:1px solid var(--line);font-size:9.5px;color:var(--mut);text-align:center}.foot-note{display:flex;justify-content:center;padding-top:4px;opacity:.75}.foot-note .icon{width:14px;height:14px}
 :focus-visible{outline:2px solid var(--acc2);outline-offset:2px}
 .dark #pill{background:linear-gradient(145deg,#20242c,#0c0e12);border-color:#d4aa45;color:#f0c65a}
 .dark header{background:linear-gradient(135deg,rgba(240,198,90,.13),rgba(18,20,25,.12))}
 .dark .bf-badge{background:linear-gradient(135deg,#f0c65a,#d4aa45);color:#17191d;letter-spacing:.35px}
-.dark .cr.site{box-shadow:0 2px 10px rgba(212,170,69,.22)}
 .dark .tab.on,.dark .btn:not(.sec):not(.bad){background:var(--acc2);color:var(--on-acc)}
 .dark .btn.bad{color:#231516}
 .dark .good,.dark .chip.good{color:var(--good)}
@@ -219,7 +206,7 @@ svg text{font-family:inherit}
   function tabLog() {
     const legacy = ['ghpro12-host', 'ghafel-pc-btn', 'ghafel-pc-panel'].filter(id => document.getElementById(id));
     let h = legacy.length ? `<div class="banner">نسخه‌های قدیمی هم‌زمان فعال‌اند (${legacy.join('، ')}). در Tampermonkey آن‌ها را غیرفعال کنید تا فقط یک پنل بماند.</div>` : '';
-    h += `<div class="card muted">نسخه ۱۵.۲.۳ (Black Friday) · محصول: ${U.esc(S.key)} · منبع قیمت: ${U.esc((S.product || {}).priceSource || '—')}${(S.product || {}).priceNote ? ' · ' + U.esc(S.product.priceNote) : ''}</div>`;
+    h += `<div class="card muted">نسخه ۱۵.۲.۴ (Black Friday) · محصول: ${U.esc(S.key)} · منبع قیمت: ${U.esc((S.product || {}).priceSource || '—')}${(S.product || {}).priceNote ? ' · ' + U.esc(S.product.priceNote) : ''}</div>`;
     h += `<div class="card log">${Log.all().slice(-60).reverse().map(e => `<div class="${e.level === 'error' ? 'e' : e.level === 'warn' ? 'w' : ''}">${new Date(e.t).toLocaleTimeString('en-GB')} [${U.esc(e.scope)}] ${U.esc(e.msg)}</div>`).join('') || 'بدون رویداد'}</div>`;
     return h;
   }
@@ -232,7 +219,7 @@ svg text{font-family:inherit}
     const pn = $('#panel'); if (!pn) return;
     pn.classList.toggle('wide', !!st.wide);
     const wideLabel = st.wide ? 'باریک‌کردن پنل' : 'عریض‌کردن پنل'; $('#wide').title = wideLabel; $('#wide').setAttribute('aria-label', wideLabel);
-    if (st.size) { pn.style.width = st.size.w + 'px'; pn.style.height = st.size.h + 'px'; pn.style.maxHeight = 'none'; } else { pn.style.width = pn.style.height = pn.style.maxHeight = ''; }
+    pn.style.width = pn.style.height = pn.style.maxHeight = '';
     $('.wrap').className = 'wrap ' + (st.theme === 'light' ? 'light' : 'dark');
     $('#name').textContent = Extract.coreTitle(p.title) || p.title || 'نام محصول شناسایی نشد';
     $('#name').setAttribute('title', p.title || '');
@@ -295,12 +282,7 @@ svg text{font-family:inherit}
       });
     }
     makeDraggable(hdr, { ignore: '.x' }); makeDraggable(pill, { onTap: () => setOpen(true) });
-    $('#wide').onclick = () => { const st = Store.get().settings; st.wide = !st.wide; st.size = null; Store.save(); render(); requestAnimationFrame(applyPos); };
-    const rs = $('#rs'); let rz = null;
-    rs.addEventListener('pointerdown', e => { e.stopPropagation(); const r = $('#panel').getBoundingClientRect(); rz = { l: r.left, t: r.top }; try { rs.setPointerCapture(e.pointerId); } catch {} });
-    rs.addEventListener('pointermove', e => { if (!rz) return; const w = Math.min(Math.max(320, e.clientX - rz.l), innerWidth - rz.l - 4), h = Math.min(Math.max(300, e.clientY - rz.t), innerHeight - rz.t - 4); const st = Store.get().settings; st.size = { w: Math.round(w), h: Math.round(h) }; const pn = $('#panel'); pn.style.width = st.size.w + 'px'; pn.style.height = st.size.h + 'px'; pn.style.maxHeight = 'none'; });
-    rs.addEventListener('pointerup', () => { if (rz) { rz = null; Store.save(); } });
-    rs.addEventListener('dblclick', () => { Store.get().settings.size = null; Store.save(); render(); });
+    $('#wide').onclick = () => { const st = Store.get().settings; st.wide = !st.wide; Store.save(); render(); requestAnimationFrame(applyPos); };
     $('#body').addEventListener('scroll', () => { const t = $('#body').scrollTop, pn = $('#panel'); if (t > 60) pn.classList.add('compact'); else if (t < 8) pn.classList.remove('compact'); });
     $('#min').onclick = () => setOpen(false); $('#close').onclick = () => { Store.get().settings.open = false; Store.save(); host.style.display = 'none'; };
     root.addEventListener('click', async e => {
@@ -350,7 +332,7 @@ svg text{font-family:inherit}
     root.innerHTML = `<style>${CSS}</style><div class="wrap dark"><button type="button" id="pill" aria-label="بازکردن پنل تخفیف‌سنج" aria-expanded="false" title="تخفیف‌سنج — بکشید تا جابه‌جا شود (Alt+Shift+G)">${icon('tag')}<span>تخفیف‌سنج</span></button>
       <section id="panel"><header><div class="brand"><span class="bf-badge">Black Friday</span>تخفیف‌سنج</div><button type="button" class="x x3" id="wide" title="عریض‌کردن پنل" aria-label="عریض‌کردن پنل">${icon('expand')}</button><button type="button" class="x x2" id="min" title="جمع‌کردن پنل" aria-label="جمع‌کردن پنل">${icon('minus')}</button><button type="button" class="x" id="close" title="بستن پنل" aria-label="بستن پنل">${icon('close')}</button></header>
       <div class="hero"><div class="name" id="name"></div><div class="price" id="price"></div><div class="meta" id="meta"></div></div>
-      <nav class="tabs" id="tabs" role="tablist" aria-label="بخش‌های تخفیف‌سنج"></nav><div class="body" id="body" role="tabpanel"></div><div id="rs" title="تغییر اندازه (دابل‌کلیک: بازنشانی)" aria-label="تغییر اندازهٔ پنل"></div><div class="foot"><div class="credit primary-links"><a class="cr site" href="https://aqilistudio.ir/" target="_blank" rel="noopener noreferrer" title="آخرین نسخه و آموزش">${icon('global', 14, 'icon-sm')}<span>نسخه و آموزش</span></a><a class="cr telegram" href="https://t.me/RealMahdi_a" target="_blank" rel="noopener noreferrer" title="تلگرام توسعه‌دهنده">${icon('chat', 14, 'icon-sm')}<span>@RealMahdi_a</span></a><a class="cr orig" href="https://t.me/GHAFEL_com" target="_blank" rel="noopener noreferrer" title="موتور پایه">${icon('layers', 14, 'icon-sm')}<span>GHAFEL_com</span></a></div><div class="foot-note" title="هیچ داده‌ای بدون منبع و زمان نمایش داده نمی‌شود" role="img" aria-label="اطلاعات با منبع و زمان نمایش داده می‌شوند">${icon('shield')}</div></div></section></div>`;
+      <nav class="tabs" id="tabs" role="tablist" aria-label="بخش‌های تخفیف‌سنج"></nav><div class="body" id="body" role="tabpanel"></div></section></div>`;
     bind(); App.on(render); render(); requestAnimationFrame(applyPos);
     addEventListener('resize', applyPos);
     if (Store.get().settings.open) setOpen(true);
