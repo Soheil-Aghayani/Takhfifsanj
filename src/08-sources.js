@@ -12,7 +12,7 @@ const Sources = (() => {
   function isExcludedTorobSellerPage(raw, depth = 0) {
     if (depth > 4) return false;
     try {
-      const u = new URL(raw), host = u.hostname.toLowerCase().replace(/^www\./, '');
+      const u = new URL(raw, 'https://api.torob.com/'), host = u.hostname.toLowerCase().replace(/^www\./, '');
       const path = u.pathname.replace(/\/+$/, '').toLowerCase();
       if (EXCLUDED_TOROB_SELLER_PAGES.has(host + path)) return true;
       if (host === 'api.torob.com' && path === '/v4/product-page/redirect') {
@@ -57,8 +57,9 @@ const Sources = (() => {
     evalCand(prod, r) {
       const ct = r.name1 + ' ' + (r.name2 || ''); let best = null;
       // Check model/spec contradictions before token coverage: long page headings may have low overlap.
-      const strict = Match.evaluate(prod.title || '', ct, { strict: true });
-      if (strict.flags.includes('model-mismatch') || strict.flags.includes('spec-mismatch')) return strict;
+      const brandAliases = [...new Set([...(prod.brandAliases || []), prod.brand, prod.brandEn, ...torob.titles(prod).flatMap(Match.brandFamilies)].filter(Boolean))];
+      const strict = Match.evaluate(prod.title || '', ct, { strict: true, brandAliases });
+      if (strict.flags.includes('model-mismatch') || strict.flags.includes('spec-mismatch') || strict.flags.includes('brand-mismatch')) return strict;
       for (const t of torob.titles(prod)) { const ev = Match.evaluate(t, ct); if (!best || (ev.ok && !best.ok) || (ev.ok === best.ok && ev.score > best.score)) best = ev; }
       return best || Match.evaluate(prod.title || '', ct);
     },
@@ -69,7 +70,7 @@ const Sources = (() => {
       const res = await Net.json('https://api.torob.com/v4/base-product/sellers/?' + params, { referer: TOROB_REF, timeout: 15000 });
       const list = res?.results || res?.products_info?.result || [], ts = Date.now();
       const excludedOffer = s => EXCLUDED_TOROB_REDIRECT_UIDS.has(String(s.uid ?? s.product_uid ?? ''))
-        || isExcludedTorobSellerPage(String(s.page_url || s.redirect_url || s.product_url || s.url || ''));
+        || [s.page_url, s.redirect_url, s.product_url, s.url].filter(Boolean).some(isExcludedTorobSellerPage);
       const eligible = list.filter(s => !excludedOffer(s)), excluded = list.length - eligible.length;
       const mapped = eligible.map(s => {
         const shop = String(s.shop_name || s.domain || s.shop_text || '').replace(/^www\./, '');
@@ -122,7 +123,7 @@ const Sources = (() => {
       const mk = v => { const pr = v.price || {}; return { variantId: String(v.id), title: (v.themes || []).map(t => t.value && t.value.title).filter(Boolean).join(' / '), price: toT(pr.selling_price), rrp: pr.discount_percent ? toT(pr.rrp_price) : null, discountPct: pr.discount_percent || 0, seller: v.seller?.title || '', warranty: v.warranty?.title_fa || '' }; };
       const all = vs.map(mk).filter(x => x.price > 0).sort((a, b) => a.price - b.price);
       const chosen = (variantId && all.find(x => x.variantId === String(variantId))) || null;
-      return { title: p.title_fa || '', titleEn: p.title_en || '', brand: p.brand?.title_fa || '', variants: all, chosen, exact: !!chosen, lowest30dOfficial: toT(p.properties?.min_price_in_last_month) };
+      return { title: p.title_fa || '', titleEn: p.title_en || '', brand: p.brand?.title_fa || '', brandEn: p.brand?.title_en || '', variants: all, chosen, exact: !!chosen, lowest30dOfficial: toT(p.properties?.min_price_in_last_month) };
     },
     async product(pid, variantId) {
       const json = await Net.json(`https://api.digikala.com/product/v1/products/${pid}/`, DK_OPTS);

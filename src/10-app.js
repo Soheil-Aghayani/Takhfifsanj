@@ -45,7 +45,11 @@ const App = (() => {
     try {
       state.dk = await Sources.dk.product(p.id, p.variantId);
       const d = state.dk;
-      if (d) p.altTitles = [d.title, d.titleEn].filter(Boolean);
+      if (d) {
+        p.altTitles = [d.title, d.titleEn].filter(Boolean);
+        p.brand = d.brand; p.brandEn = d.brandEn;
+        p.brandAliases = [...new Set([d.brand, d.brandEn].filter(Boolean))];
+      }
       if (d && d.chosen) {
         p.seller = d.chosen.seller; p.warranty = d.chosen.warranty; p.variantTitle = d.chosen.title;
         if (!p.oldPrice && d.chosen.rrp) p.oldPrice = d.chosen.rrp;

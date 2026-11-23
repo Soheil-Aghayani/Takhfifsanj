@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         تخفیف‌سنج
 // @namespace    ghafel-com-pro
-// @version      15.2.11
+// @version      15.2.12
 // @description  مقایسهٔ قیمت فروشندگان، تاریخچهٔ قیمت دیجی‌کالا، بازرس تخفیف، واچ‌لیست و هشدار قیمت
 // @author       GHAFEL_com (Original Creator)
 // @contributor  RealMahdi_a (Upgrade & Development)
@@ -19,7 +19,7 @@
 // @noframes
 // @run-at       document-idle
 // ==/UserScript==
-/* تخفیف‌سنج 15.2.11 — Original Creator: GHAFEL_com (https://t.me/GHAFEL_com) · Upgrade & Development: RealMahdi_a (https://t.me/RealMahdi_a) · Website: https://aqilistudio.ir/
+/* تخفیف‌سنج 15.2.12 — Original Creator: GHAFEL_com (https://t.me/GHAFEL_com) · Upgrade & Development: RealMahdi_a (https://t.me/RealMahdi_a) · Website: https://aqilistudio.ir/
    Built from readable modules in /src. The 8.7 engine logic is preserved in src/06-extract.js (extraction),
    src/07-match.js (baseline rule) and src/08-sources.js (Torob flow). */
 (function () {
@@ -535,6 +535,26 @@ const Match = (() => {
     return { codes, found, missing: codes.filter(code => !found.includes(code)) };
   }
   const UNITS = [['gb', /گیگابایت|گیگ|gb/], ['tb', /ترابایت|tb/], ['ml', /میلی ?لیتر|ml/], ['l', /لیتر/], ['kg', /کیلوگرم|کیلو|kg/], ['g', /گرم|gr|(?<![a-z])g(?![a-z])/], ['mah', /mah|میلی ?آمپر/], ['w', /وات|(?<![a-z])w(?![a-z])/], ['inch', /اینچ|inch/], ['cm', /سانتی ?متر|cm/], ['mm', /میلی ?متر|mm/]];
+  const BRAND_FAMILIES = [
+    ['romoss', ['romoss', 'روموس', 'رومس']], ['baseus', ['baseus', 'باسئوس', 'بیسوس']],
+    ['mcdodo', ['mcdodo', 'مک دودو', 'مک‌دودو']], ['anker', ['anker', 'انکر']],
+    ['xiaomi', ['xiaomi', 'شیائومی', 'شیاومی']], ['samsung', ['samsung', 'سامسونگ']],
+    ['apple', ['apple', 'اپل']], ['huawei', ['huawei', 'هواوی']],
+    ['ugreen', ['ugreen', 'یوگرین']], ['ldnio', ['ldnio', 'الدینیو']],
+    ['hoco', ['hoco', 'هوکو']], ['borofone', ['borofone', 'بروفون']]
+  ];
+  function brandFamilies(raw) {
+    const text = ' ' + U.normalize(raw) + ' ';
+    return BRAND_FAMILIES.filter(([, aliases]) => aliases.some(alias => text.includes(' ' + U.normalize(alias) + ' '))).map(([id]) => id);
+  }
+  function brandMismatch(brandAliases, candidate, strict) {
+    const expected = [...new Set((Array.isArray(brandAliases) ? brandAliases : [brandAliases]).flatMap(brandFamilies))];
+    if (!expected.length) return null;
+    const found = brandFamilies(candidate);
+    if (found.some(id => !expected.includes(id)) || (strict && !found.some(id => expected.includes(id))))
+      return { ok: false, score: 0, level: 'low', reasons: ['برند نتیجه با برند محصول تطبیق ندارد'], flags: ['brand-mismatch'] };
+    return null;
+  }
   function specs(raw) {
     const t = U.normalize(raw).replace(/(\d)\s+(?=[a-zآ-ی])/g, '$1'), out = {};
     for (const [u, re] of UNITS) {
@@ -543,13 +563,15 @@ const Match = (() => {
     }
     return out;
   }
-  function evaluate(src, cand, { strict = false } = {}) {
+  function evaluate(src, cand, { strict = false, brandAliases = [] } = {}) {
     const reasons = [], flags = [];
     const base = baseline(src, cand);
     const st = U.tokens(src), cn = U.normalize(cand), set = new Set(cn.split(' ')), cc = cn.replace(/\s+/g, '');
     const cov = st.length ? st.filter(t => set.has(t) || (t.length >= 4 && cc.includes(t))).length / st.length : 0;
     const { codes, found, missing } = modelCodeMatch(src, cand);
     const a = specs(src), b = specs(cand);
+    const brandConflict = brandMismatch(brandAliases, cand, strict);
+    if (brandConflict) return brandConflict;
     const mismatch = () => {
       if (codes.length && (strict ? missing.length > 0 : found.length === 0))
         return { ok: false, score: 0, level: 'low', reasons: ['کد مدل مبدا (' + (strict ? missing : codes).join('، ') + ') در نتیجه نیست'], flags: ['model-mismatch'] };
@@ -577,7 +599,7 @@ const Match = (() => {
     if (level === 'low') flags.push('suspicious');
     return { ok: true, score: +score.toFixed(2), level, reasons, flags };
   }
-  return { baseline, modelCodes, modelCodeMatch, specs, evaluate };
+  return { baseline, modelCodes, modelCodeMatch, specs, brandFamilies, evaluate };
 })();
 
 
@@ -596,7 +618,7 @@ const Sources = (() => {
   function isExcludedTorobSellerPage(raw, depth = 0) {
     if (depth > 4) return false;
     try {
-      const u = new URL(raw), host = u.hostname.toLowerCase().replace(/^www\./, '');
+      const u = new URL(raw, 'https://api.torob.com/'), host = u.hostname.toLowerCase().replace(/^www\./, '');
       const path = u.pathname.replace(/\/+$/, '').toLowerCase();
       if (EXCLUDED_TOROB_SELLER_PAGES.has(host + path)) return true;
       if (host === 'api.torob.com' && path === '/v4/product-page/redirect') {
@@ -641,8 +663,9 @@ const Sources = (() => {
     evalCand(prod, r) {
       const ct = r.name1 + ' ' + (r.name2 || ''); let best = null;
       // Check model/spec contradictions before token coverage: long page headings may have low overlap.
-      const strict = Match.evaluate(prod.title || '', ct, { strict: true });
-      if (strict.flags.includes('model-mismatch') || strict.flags.includes('spec-mismatch')) return strict;
+      const brandAliases = [...new Set([...(prod.brandAliases || []), prod.brand, prod.brandEn, ...torob.titles(prod).flatMap(Match.brandFamilies)].filter(Boolean))];
+      const strict = Match.evaluate(prod.title || '', ct, { strict: true, brandAliases });
+      if (strict.flags.includes('model-mismatch') || strict.flags.includes('spec-mismatch') || strict.flags.includes('brand-mismatch')) return strict;
       for (const t of torob.titles(prod)) { const ev = Match.evaluate(t, ct); if (!best || (ev.ok && !best.ok) || (ev.ok === best.ok && ev.score > best.score)) best = ev; }
       return best || Match.evaluate(prod.title || '', ct);
     },
@@ -653,7 +676,7 @@ const Sources = (() => {
       const res = await Net.json('https://api.torob.com/v4/base-product/sellers/?' + params, { referer: TOROB_REF, timeout: 15000 });
       const list = res?.results || res?.products_info?.result || [], ts = Date.now();
       const excludedOffer = s => EXCLUDED_TOROB_REDIRECT_UIDS.has(String(s.uid ?? s.product_uid ?? ''))
-        || isExcludedTorobSellerPage(String(s.page_url || s.redirect_url || s.product_url || s.url || ''));
+        || [s.page_url, s.redirect_url, s.product_url, s.url].filter(Boolean).some(isExcludedTorobSellerPage);
       const eligible = list.filter(s => !excludedOffer(s)), excluded = list.length - eligible.length;
       const mapped = eligible.map(s => {
         const shop = String(s.shop_name || s.domain || s.shop_text || '').replace(/^www\./, '');
@@ -706,7 +729,7 @@ const Sources = (() => {
       const mk = v => { const pr = v.price || {}; return { variantId: String(v.id), title: (v.themes || []).map(t => t.value && t.value.title).filter(Boolean).join(' / '), price: toT(pr.selling_price), rrp: pr.discount_percent ? toT(pr.rrp_price) : null, discountPct: pr.discount_percent || 0, seller: v.seller?.title || '', warranty: v.warranty?.title_fa || '' }; };
       const all = vs.map(mk).filter(x => x.price > 0).sort((a, b) => a.price - b.price);
       const chosen = (variantId && all.find(x => x.variantId === String(variantId))) || null;
-      return { title: p.title_fa || '', titleEn: p.title_en || '', brand: p.brand?.title_fa || '', variants: all, chosen, exact: !!chosen, lowest30dOfficial: toT(p.properties?.min_price_in_last_month) };
+      return { title: p.title_fa || '', titleEn: p.title_en || '', brand: p.brand?.title_fa || '', brandEn: p.brand?.title_en || '', variants: all, chosen, exact: !!chosen, lowest30dOfficial: toT(p.properties?.min_price_in_last_month) };
     },
     async product(pid, variantId) {
       const json = await Net.json(`https://api.digikala.com/product/v1/products/${pid}/`, DK_OPTS);
@@ -917,7 +940,11 @@ const App = (() => {
     try {
       state.dk = await Sources.dk.product(p.id, p.variantId);
       const d = state.dk;
-      if (d) p.altTitles = [d.title, d.titleEn].filter(Boolean);
+      if (d) {
+        p.altTitles = [d.title, d.titleEn].filter(Boolean);
+        p.brand = d.brand; p.brandEn = d.brandEn;
+        p.brandAliases = [...new Set([d.brand, d.brandEn].filter(Boolean))];
+      }
       if (d && d.chosen) {
         p.seller = d.chosen.seller; p.warranty = d.chosen.warranty; p.variantTitle = d.chosen.title;
         if (!p.oldPrice && d.chosen.rrp) p.oldPrice = d.chosen.rrp;
@@ -1088,7 +1115,7 @@ const Exporter = (() => {
     for (const x of (p?.local || [])) rows.push([key, p?.title || '', new Date(x.t).toISOString(), x.p, 'local', x.src || 'local']);
     return rows.map(r => r.map(q).join(',')).join('\n');
   }
-  const jsonAll = extra => JSON.stringify({ app: 'تخفیف‌سنج 15.2.11', exportedAt: new Date().toISOString(), db: Store.get(), ...extra }, null, 2);
+  const jsonAll = extra => JSON.stringify({ app: 'تخفیف‌سنج 15.2.12', exportedAt: new Date().toISOString(), db: Store.get(), ...extra }, null, 2);
   function parseCsv(text) {
     const out = []; const lines = String(text || '').replace(/^\uFEFF/, '').split(/\r?\n/).filter(Boolean); if (!lines.length) return out;
     const head = lines[0].toLowerCase().split(',').map(s => s.trim().replace(/"/g, ''));
@@ -1564,7 +1591,7 @@ svg text{font-family:inherit}
     const legacy = ['ghpro12-host', 'ghafel-pc-btn', 'ghafel-pc-panel'].filter(id => document.getElementById(id));
     let h = legacy.length ? `<div class="banner">نسخه‌های قدیمی هم‌زمان فعال‌اند (${legacy.join('، ')}). در Tampermonkey آن‌ها را غیرفعال کنید تا فقط یک پنل بماند.</div>` : '';
     h += `<button type="button" class="btn sec icon-btn diagnostics-back" data-tab="settings">${icon('settings')}<span>بازگشت به تنظیمات</span></button>`;
-    h += `<div class="card muted">نسخه ۱۵.۲.۱۰ · محصول: ${U.esc(S.key)} · منبع قیمت: ${U.esc((S.product || {}).priceSource || '—')}${(S.product || {}).priceNote ? ' · ' + U.esc(S.product.priceNote) : ''}</div>`;
+    h += `<div class="card muted">نسخه ۱۵.۲.۱۲ · محصول: ${U.esc(S.key)} · منبع قیمت: ${U.esc((S.product || {}).priceSource || '—')}${(S.product || {}).priceNote ? ' · ' + U.esc(S.product.priceNote) : ''}</div>`;
     h += `<div class="card log">${Log.all().slice(-60).reverse().map(e => `<div class="${e.level === 'error' ? 'e' : e.level === 'warn' ? 'w' : ''}">${new Date(e.t).toLocaleTimeString('en-GB')} [${U.esc(e.scope)}] ${U.esc(e.msg)}</div>`).join('') || 'بدون رویداد'}</div>`;
     return h;
   }
@@ -1870,7 +1897,7 @@ const Main = (() => {
     };
     const run = () => { try { check(); } catch (e) { Log.error('main', e.message); } };
     setTimeout(run, 600); setInterval(run, 1500);
-    Log.info('main', 'تخفیف‌سنج 15.2.11 آماده شد');
+    Log.info('main', 'تخفیف‌سنج 15.2.12 آماده شد');
   }
   return { init };
 })();

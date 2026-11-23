@@ -27,6 +27,26 @@ const Match = (() => {
     return { codes, found, missing: codes.filter(code => !found.includes(code)) };
   }
   const UNITS = [['gb', /گیگابایت|گیگ|gb/], ['tb', /ترابایت|tb/], ['ml', /میلی ?لیتر|ml/], ['l', /لیتر/], ['kg', /کیلوگرم|کیلو|kg/], ['g', /گرم|gr|(?<![a-z])g(?![a-z])/], ['mah', /mah|میلی ?آمپر/], ['w', /وات|(?<![a-z])w(?![a-z])/], ['inch', /اینچ|inch/], ['cm', /سانتی ?متر|cm/], ['mm', /میلی ?متر|mm/]];
+  const BRAND_FAMILIES = [
+    ['romoss', ['romoss', 'روموس', 'رومس']], ['baseus', ['baseus', 'باسئوس', 'بیسوس']],
+    ['mcdodo', ['mcdodo', 'مک دودو', 'مک‌دودو']], ['anker', ['anker', 'انکر']],
+    ['xiaomi', ['xiaomi', 'شیائومی', 'شیاومی']], ['samsung', ['samsung', 'سامسونگ']],
+    ['apple', ['apple', 'اپل']], ['huawei', ['huawei', 'هواوی']],
+    ['ugreen', ['ugreen', 'یوگرین']], ['ldnio', ['ldnio', 'الدینیو']],
+    ['hoco', ['hoco', 'هوکو']], ['borofone', ['borofone', 'بروفون']]
+  ];
+  function brandFamilies(raw) {
+    const text = ' ' + U.normalize(raw) + ' ';
+    return BRAND_FAMILIES.filter(([, aliases]) => aliases.some(alias => text.includes(' ' + U.normalize(alias) + ' '))).map(([id]) => id);
+  }
+  function brandMismatch(brandAliases, candidate, strict) {
+    const expected = [...new Set((Array.isArray(brandAliases) ? brandAliases : [brandAliases]).flatMap(brandFamilies))];
+    if (!expected.length) return null;
+    const found = brandFamilies(candidate);
+    if (found.some(id => !expected.includes(id)) || (strict && !found.some(id => expected.includes(id))))
+      return { ok: false, score: 0, level: 'low', reasons: ['برند نتیجه با برند محصول تطبیق ندارد'], flags: ['brand-mismatch'] };
+    return null;
+  }
   function specs(raw) {
     const t = U.normalize(raw).replace(/(\d)\s+(?=[a-zآ-ی])/g, '$1'), out = {};
     for (const [u, re] of UNITS) {
@@ -35,13 +55,15 @@ const Match = (() => {
     }
     return out;
   }
-  function evaluate(src, cand, { strict = false } = {}) {
+  function evaluate(src, cand, { strict = false, brandAliases = [] } = {}) {
     const reasons = [], flags = [];
     const base = baseline(src, cand);
     const st = U.tokens(src), cn = U.normalize(cand), set = new Set(cn.split(' ')), cc = cn.replace(/\s+/g, '');
     const cov = st.length ? st.filter(t => set.has(t) || (t.length >= 4 && cc.includes(t))).length / st.length : 0;
     const { codes, found, missing } = modelCodeMatch(src, cand);
     const a = specs(src), b = specs(cand);
+    const brandConflict = brandMismatch(brandAliases, cand, strict);
+    if (brandConflict) return brandConflict;
     const mismatch = () => {
       if (codes.length && (strict ? missing.length > 0 : found.length === 0))
         return { ok: false, score: 0, level: 'low', reasons: ['کد مدل مبدا (' + (strict ? missing : codes).join('، ') + ') در نتیجه نیست'], flags: ['model-mismatch'] };
@@ -69,5 +91,5 @@ const Match = (() => {
     if (level === 'low') flags.push('suspicious');
     return { ok: true, score: +score.toFixed(2), level, reasons, flags };
   }
-  return { baseline, modelCodes, modelCodeMatch, specs, evaluate };
+  return { baseline, modelCodes, modelCodeMatch, specs, brandFamilies, evaluate };
 })();

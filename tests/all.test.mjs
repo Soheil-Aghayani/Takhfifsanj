@@ -52,6 +52,15 @@ test('match: screenshot false-positive (YRB/22 vs TWSDX C22) is rejected; same m
   assert.equal(good.ok, true); assert.notEqual(good.level, 'low'); assert.ok(good.score >= 0.65);
 });
 
+test('match: a known competing cable brand cannot pass on the same numeric model', () => {
+  const { api } = makeEnv();
+  const src = 'کابل USB-C روموس مدل 3241 طول 1.2 متر';
+  const bad = api.Match.evaluate(src, 'کابل USB-C Baseus مدل 3241 طول 1.2 متر', { strict: true, brandAliases: ['روموس', 'Romoss'] });
+  const good = api.Match.evaluate(src, 'کابل USB-C ROMOSS مدل 3241 طول 1.2 متر', { strict: true, brandAliases: ['روموس', 'Romoss'] });
+  assert.equal(bad.ok, false); assert.ok(bad.flags.includes('brand-mismatch'));
+  assert.equal(good.ok, true);
+});
+
 test('match: spec mismatch (capacity) rejected, model w/o code flagged', () => {
   const { api } = makeEnv();
   assert.equal(api.Match.evaluate('گوشی سامسونگ Galaxy A07 ظرفیت 64 گیگابایت', 'گوشی سامسونگ Galaxy A07 ظرفیت 128 گیگابایت').ok, false);
@@ -182,6 +191,18 @@ const TOROB_SELLERS = { results: [
   { shop_name: 'ایمالز', domain: 'emalls.ir', price: 2050000, page_url: 'https://torob.com/r/2' },
   { shop_name: 'ایمالز', domain: 'emalls.ir', price: 2150000, page_url: 'https://torob.com/r/3' },
   { shop_name: 'shop.example.ir', price: 1990000, page_url: 'https://torob.com/r/4' }] };
+
+test('torob: excludes a blocked redirect even when another seller URL field appears first', async () => {
+  const badRedirect = 'https://api.torob.com/v4/product-page/redirect/?uid=4688671&prk=2db1d0a1-c8f0-455b-82fc-9d64497dfed4';
+  const sellers = { results: [
+    { uid: 'different-id', shop_name: 'باسلام', domain: 'basalam.com', price: 140000, page_url: 'https://torob.com/r/opaque', redirect_url: badRedirect },
+    { uid: 'safe-id', shop_name: 'دیجی‌کالا', domain: 'digikala.com', price: 2200000, page_url: 'https://torob.com/r/safe' }
+  ] };
+  const { api } = makeEnv('<html><body></body></html>', undefined, { GM_xmlhttpRequest: mockGM([{ m: 'base-product/sellers', body: sellers }]) });
+  const prod = api.Model.product({ id: '23248296', title: 'کابل USB-C روموس مدل 3241' });
+  const offers = await api.Sources.torob.sellers(prod, { random_key: 'base', name1: 'کابل USB-C روموس مدل 3241' }, { score: 0.9, level: 'high', flags: [] }, '');
+  assert.equal(offers.length, 1); assert.equal(offers[0].sellerKey, 'digikala.com');
+});
 
 test('E2E (mock net): Torob picks the right base product, dedups sellers, DOES NOT use the wrong model', async () => {
   const routes = [{ m: 'base-product/search', body: TOROB_SEARCH }, { m: 'base-product/sellers', body: TOROB_SELLERS }, { m: '/price-chart/', body: J('fx_price_chart.json') }, { m: '/product/v1/products/', body: J('fx_product.json') }];
