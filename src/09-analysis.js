@@ -1,4 +1,4 @@
-/* ===== Analysis: history statistics, Black-Friday discount inspector, buying advisor. Uses ONLY real data. ===== */
+/* ===== Analysis: discount inspector and buying advisor based on real price history. ===== */
 const Analysis = (() => {
   const valid = pts => (Array.isArray(pts) ? pts : [])
     .filter(p => p && p.marketable && Number.isFinite(p.t) && Number.isFinite(p.price) && p.price > 0)

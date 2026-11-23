@@ -9,7 +9,8 @@ const Store = (() => {
       alerts: { enabled: true, intervalMin: 60 },
       pos: null, open: false, tab: 'compare', table: false, wide: false, size: null, snap: true
     },
-    products: {} // key -> product record, see Store.touchProduct
+    products: {}, // key -> product record, see Store.touchProduct
+    collections: {} // id -> {id, name, icon} for watchlist organization
   });
   const hasGM = () => typeof GM_getValue === 'function' && typeof GM_setValue === 'function';
   let db = null;
@@ -33,6 +34,9 @@ const Store = (() => {
     const base = DEFAULT();
     try { const s = rawGet(); if (s) db = merge(base, typeof s === 'string' ? JSON.parse(s) : s); else db = base; }
     catch (e) { Log.error('store', 'corrupt db, starting fresh: ' + e.message); db = base; }
+    if (!db.products || typeof db.products !== 'object' || Array.isArray(db.products)) db.products = {};
+    if (!db.collections || typeof db.collections !== 'object' || Array.isArray(db.collections)) db.collections = {};
+    for (const product of Object.values(db.products)) if (product && typeof product === 'object' && !('collectionId' in product)) product.collectionId = '';
     return db;
   }
   const get = () => db || load();
@@ -40,7 +44,7 @@ const Store = (() => {
 
   function touchProduct(key, init) {
     const d = get();
-    const p = d.products[key] ||= { key, host: '', pid: '', title: '', url: '', variantTitle: '', local: [], watch: false, target: null, lastPrice: null, lastTs: 0, notifiedAt: 0, lastSource: '' };
+    const p = d.products[key] ||= { key, host: '', pid: '', title: '', url: '', variantTitle: '', local: [], watch: false, target: null, collectionId: '', lastPrice: null, lastTs: 0, notifiedAt: 0, lastSource: '' };
     if (init) Object.assign(p, init);
     return p;
   }

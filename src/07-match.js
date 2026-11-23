@@ -14,12 +14,17 @@ const Match = (() => {
     const out = new Set();
     const re = /[A-Za-z]+[A-Za-z0-9]*?[\s\/\-_.]?\d+[A-Za-z0-9]*|\d+[\s]?[A-Za-z]+[A-Za-z0-9]*/g; let m;
     while ((m = re.exec(t))) { const c = m[0].toLowerCase().replace(/[^a-z0-9]/g, ''); if (c.length >= 3 && /[a-z]/.test(c) && /\d/.test(c)) out.add(c); }
+    const numericModel = /(?:مدل|model)\s*[:#-]?\s*(\d{3,6})(?![A-Za-z0-9])/gi;
+    while ((m = numericModel.exec(t))) out.add(m[1]);
     return [...out];
   }
   function modelCodeMatch(src, cand) {
     const codes = modelCodes(src), candidateCodes = new Set(modelCodes(cand));
-    const found = codes.filter(code => candidateCodes.has(code));
-    return { codes, found, missing: codes.filter(code => !candidateCodes.has(code)) };
+    const compatible = (source, candidate) => source === candidate
+      || (/^\d{3,6}$/.test(source) && candidate.endsWith(source))
+      || (/^\d{3,6}$/.test(candidate) && source.endsWith(candidate));
+    const found = codes.filter(code => [...candidateCodes].some(candidate => compatible(code, candidate)));
+    return { codes, found, missing: codes.filter(code => !found.includes(code)) };
   }
   const UNITS = [['gb', /گیگابایت|گیگ|gb/], ['tb', /ترابایت|tb/], ['ml', /میلی ?لیتر|ml/], ['l', /لیتر/], ['kg', /کیلوگرم|کیلو|kg/], ['g', /گرم|gr|(?<![a-z])g(?![a-z])/], ['mah', /mah|میلی ?آمپر/], ['w', /وات|(?<![a-z])w(?![a-z])/], ['inch', /اینچ|inch/], ['cm', /سانتی ?متر|cm/], ['mm', /میلی ?متر|mm/]];
   function specs(raw) {

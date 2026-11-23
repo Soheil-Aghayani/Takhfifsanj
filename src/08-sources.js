@@ -8,13 +8,21 @@ const Sources = (() => {
   // Match direct pages, Torob redirect keys, and Basalam relay links; tracking parameters are ignored.
   const EXCLUDED_TOROB_SELLER_PAGES = new Set(['basalam.com/pakhshshop/product/25406964']);
   const EXCLUDED_TOROB_REDIRECT_KEYS = new Set(['2db1d0a1-c8f0-455b-82fc-9d64497dfed4']);
-  function isExcludedTorobSellerPage(raw) {
+  const EXCLUDED_TOROB_REDIRECT_UIDS = new Set(['4688671']);
+  function isExcludedTorobSellerPage(raw, depth = 0) {
+    if (depth > 4) return false;
     try {
       const u = new URL(raw), host = u.hostname.toLowerCase().replace(/^www\./, '');
       const path = u.pathname.replace(/\/+$/, '').toLowerCase();
       if (EXCLUDED_TOROB_SELLER_PAGES.has(host + path)) return true;
-      if (host === 'api.torob.com' && path === '/v4/product-page/redirect' && EXCLUDED_TOROB_REDIRECT_KEYS.has(u.searchParams.get('prk'))) return true;
-      if (host === 'relay.basalam.com' && path === '/r') return isExcludedTorobSellerPage(u.searchParams.get('to'));
+      if (host === 'api.torob.com' && path === '/v4/product-page/redirect') {
+        if (EXCLUDED_TOROB_REDIRECT_KEYS.has(u.searchParams.get('prk')) || EXCLUDED_TOROB_REDIRECT_UIDS.has(u.searchParams.get('uid'))) return true;
+      }
+      for (const key of ['to', 'url', 'redirect_url']) {
+        const nested = u.searchParams.get(key);
+        if (nested && nested !== raw && isExcludedTorobSellerPage(nested, depth + 1)) return true;
+      }
+      if (host === 'relay.basalam.com' && path === '/r') return false;
       return false;
     } catch { return false; }
   }
@@ -60,15 +68,17 @@ const Sources = (() => {
       if (searchId) params.set('search_id', searchId);
       const res = await Net.json('https://api.torob.com/v4/base-product/sellers/?' + params, { referer: TOROB_REF, timeout: 15000 });
       const list = res?.results || res?.products_info?.result || [], ts = Date.now();
-      const mapped = list.map(s => {
+      const excludedOffer = s => EXCLUDED_TOROB_REDIRECT_UIDS.has(String(s.uid ?? s.product_uid ?? ''))
+        || isExcludedTorobSellerPage(String(s.page_url || s.redirect_url || s.product_url || s.url || ''));
+      const eligible = list.filter(s => !excludedOffer(s)), excluded = list.length - eligible.length;
+      const mapped = eligible.map(s => {
         const shop = String(s.shop_name || s.domain || s.shop_text || '').replace(/^www\./, '');
         const key = Extract.matchKnownSite(s.domain || shop) || Extract.matchKnownSite(shop);
-        return Model.offer({ sourceId: 'torob', productId: prod.id, seller: key ? (Extract.KNOWN[key][0] || key) : shop, sellerKey: key || '', sellerUrl: String(s.page_url || ''), price: Number(s.price ?? s.price_value),
+        return Model.offer({ sourceId: 'torob', productId: prod.id, seller: key ? (Extract.KNOWN[key][0] || key) : shop, sellerKey: key || '', sellerUrl: String(s.page_url || s.redirect_url || s.product_url || s.url || ''), price: Number(s.price ?? s.price_value),
           ts, dataSource: 'torob:base-product/sellers', matchConfidence: ev.score, matchLevel: ev.level, matchTitle: baseTitle, flags: ev.flags });
       });
-      const excluded = mapped.filter(o => isExcludedTorobSellerPage(o.sellerUrl)).length;
       if (excluded) Log.info('torob', `${excluded} صفحهٔ فروش نامرتبط حذف شد`);
-      const raw = mapped.filter(o => o.seller && o.price > 0 && !isExcludedTorobSellerPage(o.sellerUrl));
+      const raw = mapped.filter(o => o.seller && o.price > 0);
       const byS = new Map(), dup = {};
       for (const o of raw) { const k = o.sellerKey || o.seller; dup[k] = (dup[k] || 0) + 1; const cur = byS.get(k); if (!cur || o.price < cur.price) byS.set(k, o); }
       const offers = [...byS.values()].map(o => { const k = o.sellerKey || o.seller; if (dup[k] > 1) o.flags = [...o.flags, 'dedup:' + dup[k]]; return o; });
