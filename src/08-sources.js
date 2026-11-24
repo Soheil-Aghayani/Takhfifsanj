@@ -288,8 +288,9 @@ const Sources = (() => {
   const snappshop = {
     id: 'snappshop', label: 'اسنپ‌شاپ', icon: 'snappshop', kind: 'offers', implemented: true, hosts: ['apix.snappshop.ir'], cities: SNAPP_CITIES,
     note: 'جست‌وجوی زندهٔ قیمت در اسنپ‌شاپ',
-    async fetch(prod, { query } = {}) {
-      const city = SNAPP_CITIES[Store.get().settings.snappCity] || SNAPP_CITIES.tehran;
+    async fetch(prod, { query, cityId } = {}) {
+      const savedCity = typeof Store !== 'undefined' ? Store.get()?.settings?.snappCity : '';
+      const city = SNAPP_CITIES[cityId || savedCity] || SNAPP_CITIES.tehran;
       const coordinates = `lat=${encodeURIComponent(city.lat)}&lng=${encodeURIComponent(city.lng)}`;
       const tokenData = await Net.json(`${SNAPP_API}guest/v2/token?${coordinates}`, { timeout: 15000, anonymous: true });
       const token = tokenData?.data?.token || tokenData?.token;

@@ -21,7 +21,7 @@ const CONTENT = [
 ];
 const BACKGROUND = [
   [SRC, '00-network.js'],
-  [EXT, '00-shim.js'], [SRC, '01-util.js'], [SRC, '02-log.js'], [SRC, '05-model.js'],
+  [EXT, '00-shim.js'], [SRC, '01-util.js'], [SRC, '02-log.js'], [SRC, '05-model.js'], [SRC, '06-extract.js'], [SRC, '07-match.js'],
   [EXT, '11-net-bg.js'], [EXT, '10-store-bg.js'], [SRC, '08-sources.js'], [EXT, '12-alerts-bg.js'], [EXT, '99-background.js']
 ];
 

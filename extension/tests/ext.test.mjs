@@ -26,14 +26,14 @@ function makeBus() {
 }
 
 function loadBackground(chromeMock) {
-  const sandbox = { chrome: chromeMock, console, fetch: null, setTimeout, clearTimeout, Date, Math, Promise, Error, JSON, Object, Array, URL, AbortController, module: {}, TextEncoder, Number, String };
+  const sandbox = { chrome: chromeMock, console, fetch: null, setTimeout, clearTimeout, Date, Math, Promise, Error, JSON, Object, Array, URL, URLSearchParams, AbortController, module: {}, TextEncoder, Number, String };
   vm.createContext(sandbox);
   vm.runInContext(read('dist/background.test.js'), sandbox, { filename: 'background.test.js' });
   return { sandbox, get api() { return sandbox.__api; } };
 }
 function runBackground(chromeMock, fetchImpl) {
   const code = `__api = ${read('dist/background.test.js')}`;
-  const sandbox = { chrome: chromeMock, fetch: fetchImpl, console, setTimeout, clearTimeout, Date, Math, Promise, Error, JSON, Object, Array, URL, AbortController, TextEncoder, Number, String, __api: null };
+  const sandbox = { chrome: chromeMock, fetch: fetchImpl, console, setTimeout, clearTimeout, Date, Math, Promise, Error, JSON, Object, Array, URL, URLSearchParams, AbortController, TextEncoder, Number, String, __api: null };
   vm.createContext(sandbox); vm.runInContext(code, sandbox, { filename: 'bg.js' });
   return sandbox.__api;
 }
@@ -140,11 +140,48 @@ test('background: AlertsBG fetches exact Digikala variant via Net, fires once un
   const fetchImpl = async () => ({ ok: true, status: 200, text: async () => fx });
   const api = runBackground(chromeMock, fetchImpl);
   const pid = JSON.parse(fx).data.product.variants[0].id;
-  await chromeMock.storage.local.set({ 'ghafel:db': { settings: { alerts: { enabled: true } }, products: { k: { key: 'k', host: 'www.digikala.com', pid: String(pid), variantId: String(pid), title: 'x', url: 'https://x', watch: true, target: 50000000, local: [] } } } }, () => {});
+  await chromeMock.storage.local.set({ 'ghafel:db': { settings: { alerts: { enabled: true }, sources: { torob: false, emalls: false, basalam: false, snappshop: false } }, products: { k: { key: 'k', host: 'www.digikala.com', pid: String(pid), variantId: String(pid), title: 'x', url: 'https://x', watch: true, target: 50000000, local: [] } } } }, () => {});
   const notified = []; chromeMock.notifications.create = (id, o, cb) => { notified.push(o); cb && cb(id); };
   const r = await api.AlertsBG.checkAll(true); assert.equal(r.checked, 1); assert.equal(r.fired, 1); assert.equal(notified.length, 1);
   const saved = chromeMock.data['ghafel:db']; assert.equal(saved.products.k.local.length, 1); assert.equal(saved.products.k.lastPrice, 42503600);
   const r2 = await api.AlertsBG.checkAll(true); assert.equal(r2.fired, 0); // no repeat notification for the same price
+});
+
+test('background: alerts use a fresh cross-store offer and identify its marketplace', async () => {
+  const chromeMock = makeBus();
+  const fixture = JSON.parse(fs.readFileSync(path.join(here, '..', 'tests', 'fx_product.json'), 'utf8'));
+  const pid = fixture.data.product.variants[0].id;
+  const title = 'هدفون بلوتوثی موزیک آپولو مدل YRB/22';
+  const fetchImpl = async url => {
+    if (url.includes('/product/v1/products/')) return { ok: true, status: 200, headers: { get: () => null }, text: async () => JSON.stringify(fixture) };
+    if (url.includes('services.basalam.com')) return { ok: true, status: 200, headers: { get: () => null }, text: async () => JSON.stringify({ products: [{ id: '987', name: title, price: 25000000, vendor: { identifier: 'seller', name: 'فروشگاه نمونه' } }] }) };
+    return { ok: false, status: 404, headers: { get: () => null }, text: async () => '' };
+  };
+  const api = runBackground(chromeMock, fetchImpl);
+  await chromeMock.storage.local.set({ 'ghafel:db': { settings: { alerts: { enabled: true }, sources: { torob: false, emalls: false, basalam: true, snappshop: false } }, products: { k: {
+    key: 'k', host: 'www.digikala.com', pid: String(pid), variantId: String(pid), title, url: 'https://www.digikala.com/product/dkp-23083919/x/',
+    watch: true, target: 3000000, lastPrice: 3500000, lastTs: Date.now() - 86400000, local: []
+  } } } }, () => {});
+  const notified = []; chromeMock.notifications.create = (id, options, cb) => { notified.push(options); cb && cb(id); };
+  const result = await api.AlertsBG.checkAll(true);
+  assert.equal(result.checked, 1); assert.equal(result.fired, 1);
+  assert.equal(notified.length, 1);
+  assert.match(notified[0].message, /باسلام/);
+  const saved = chromeMock.data['ghafel:db'].products.k;
+  assert.equal(saved.lastPrice, 2500000); assert.equal(saved.lastSource, 'basalam');
+});
+
+test('background: alerts never fall back to a cached price when a live source is unavailable', async () => {
+  const chromeMock = makeBus();
+  const api = runBackground(chromeMock, async () => ({ ok: false, status: 503, headers: { get: () => null }, text: async () => '' }));
+  await chromeMock.storage.local.set({ 'ghafel:db': { settings: { alerts: { enabled: true }, sources: { torob: false, emalls: false, basalam: false, snappshop: false } }, products: { k: {
+    key: 'k', host: 'basalam.com', title: 'اسپیکر مدل B60', url: 'https://basalam.com/shop/product/1', watch: true,
+    target: 2000000, lastPrice: 1500000, lastTs: Date.now() - 30 * 86400000, local: []
+  } } } }, () => {});
+  const notified = []; chromeMock.notifications.create = (id, options, cb) => { notified.push(options); cb && cb(id); };
+  const result = await api.AlertsBG.checkAll(true);
+  assert.equal(result.checked, 0); assert.equal(result.fired, 0);
+  assert.equal(notified.length, 0);
 });
 
 test('UI: one host, removed footer credit chips stay absent, and tamper banner appears when CreditGuard fails', async () => {
