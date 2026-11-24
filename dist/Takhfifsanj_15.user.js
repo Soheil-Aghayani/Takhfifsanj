@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         تخفیف‌سنج
 // @namespace    ghafel-com-pro
-// @version      15.2.22
+// @version      15.2.23
 // @description  مقایسهٔ قیمت فروشندگان، تاریخچهٔ قیمت دیجی‌کالا، بازرس تخفیف، واچ‌لیست و هشدار قیمت
 // @author       GHAFEL_com (Original Creator)
 // @contributor  RealMahdi_a (Upgrade & Development)
@@ -22,7 +22,7 @@
 // @noframes
 // @run-at       document-idle
 // ==/UserScript==
-/* تخفیف‌سنج 15.2.22 — Original Creator: GHAFEL_com (https://t.me/GHAFEL_com) · Upgrade & Development: RealMahdi_a (https://t.me/RealMahdi_a) · Website: https://aqilistudio.ir/
+/* تخفیف‌سنج 15.2.23 — Original Creator: GHAFEL_com (https://t.me/GHAFEL_com) · Upgrade & Development: RealMahdi_a (https://t.me/RealMahdi_a) · Website: https://aqilistudio.ir/
    Built from readable modules in /src. The 8.7 engine logic is preserved in src/06-extract.js (extraction),
    src/07-match.js (baseline rule) and src/08-sources.js (Torob flow). */
 (function () {
@@ -1285,7 +1285,7 @@ const Exporter = (() => {
     for (const x of (p?.local || [])) rows.push([key, p?.title || '', new Date(x.t).toISOString(), x.p, 'local', x.src || 'local']);
     return rows.map(r => r.map(q).join(',')).join('\n');
   }
-  const jsonAll = extra => JSON.stringify({ app: 'تخفیف‌سنج 15.2.22', exportedAt: new Date().toISOString(), db: Store.get(), ...extra }, null, 2);
+  const jsonAll = extra => JSON.stringify({ app: 'تخفیف‌سنج 15.2.23', exportedAt: new Date().toISOString(), db: Store.get(), ...extra }, null, 2);
   function parseCsv(text) {
     const out = []; const lines = String(text || '').replace(/^\uFEFF/, '').split(/\r?\n/).filter(Boolean); if (!lines.length) return out;
     const head = lines[0].toLowerCase().split(',').map(s => s.trim().replace(/"/g, ''));
@@ -1390,16 +1390,16 @@ header{cursor:move;padding:12px 14px 10px;background:linear-gradient(135deg,rgba
 .meta{font-size:11px;color:var(--mut)}.meta s{opacity:.8}
 .workspace{display:flex;flex:1 1 auto;min-height:0;flex-direction:column;overflow:hidden}
 .tabs{position:relative;z-index:2;display:flex;flex:0 0 60px;flex-direction:row;width:100%;min-height:60px;align-items:center;gap:8px;padding:8px 10px;overflow:hidden;border-bottom:1px solid var(--line);background:var(--panel);isolation:isolate}
-.tab-main{direction:rtl;display:flex;flex:1 1 auto;align-items:center;gap:6px;min-width:0;height:44px}
+.tab-main{direction:rtl;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));flex:1 1 auto;align-items:center;gap:6px;min-width:0;height:44px}
 .tab-indicator{position:absolute;z-index:1;left:0;top:10px;width:0;height:40px;border-radius:999px;background:linear-gradient(145deg,var(--acc2),var(--acc));box-shadow:0 4px 12px color-mix(in srgb,var(--acc) 20%,transparent);pointer-events:none;transform:translateZ(0);transform-origin:0 0;will-change:transform}
-.tab{all:unset;box-sizing:border-box;position:relative;z-index:2;cursor:pointer;display:inline-flex;flex:1 1 0;align-items:center;justify-content:center;width:auto;min-width:0;height:44px;padding:4px 5px;overflow:hidden;border-radius:12px;color:var(--mut);font-size:11px;font-family:inherit;transition:color .18s ease}
+.tab{all:unset;box-sizing:border-box;position:relative;z-index:2;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:100%;min-width:0;height:44px;padding:4px 5px;overflow:hidden;border-radius:12px;color:var(--mut);font-size:11px;font-family:inherit;transition:color .18s ease}
 .tab:focus-visible{outline:2px solid var(--acc2);outline-offset:1px}
 .tab-icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 22px;width:22px;height:22px;line-height:0;transition:opacity .16s ease,transform .28s cubic-bezier(.2,.8,.2,1)}
 .tab-icon .icon{display:block;width:18px;height:18px}
 .tab-label{position:absolute;top:50%;left:50%;width:calc(100% - 6px);overflow:hidden;text-align:center;text-overflow:ellipsis;white-space:nowrap;opacity:0;transform:translate(-50%,-50%) scale(.96);pointer-events:none;transition:opacity .16s ease,transform .24s cubic-bezier(.22,1,.36,1)}
-.tab.on{flex-grow:3;gap:5px;padding-inline:8px;background:transparent;color:var(--on-acc);font-weight:800}
-.tab.on .tab-icon{opacity:1;transform:none}
-.tab.on .tab-label{position:static;top:auto;left:auto;width:auto;max-width:calc(100% - 27px);flex:0 1 auto;opacity:1;transform:none}
+.tab.on{padding-inline:6px;background:transparent;color:var(--on-acc);font-weight:800}
+.tab.on .tab-icon{display:none;opacity:0;transform:scale(.8)}
+.tab.on .tab-label{position:static;top:auto;left:auto;width:auto;max-width:100%;flex:0 1 auto;opacity:1;transform:none}
 .tab-indicator{transition:none}
 .body{direction:rtl;min-width:0;padding:12px 14px;overflow-y:auto;flex:1 1 auto;scrollbar-width:thin;scrollbar-color:var(--scroll-thumb) var(--panel);scrollbar-gutter:stable;overscroll-behavior:contain}
 .body-content{position:relative;z-index:1;min-height:100%;transform-origin:center}
@@ -1446,11 +1446,6 @@ details.card summary{cursor:pointer;list-style:none}details.card summary::-webki
 .history-status-copy p{margin:3px 0 0;color:var(--mut);font-size:11px;line-height:1.5}
 .history-countdown{flex:0 0 auto;text-align:center;color:var(--warn);font-size:16px;font-variant-numeric:tabular-nums}
 .history-countdown small{display:block;color:var(--mut);font-size:9px;font-weight:500}
-.foot{flex:0 0 auto;padding:8px 10px;border-top:1px solid var(--line);background:var(--panel)}
-.credit{display:flex;flex-wrap:wrap;justify-content:center;gap:6px}
-.credit a{display:inline-flex;align-items:center;gap:5px;padding:5px 8px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--mut);font-size:10px;text-decoration:none;white-space:nowrap;transition:color .16s ease,border-color .16s ease,background .16s ease}
-.credit a:hover{color:var(--ink);border-color:var(--acc2);background:var(--warn-soft)}
-.credit .icon{width:14px;height:14px}
 .watch-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 2px 10px;padding-bottom:9px;border-bottom:1px solid var(--line)}
 .watch-head-copy{display:flex;align-items:center;gap:9px;min-width:0}
 .watch-head-icon{display:grid;place-items:center;flex:0 0 32px;width:32px;height:32px;border-radius:10px;background:var(--warn-soft);color:var(--acc2)}
@@ -1573,7 +1568,7 @@ svg text{font-family:inherit}
 .dark .v-confirmed{background:var(--good-soft);border-color:var(--good);color:var(--good)}
 .dark .v-rise-signal{background:var(--warn-soft);border-color:var(--warn);color:var(--warn)}
 .dark .v-insufficient{background:rgba(167,171,180,.08);border-color:var(--line);color:var(--mut)}
-@media(max-width:380px){.tabs{gap:4px;padding-inline:6px}.tab-main{gap:2px}.tab{font-size:10px;padding-inline:2px}.body{padding:10px}.history-toolbar{align-items:flex-start;flex-direction:column}.watch-target-controls input{width:108px!important}.collection-icon-choice{width:34px;height:34px}}
+@media(max-width:380px){.tabs{gap:4px;padding-inline:6px}.tab-main{gap:2px}.tab{font-size:10px;padding-inline:2px}.tab.on{padding-inline:3px}.body{padding:10px}.history-toolbar{align-items:flex-start;flex-direction:column}.watch-target-controls input{width:108px!important}.collection-icon-choice{width:34px;height:34px}}
 @media(prefers-reduced-motion:reduce){.tab,.tab-icon,.tab-label,.switch-track,.switch-track:after,.collection-pill,.collection-icon-choice{transition:none}}
 `;
   let host, root, S;
@@ -1830,8 +1825,7 @@ svg text{font-family:inherit}
     if (!nav || !indicator || !active) return null;
     const navRect = nav.getBoundingClientRect(), activeRect = active.getBoundingClientRect();
     const labelWidth = active.querySelector('.tab-label')?.scrollWidth || 0;
-    const iconSpace = active.querySelector('.tab-icon') ? 22 + 5 : 0;
-    const width = Math.min(activeRect.width, Math.max(48, Math.ceil(labelWidth + iconSpace + 16))), height = 40;
+    const width = Math.min(activeRect.width, Math.max(48, Math.ceil(labelWidth + 12))), height = 40;
     const target = {
       left: activeRect.left - navRect.left + (activeRect.width - width) / 2,
       top: (navRect.height - height) / 2,
@@ -2162,7 +2156,7 @@ svg text{font-family:inherit}
       <section id="panel"><header><div class="brand">تخفیف‌سنج</div><button type="button" class="x x3" id="wide" title="عریض‌کردن پنل" aria-label="عریض‌کردن پنل">${icon('expand')}</button><button type="button" class="x x2" id="min" title="جمع‌کردن پنل" aria-label="جمع‌کردن پنل">${icon('minus')}</button><button type="button" class="x" id="close" title="بستن پنل" aria-label="بستن پنل">${icon('close')}</button></header>
       <div class="hero"><div class="name" id="name"></div><div class="price" id="price"></div><div class="meta" id="meta"></div></div>
       <div class="workspace"><nav class="tabs" id="tabs" role="tablist" aria-label="بخش‌های تخفیف‌سنج"></nav><div class="body" id="body" role="tabpanel"></div></div>
-      <footer class="foot"><div class="credit" aria-label="پیوندهای تخفیف‌سنج"><a href="https://aqilistudio.ir/" target="_blank" rel="noopener noreferrer">${icon('global')}<span>سایت و آموزش</span></a><a href="https://t.me/RealMahdi_a" target="_blank" rel="noopener noreferrer">${icon('chat')}<span>تلگرام @RealMahdi_a</span></a><a href="https://t.me/GHAFEL_com" target="_blank" rel="noopener noreferrer">${icon('layers')}<span>موتور پایه · GHAFEL_com</span></a></div></footer></section></div>`;
+      </section></div>`;
     bind(); App.on(queueAppRender); render(); requestAnimationFrame(applyPos);
     addEventListener('resize', () => { applyPos(); positionTabIndicator(); });
     if (Store.get().settings.open) setOpen(true);
@@ -2197,7 +2191,7 @@ const Main = (() => {
     };
     const run = () => { try { check(); } catch (e) { Log.error('main', e.message); } };
     setTimeout(run, 600); setInterval(run, 1500);
-    Log.info('main', 'تخفیف‌سنج 15.2.22 آماده شد');
+    Log.info('main', 'تخفیف‌سنج 15.2.23 آماده شد');
   }
   return { init };
 })();

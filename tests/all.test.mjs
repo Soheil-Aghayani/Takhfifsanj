@@ -269,7 +269,7 @@ test('UI: exactly ONE panel host, mount is idempotent, every tab renders, legacy
   assert.equal(w.document.querySelectorAll('#ghafel-pro-host').length, 1);
   await api.App.refreshProduct(); await api.App.runCompare(); await new Promise(r => setTimeout(r, 50));
   const root = w.document.getElementById('ghafel-pro-host').shadowRoot;
-  const cr = root.querySelectorAll('.credit a'); assert.equal(cr.length, 3); assert.deepEqual([...cr].map(a => a.href), ['https://aqilistudio.ir/', 'https://t.me/RealMahdi_a', 'https://t.me/GHAFEL_com']); assert.ok([...cr].every(a => a.rel.includes('noopener'))); assert.ok(root.querySelector('.foot').textContent.includes('GHAFEL_com') && root.querySelector('.foot').textContent.includes('RealMahdi_a')); assert.ok(root.querySelector('#pill').textContent.includes('تخفیف‌سنج'));
+  assert.equal(root.querySelector('.foot'), null); assert.equal(root.querySelectorAll('.credit a').length, 0); assert.ok(root.querySelector('#pill').textContent.includes('تخفیف‌سنج'));
   assert.ok(root.querySelector('#price').textContent.includes('نوار خرید'));
   for (const t of ['compare', 'history', 'inspect', 'watch', 'settings', 'log']) { api.App.state.tab = t; api.UI.render(); assert.ok(root.querySelector('#body').innerHTML.length > 20, t); }
   api.App.state.tab = 'log'; api.UI.render(); assert.ok(root.querySelector('.banner').textContent.includes('ghpro12-host'));
@@ -310,7 +310,7 @@ test('UI: pill is draggable (drag moves + saves, tap opens); wide toggle; show-a
   root.querySelector('[data-act="toggleAll"]').click(); assert.equal(root.querySelectorAll('.offer').length, 9);
   const adv = root.innerHTML.indexOf('مشاور خرید'), first = root.innerHTML.indexOf('class="card offer'); assert.ok(adv > 0 && adv < first);
   root.querySelector('#wide').click(); assert.ok(root.querySelector('#panel').classList.contains('wide'));
-  const css = root.querySelector('style').textContent; assert.match(css, /\.tabs\{[^}]*flex-direction:row/); assert.match(css, /\.tab\.on \.tab-icon\{opacity:1;transform:none\}/); assert.match(css, /\.tab\.on \.tab-label\{position:static/); assert.match(css, /\.foot\{flex:0 0 auto/); assert.match(css, /\.body\{min-height:0/);
+  const css = root.querySelector('style').textContent; assert.match(css, /\.tabs\{[^}]*flex-direction:row/); assert.match(css, /\.tab-main\{[^}]*display:grid[^}]*grid-template-columns:repeat\(5,minmax\(0,1fr\)\)/); assert.match(css, /\.tab\.on \.tab-icon\{display:none/); assert.match(css, /\.tab\.on \.tab-label\{position:static/); assert.match(css, /\.body\{min-height:0/);
 });
 
 // ---- v14 ----
