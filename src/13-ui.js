@@ -387,7 +387,18 @@ svg text{font-family:inherit}
     const legacy = ['ghpro12-host', 'ghafel-pc-btn', 'ghafel-pc-panel'].filter(id => document.getElementById(id));
     let h = legacy.length ? `<div class="banner">نسخه‌های قدیمی هم‌زمان فعال‌اند (${legacy.join('، ')}). در Tampermonkey آن‌ها را غیرفعال کنید تا فقط یک پنل بماند.</div>` : '';
     h += `<button type="button" class="btn sec icon-btn diagnostics-back" data-tab="settings">${icon('settings')}<span>بازگشت به تنظیمات</span></button>`;
-    h += `<div class="card muted">نسخه ۱۵.۲.۱۴ · محصول: ${U.esc(S.key)} · منبع قیمت: ${U.esc((S.product || {}).priceSource || '—')}${(S.product || {}).priceNote ? ' · ' + U.esc(S.product.priceNote) : ''}</div>`;
+    const version = (() => {
+      try {
+        const runtime = typeof browser !== 'undefined' && browser.runtime?.getManifest
+          ? browser.runtime
+          : typeof chrome !== 'undefined' && chrome.runtime?.getManifest ? chrome.runtime : null;
+        const value = runtime?.getManifest().version;
+        if (value) return U.toFa(value);
+      } catch {}
+      try { if (typeof GM_info !== 'undefined' && GM_info.script?.version) return U.toFa(GM_info.script.version); } catch {}
+      return '—';
+    })();
+    h += `<div class="card muted">نسخه ${U.esc(version)} · محصول: ${U.esc(S.key)} · منبع قیمت: ${U.esc((S.product || {}).priceSource || '—')}${(S.product || {}).priceNote ? ' · ' + U.esc(S.product.priceNote) : ''}</div>`;
     h += `<div class="card log">${Log.all().slice(-60).reverse().map(e => `<div class="${e.level === 'error' ? 'e' : e.level === 'warn' ? 'w' : ''}">${new Date(e.t).toLocaleTimeString('en-GB')} [${U.esc(e.scope)}] ${U.esc(e.msg)}</div>`).join('') || 'بدون رویداد'}</div>`;
     return h;
   }
