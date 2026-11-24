@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         تخفیف‌سنج
 // @namespace    ghafel-com-pro
-// @version      15.2.20
+// @version      15.2.21
 // @description  مقایسهٔ قیمت فروشندگان، تاریخچهٔ قیمت دیجی‌کالا، بازرس تخفیف، واچ‌لیست و هشدار قیمت
 // @author       GHAFEL_com (Original Creator)
 // @contributor  RealMahdi_a (Upgrade & Development)
@@ -22,7 +22,7 @@
 // @noframes
 // @run-at       document-idle
 // ==/UserScript==
-/* تخفیف‌سنج 15.2.20 — Original Creator: GHAFEL_com (https://t.me/GHAFEL_com) · Upgrade & Development: RealMahdi_a (https://t.me/RealMahdi_a) · Website: https://aqilistudio.ir/
+/* تخفیف‌سنج 15.2.21 — Original Creator: GHAFEL_com (https://t.me/GHAFEL_com) · Upgrade & Development: RealMahdi_a (https://t.me/RealMahdi_a) · Website: https://aqilistudio.ir/
    Built from readable modules in /src. The 8.7 engine logic is preserved in src/06-extract.js (extraction),
    src/07-match.js (baseline rule) and src/08-sources.js (Torob flow). */
 (function () {
@@ -1285,7 +1285,7 @@ const Exporter = (() => {
     for (const x of (p?.local || [])) rows.push([key, p?.title || '', new Date(x.t).toISOString(), x.p, 'local', x.src || 'local']);
     return rows.map(r => r.map(q).join(',')).join('\n');
   }
-  const jsonAll = extra => JSON.stringify({ app: 'تخفیف‌سنج 15.2.20', exportedAt: new Date().toISOString(), db: Store.get(), ...extra }, null, 2);
+  const jsonAll = extra => JSON.stringify({ app: 'تخفیف‌سنج 15.2.21', exportedAt: new Date().toISOString(), db: Store.get(), ...extra }, null, 2);
   function parseCsv(text) {
     const out = []; const lines = String(text || '').replace(/^\uFEFF/, '').split(/\r?\n/).filter(Boolean); if (!lines.length) return out;
     const head = lines[0].toLowerCase().split(',').map(s => s.trim().replace(/"/g, ''));
@@ -1397,9 +1397,9 @@ header{cursor:move;padding:12px 14px 10px;background:linear-gradient(135deg,rgba
 .tab-icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 22px;width:22px;height:22px;line-height:0;transition:opacity .16s ease,transform .28s cubic-bezier(.2,.8,.2,1)}
 .tab-icon .icon{display:block;width:18px;height:18px}
 .tab-label{position:absolute;top:50%;left:50%;width:calc(100% - 6px);overflow:hidden;text-align:center;text-overflow:ellipsis;white-space:nowrap;opacity:0;transform:translate(-50%,-50%) scale(.96);pointer-events:none;transition:opacity .16s ease,transform .24s cubic-bezier(.22,1,.36,1)}
-.tab.on{background:transparent;color:var(--on-acc);font-weight:800}
-.tab.on .tab-icon{opacity:0;transform:scale(.55) rotate(-18deg)}
-.tab.on .tab-label{opacity:1;transform:translate(-50%,-50%) scale(1)}
+.tab.on{gap:5px;padding-inline:8px;background:transparent;color:var(--on-acc);font-weight:800}
+.tab.on .tab-icon{opacity:1;transform:none}
+.tab.on .tab-label{position:static;top:auto;left:auto;width:auto;max-width:calc(100% - 27px);flex:0 1 auto;opacity:1;transform:none}
 .tab-indicator{transition:none}
 .body{direction:rtl;min-width:0;padding:12px 14px;overflow-y:auto;flex:1 1 auto;scrollbar-width:thin;scrollbar-color:var(--scroll-thumb) var(--panel);scrollbar-gutter:stable;overscroll-behavior:contain}
 .body-content{position:relative;z-index:1;min-height:100%;transform-origin:center}
@@ -1830,7 +1830,8 @@ svg text{font-family:inherit}
     if (!nav || !indicator || !active) return null;
     const navRect = nav.getBoundingClientRect(), activeRect = active.getBoundingClientRect();
     const labelWidth = active.querySelector('.tab-label')?.scrollWidth || 0;
-    const width = Math.min(activeRect.width, Math.max(48, Math.ceil(labelWidth + 24))), height = 40;
+    const iconSpace = active.querySelector('.tab-icon') ? 22 + 5 : 0;
+    const width = Math.min(activeRect.width, Math.max(48, Math.ceil(labelWidth + iconSpace + 16))), height = 40;
     const target = {
       left: activeRect.left - navRect.left + (activeRect.width - width) / 2,
       top: (navRect.height - height) / 2,
@@ -2196,7 +2197,7 @@ const Main = (() => {
     };
     const run = () => { try { check(); } catch (e) { Log.error('main', e.message); } };
     setTimeout(run, 600); setInterval(run, 1500);
-    Log.info('main', 'تخفیف‌سنج 15.2.20 آماده شد');
+    Log.info('main', 'تخفیف‌سنج 15.2.21 آماده شد');
   }
   return { init };
 })();

@@ -39,9 +39,9 @@ header{cursor:move;padding:12px 14px 10px;background:linear-gradient(135deg,rgba
 .tab-icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 22px;width:22px;height:22px;line-height:0;transition:opacity .16s ease,transform .28s cubic-bezier(.2,.8,.2,1)}
 .tab-icon .icon{display:block;width:18px;height:18px}
 .tab-label{position:absolute;top:50%;left:50%;width:calc(100% - 6px);overflow:hidden;text-align:center;text-overflow:ellipsis;white-space:nowrap;opacity:0;transform:translate(-50%,-50%) scale(.96);pointer-events:none;transition:opacity .16s ease,transform .24s cubic-bezier(.22,1,.36,1)}
-.tab.on{background:transparent;color:var(--on-acc);font-weight:800}
-.tab.on .tab-icon{opacity:0;transform:scale(.55) rotate(-18deg)}
-.tab.on .tab-label{opacity:1;transform:translate(-50%,-50%) scale(1)}
+.tab.on{gap:5px;padding-inline:8px;background:transparent;color:var(--on-acc);font-weight:800}
+.tab.on .tab-icon{opacity:1;transform:none}
+.tab.on .tab-label{position:static;top:auto;left:auto;width:auto;max-width:calc(100% - 27px);flex:0 1 auto;opacity:1;transform:none}
 .tab-indicator{transition:none}
 .body{direction:rtl;min-width:0;padding:12px 14px;overflow-y:auto;flex:1 1 auto;scrollbar-width:thin;scrollbar-color:var(--scroll-thumb) var(--panel);scrollbar-gutter:stable;overscroll-behavior:contain}
 .body-content{position:relative;z-index:1;min-height:100%;transform-origin:center}
@@ -472,7 +472,8 @@ svg text{font-family:inherit}
     if (!nav || !indicator || !active) return null;
     const navRect = nav.getBoundingClientRect(), activeRect = active.getBoundingClientRect();
     const labelWidth = active.querySelector('.tab-label')?.scrollWidth || 0;
-    const width = Math.min(activeRect.width, Math.max(48, Math.ceil(labelWidth + 24))), height = 40;
+    const iconSpace = active.querySelector('.tab-icon') ? 22 + 5 : 0;
+    const width = Math.min(activeRect.width, Math.max(48, Math.ceil(labelWidth + iconSpace + 16))), height = 40;
     const target = {
       left: activeRect.left - navRect.left + (activeRect.width - width) / 2,
       top: (navRect.height - height) / 2,

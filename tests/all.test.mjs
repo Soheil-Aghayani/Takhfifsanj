@@ -310,7 +310,7 @@ test('UI: pill is draggable (drag moves + saves, tap opens); wide toggle; show-a
   root.querySelector('[data-act="toggleAll"]').click(); assert.equal(root.querySelectorAll('.offer').length, 9);
   const adv = root.innerHTML.indexOf('مشاور خرید'), first = root.innerHTML.indexOf('class="card offer'); assert.ok(adv > 0 && adv < first);
   root.querySelector('#wide').click(); assert.ok(root.querySelector('#panel').classList.contains('wide'));
-  const css = root.querySelector('style').textContent; assert.match(css, /\.tabs\{[^}]*flex-direction:row/); assert.match(css, /\.foot\{flex:0 0 auto/); assert.match(css, /\.body\{min-height:0/);
+  const css = root.querySelector('style').textContent; assert.match(css, /\.tabs\{[^}]*flex-direction:row/); assert.match(css, /\.tab\.on \.tab-icon\{opacity:1;transform:none\}/); assert.match(css, /\.tab\.on \.tab-label\{position:static/); assert.match(css, /\.foot\{flex:0 0 auto/); assert.match(css, /\.body\{min-height:0/);
 });
 
 // ---- v14 ----
