@@ -1,4 +1,4 @@
-/* ===== Match: product matching with confidence. `baseline` is the exact 8.7 rule; `evaluate` adds model/spec checks. ===== */
+/* ===== Match: product matching with confidence. `baseline` is the exact 8.7 rule; `evaluate` adds model/spec/brand/category checks. ===== */
 const Match = (() => {
   // 8.7 rule (kept byte-for-byte in behaviour, verified by differential test).
   function baseline(src, cand) {
@@ -35,15 +35,32 @@ const Match = (() => {
     ['ugreen', ['ugreen', 'یوگرین']], ['ldnio', ['ldnio', 'الدینیو']],
     ['hoco', ['hoco', 'هوکو']], ['borofone', ['borofone', 'بروفون']]
   ];
+  const PRODUCT_TYPES = [
+    ['headphones', ['هدفون', 'هدست', 'هندزفری', 'ایرفون', 'headphone', 'headphones', 'headset', 'earphone', 'earphones', 'earbud', 'earbuds']],
+    ['speakers', ['اسپیکر', 'بلندگو', 'speaker', 'speakers', 'soundbar', 'ساندبار']]
+  ];
+  const hasPhrase = (raw, phrase) => {
+    const text = ' ' + U.normalize(raw) + ' ', normalized = U.normalize(phrase);
+    return !!normalized && text.includes(' ' + normalized + ' ');
+  };
   function brandFamilies(raw) {
     const text = ' ' + U.normalize(raw) + ' ';
     return BRAND_FAMILIES.filter(([, aliases]) => aliases.some(alias => text.includes(' ' + U.normalize(alias) + ' '))).map(([id]) => id);
   }
+  function productTypes(raw) { return PRODUCT_TYPES.filter(([, aliases]) => aliases.some(alias => hasPhrase(raw, alias))).map(([id]) => id); }
+  function productTypeMismatch(source, candidate) {
+    const expected = productTypes(source), found = productTypes(candidate);
+    if (expected.length && found.length && !expected.some(id => found.includes(id)))
+      return { ok: false, score: 0, level: 'low', reasons: ['نوع کالای نتیجه با محصول صفحه متفاوت است'], flags: ['category-mismatch'] };
+    return null;
+  }
   function brandMismatch(brandAliases, candidate, strict) {
-    const expected = [...new Set((Array.isArray(brandAliases) ? brandAliases : [brandAliases]).flatMap(brandFamilies))];
-    if (!expected.length) return null;
+    const aliases = [...new Set((Array.isArray(brandAliases) ? brandAliases : [brandAliases]).filter(Boolean).map(U.normalize).filter(x => x.length >= 2))];
+    const expected = [...new Set(aliases.flatMap(brandFamilies))];
     const found = brandFamilies(candidate);
-    if (found.some(id => !expected.includes(id)) || (strict && !found.some(id => expected.includes(id))))
+    const familyMatch = found.some(id => expected.includes(id));
+    const aliasMatch = aliases.some(alias => hasPhrase(candidate, alias));
+    if (found.some(id => expected.length && !expected.includes(id)) || (strict && aliases.length && !familyMatch && !aliasMatch))
       return { ok: false, score: 0, level: 'low', reasons: ['برند نتیجه با برند محصول تطبیق ندارد'], flags: ['brand-mismatch'] };
     return null;
   }
@@ -62,6 +79,8 @@ const Match = (() => {
     const cov = st.length ? st.filter(t => set.has(t) || (t.length >= 4 && cc.includes(t))).length / st.length : 0;
     const { codes, found, missing } = modelCodeMatch(src, cand);
     const a = specs(src), b = specs(cand);
+    const typeConflict = productTypeMismatch(src, cand);
+    if (typeConflict) return typeConflict;
     const brandConflict = brandMismatch(brandAliases, cand, strict);
     if (brandConflict) return brandConflict;
     const mismatch = () => {
@@ -75,6 +94,8 @@ const Match = (() => {
     if (strict && conflict) return conflict;
     if (!base) return { ok: false, score: cov * 0.4, level: 'low', reasons: ['عدم تطبیق پایه (نام/توکن‌ها)'], flags: ['base-mismatch'] };
     if (conflict) return conflict;
+    if (strict && codes.some(code => /^\d{3}$|^[a-z]\d{2}$/i.test(code)) && cov < 0.8)
+      return { ok: false, score: +(cov * 0.4).toFixed(2), level: 'low', reasons: ['کد مدل کوتاه و مشترک است؛ شباهت بقیهٔ عنوان برای تأیید کافی نیست (' + Math.round(cov * 100) + '٪)'], flags: ['low-context'] };
     let model = codes.length ? found.length / codes.length : null;
     if (codes.length && found.length < codes.length) { flags.push('partial-model'); reasons.push('بخشی از کد مدل/ظرفیت تأیید نشد'); }
     // Without a model/capacity code (common for groceries, clothing, cosmetics), word-overlap alone is a weak
@@ -91,5 +112,5 @@ const Match = (() => {
     if (level === 'low') flags.push('suspicious');
     return { ok: true, score: +score.toFixed(2), level, reasons, flags };
   }
-  return { baseline, modelCodes, modelCodeMatch, specs, brandFamilies, evaluate };
+  return { baseline, modelCodes, modelCodeMatch, specs, brandFamilies, productTypes, evaluate };
 })();

@@ -61,6 +61,20 @@ test('match: a known competing cable brand cannot pass on the same numeric model
   assert.equal(good.ok, true);
 });
 
+test('match: same generic model cannot bridge unrelated audio types or unknown brands', () => {
+  const { api } = makeEnv();
+  const source = 'اسپیکر بلوتوثی هیسکا مدل B60';
+  const aliases = ['هیسکا', 'Hiska'];
+  const wrongType = api.Match.evaluate(source, 'هدست مخصوص بازی بلوتوثی اونیکوما مدل B60', { strict: true, brandAliases: aliases });
+  const wrongBrand = api.Match.evaluate(source, 'اسپیکر بلوتوثی اونیکوما مدل B60', { strict: true, brandAliases: aliases });
+  const right = api.Match.evaluate(source, 'اسپیکر بلوتوثی هیسکا مدل B60', { strict: true, brandAliases: aliases });
+  const weakContext = api.Match.evaluate('محصول بلوتوثی مدل B60', 'کالای بلوتوثی مدل B60', { strict: true });
+  assert.equal(wrongType.ok, false); assert.ok(wrongType.flags.includes('category-mismatch'));
+  assert.equal(wrongBrand.ok, false); assert.ok(wrongBrand.flags.includes('brand-mismatch'));
+  assert.equal(weakContext.ok, false); assert.ok(weakContext.flags.includes('low-context'));
+  assert.equal(right.ok, true);
+});
+
 test('match: spec mismatch (capacity) rejected, model w/o code flagged', () => {
   const { api } = makeEnv();
   assert.equal(api.Match.evaluate('گوشی سامسونگ Galaxy A07 ظرفیت 64 گیگابایت', 'گوشی سامسونگ Galaxy A07 ظرفیت 128 گیگابایت').ok, false);
@@ -199,6 +213,22 @@ const headphoneProduct = () => {
   return result;
 };
 const torobOnly = api => { for (const id of ['emalls', 'basalam', 'snappshop']) api.Store.get().settings.sources[id] = false; api.Store.save(); };
+
+test('SnappShop search rejects a different product sharing generic model B60', async () => {
+  const wrong = { title: 'هدست مخصوص بازی بلوتوثی اونیکوما مدل B60', href: '/product/snp-wrong-b60', price: { discounted_price: 5475000 } };
+  const right = { title: 'اسپیکر بلوتوثی هیسکا مدل B60', href: '/product/snp-right-b60', price: { discounted_price: 6090000 } };
+  const routes = [
+    { m: '/guest/v2/token', body: { data: { token: 'test-token' } } },
+    { m: '/search/v1', body: { data: { structure: [{ items: [wrong, right] }] } } }
+  ];
+  const { api } = makeEnv('<html><body></body></html>', undefined, { GM_xmlhttpRequest: mockGM(routes) });
+  const prod = api.Model.product({ title: 'اسپیکر بلوتوثی هیسکا مدل B60' });
+  prod.brand = 'هیسکا'; prod.brandEn = 'Hiska'; prod.brandAliases = ['هیسکا', 'Hiska'];
+  const result = await api.Sources.snappshop.fetch(prod);
+  assert.equal(result.offers.length, 1);
+  assert.equal(result.offers[0].matchTitle, right.title);
+  assert.ok(result.rejected >= 1);
+});
 
 test('torob: keeps the user-provided product redirect and still excludes the named Basalam page', async () => {
   const productRedirect = 'https://api.torob.com/v4/product-page/redirect/?uid=4688671&prk=2db1d0a1-c8f0-455b-82fc-9d64497dfed4';

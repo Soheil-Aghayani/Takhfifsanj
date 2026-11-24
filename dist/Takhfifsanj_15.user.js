@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         تخفیف‌سنج
 // @namespace    ghafel-com-pro
-// @version      15.2.19
+// @version      15.2.20
 // @description  مقایسهٔ قیمت فروشندگان، تاریخچهٔ قیمت دیجی‌کالا، بازرس تخفیف، واچ‌لیست و هشدار قیمت
 // @author       GHAFEL_com (Original Creator)
 // @contributor  RealMahdi_a (Upgrade & Development)
@@ -22,7 +22,7 @@
 // @noframes
 // @run-at       document-idle
 // ==/UserScript==
-/* تخفیف‌سنج 15.2.19 — Original Creator: GHAFEL_com (https://t.me/GHAFEL_com) · Upgrade & Development: RealMahdi_a (https://t.me/RealMahdi_a) · Website: https://aqilistudio.ir/
+/* تخفیف‌سنج 15.2.20 — Original Creator: GHAFEL_com (https://t.me/GHAFEL_com) · Upgrade & Development: RealMahdi_a (https://t.me/RealMahdi_a) · Website: https://aqilistudio.ir/
    Built from readable modules in /src. The 8.7 engine logic is preserved in src/06-extract.js (extraction),
    src/07-match.js (baseline rule) and src/08-sources.js (Torob flow). */
 (function () {
@@ -526,7 +526,7 @@ const Extract = (() => {
 
 
 // ---- 07-match.js ----
-/* ===== Match: product matching with confidence. `baseline` is the exact 8.7 rule; `evaluate` adds model/spec checks. ===== */
+/* ===== Match: product matching with confidence. `baseline` is the exact 8.7 rule; `evaluate` adds model/spec/brand/category checks. ===== */
 const Match = (() => {
   // 8.7 rule (kept byte-for-byte in behaviour, verified by differential test).
   function baseline(src, cand) {
@@ -563,15 +563,32 @@ const Match = (() => {
     ['ugreen', ['ugreen', 'یوگرین']], ['ldnio', ['ldnio', 'الدینیو']],
     ['hoco', ['hoco', 'هوکو']], ['borofone', ['borofone', 'بروفون']]
   ];
+  const PRODUCT_TYPES = [
+    ['headphones', ['هدفون', 'هدست', 'هندزفری', 'ایرفون', 'headphone', 'headphones', 'headset', 'earphone', 'earphones', 'earbud', 'earbuds']],
+    ['speakers', ['اسپیکر', 'بلندگو', 'speaker', 'speakers', 'soundbar', 'ساندبار']]
+  ];
+  const hasPhrase = (raw, phrase) => {
+    const text = ' ' + U.normalize(raw) + ' ', normalized = U.normalize(phrase);
+    return !!normalized && text.includes(' ' + normalized + ' ');
+  };
   function brandFamilies(raw) {
     const text = ' ' + U.normalize(raw) + ' ';
     return BRAND_FAMILIES.filter(([, aliases]) => aliases.some(alias => text.includes(' ' + U.normalize(alias) + ' '))).map(([id]) => id);
   }
+  function productTypes(raw) { return PRODUCT_TYPES.filter(([, aliases]) => aliases.some(alias => hasPhrase(raw, alias))).map(([id]) => id); }
+  function productTypeMismatch(source, candidate) {
+    const expected = productTypes(source), found = productTypes(candidate);
+    if (expected.length && found.length && !expected.some(id => found.includes(id)))
+      return { ok: false, score: 0, level: 'low', reasons: ['نوع کالای نتیجه با محصول صفحه متفاوت است'], flags: ['category-mismatch'] };
+    return null;
+  }
   function brandMismatch(brandAliases, candidate, strict) {
-    const expected = [...new Set((Array.isArray(brandAliases) ? brandAliases : [brandAliases]).flatMap(brandFamilies))];
-    if (!expected.length) return null;
+    const aliases = [...new Set((Array.isArray(brandAliases) ? brandAliases : [brandAliases]).filter(Boolean).map(U.normalize).filter(x => x.length >= 2))];
+    const expected = [...new Set(aliases.flatMap(brandFamilies))];
     const found = brandFamilies(candidate);
-    if (found.some(id => !expected.includes(id)) || (strict && !found.some(id => expected.includes(id))))
+    const familyMatch = found.some(id => expected.includes(id));
+    const aliasMatch = aliases.some(alias => hasPhrase(candidate, alias));
+    if (found.some(id => expected.length && !expected.includes(id)) || (strict && aliases.length && !familyMatch && !aliasMatch))
       return { ok: false, score: 0, level: 'low', reasons: ['برند نتیجه با برند محصول تطبیق ندارد'], flags: ['brand-mismatch'] };
     return null;
   }
@@ -590,6 +607,8 @@ const Match = (() => {
     const cov = st.length ? st.filter(t => set.has(t) || (t.length >= 4 && cc.includes(t))).length / st.length : 0;
     const { codes, found, missing } = modelCodeMatch(src, cand);
     const a = specs(src), b = specs(cand);
+    const typeConflict = productTypeMismatch(src, cand);
+    if (typeConflict) return typeConflict;
     const brandConflict = brandMismatch(brandAliases, cand, strict);
     if (brandConflict) return brandConflict;
     const mismatch = () => {
@@ -603,6 +622,8 @@ const Match = (() => {
     if (strict && conflict) return conflict;
     if (!base) return { ok: false, score: cov * 0.4, level: 'low', reasons: ['عدم تطبیق پایه (نام/توکن‌ها)'], flags: ['base-mismatch'] };
     if (conflict) return conflict;
+    if (strict && codes.some(code => /^\d{3}$|^[a-z]\d{2}$/i.test(code)) && cov < 0.8)
+      return { ok: false, score: +(cov * 0.4).toFixed(2), level: 'low', reasons: ['کد مدل کوتاه و مشترک است؛ شباهت بقیهٔ عنوان برای تأیید کافی نیست (' + Math.round(cov * 100) + '٪)'], flags: ['low-context'] };
     let model = codes.length ? found.length / codes.length : null;
     if (codes.length && found.length < codes.length) { flags.push('partial-model'); reasons.push('بخشی از کد مدل/ظرفیت تأیید نشد'); }
     // Without a model/capacity code (common for groceries, clothing, cosmetics), word-overlap alone is a weak
@@ -619,7 +640,7 @@ const Match = (() => {
     if (level === 'low') flags.push('suspicious');
     return { ok: true, score: +score.toFixed(2), level, reasons, flags };
   }
-  return { baseline, modelCodes, modelCodeMatch, specs, brandFamilies, evaluate };
+  return { baseline, modelCodes, modelCodeMatch, specs, brandFamilies, productTypes, evaluate };
 })();
 
 
@@ -683,7 +704,7 @@ const Sources = (() => {
       // Check model/spec contradictions before token coverage: long page headings may have low overlap.
       const brandAliases = [...new Set([...(prod.brandAliases || []), prod.brand, prod.brandEn, ...torob.titles(prod).flatMap(Match.brandFamilies)].filter(Boolean))];
       const strict = Match.evaluate(prod.title || '', ct, { strict: true, brandAliases });
-      if (strict.flags.includes('model-mismatch') || strict.flags.includes('spec-mismatch') || strict.flags.includes('brand-mismatch')) return strict;
+      if (strict.flags.some(flag => ['model-mismatch', 'spec-mismatch', 'brand-mismatch', 'category-mismatch', 'low-context'].includes(flag))) return strict;
       for (const t of torob.titles(prod)) { const ev = Match.evaluate(t, ct); if (!best || (ev.ok && !best.ok) || (ev.ok === best.ok && ev.score > best.score)) best = ev; }
       return best || Match.evaluate(prod.title || '', ct);
     },
@@ -1264,7 +1285,7 @@ const Exporter = (() => {
     for (const x of (p?.local || [])) rows.push([key, p?.title || '', new Date(x.t).toISOString(), x.p, 'local', x.src || 'local']);
     return rows.map(r => r.map(q).join(',')).join('\n');
   }
-  const jsonAll = extra => JSON.stringify({ app: 'تخفیف‌سنج 15.2.19', exportedAt: new Date().toISOString(), db: Store.get(), ...extra }, null, 2);
+  const jsonAll = extra => JSON.stringify({ app: 'تخفیف‌سنج 15.2.20', exportedAt: new Date().toISOString(), db: Store.get(), ...extra }, null, 2);
   function parseCsv(text) {
     const out = []; const lines = String(text || '').replace(/^\uFEFF/, '').split(/\r?\n/).filter(Boolean); if (!lines.length) return out;
     const head = lines[0].toLowerCase().split(',').map(s => s.trim().replace(/"/g, ''));
@@ -2175,7 +2196,7 @@ const Main = (() => {
     };
     const run = () => { try { check(); } catch (e) { Log.error('main', e.message); } };
     setTimeout(run, 600); setInterval(run, 1500);
-    Log.info('main', 'تخفیف‌سنج 15.2.19 آماده شد');
+    Log.info('main', 'تخفیف‌سنج 15.2.20 آماده شد');
   }
   return { init };
 })();

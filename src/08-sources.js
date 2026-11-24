@@ -57,7 +57,7 @@ const Sources = (() => {
       // Check model/spec contradictions before token coverage: long page headings may have low overlap.
       const brandAliases = [...new Set([...(prod.brandAliases || []), prod.brand, prod.brandEn, ...torob.titles(prod).flatMap(Match.brandFamilies)].filter(Boolean))];
       const strict = Match.evaluate(prod.title || '', ct, { strict: true, brandAliases });
-      if (strict.flags.includes('model-mismatch') || strict.flags.includes('spec-mismatch') || strict.flags.includes('brand-mismatch')) return strict;
+      if (strict.flags.some(flag => ['model-mismatch', 'spec-mismatch', 'brand-mismatch', 'category-mismatch', 'low-context'].includes(flag))) return strict;
       for (const t of torob.titles(prod)) { const ev = Match.evaluate(t, ct); if (!best || (ev.ok && !best.ok) || (ev.ok === best.ok && ev.score > best.score)) best = ev; }
       return best || Match.evaluate(prod.title || '', ct);
     },
