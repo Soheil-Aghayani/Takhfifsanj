@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         تخفیف‌سنج
 // @namespace    ghafel-com-pro
-// @version      15.2.25
+// @version      15.2.26
 // @description  مقایسهٔ قیمت فروشندگان، تاریخچهٔ قیمت دیجی‌کالا، بازرس تخفیف، واچ‌لیست و هشدار قیمت
 // @author       GHAFEL_com (Original Creator)
 // @contributor  RealMahdi_a (Upgrade & Development)
@@ -22,7 +22,7 @@
 // @noframes
 // @run-at       document-idle
 // ==/UserScript==
-/* تخفیف‌سنج 15.2.25 — Original Creator: GHAFEL_com (https://t.me/GHAFEL_com) · Upgrade & Development: RealMahdi_a (https://t.me/RealMahdi_a) · Website: https://aqilistudio.ir/
+/* تخفیف‌سنج 15.2.26 — Original Creator: GHAFEL_com (https://t.me/GHAFEL_com) · Upgrade & Development: RealMahdi_a (https://t.me/RealMahdi_a) · Website: https://aqilistudio.ir/
    Built from readable modules in /src. The 8.7 engine logic is preserved in src/06-extract.js (extraction),
    src/07-match.js (baseline rule) and src/08-sources.js (Torob flow). */
 (function () {
@@ -128,6 +128,7 @@ const Log = (() => {
 /* ===== Store: persistent data (GM storage with localStorage fallback), single JSON document ===== */
 const Store = (() => {
   const KEY = 'ghafel13:db';
+  const HISTORY_COOLDOWN_KEY = 'ghafel13:history-cooldown';
   const DEFAULT = () => ({
     v: 2,
     settings: {
@@ -176,6 +177,17 @@ const Store = (() => {
   }
   const get = () => db || load();
   const save = () => rawSet(JSON.stringify(get()));
+  async function getHistoryCooldown() {
+    try {
+      const value = hasGM() ? await GM_getValue(HISTORY_COOLDOWN_KEY, 0) : localStorage.getItem(HISTORY_COOLDOWN_KEY);
+      const until = Number(value); return Number.isFinite(until) ? until : 0;
+    } catch { return 0; }
+  }
+  async function setHistoryCooldown(until) {
+    const value = Math.max(0, Number(until) || 0);
+    try { if (hasGM()) { await GM_setValue(HISTORY_COOLDOWN_KEY, value); return; } localStorage.setItem(HISTORY_COOLDOWN_KEY, String(value)); }
+    catch (e) { Log.warn('store', 'history cooldown save failed: ' + e.message); }
+  }
 
   function touchProduct(key, init) {
     const d = get();
@@ -195,7 +207,7 @@ const Store = (() => {
     return true;
   }
   function reset() { db = DEFAULT(); save(); }
-  return { load, get, save, touchProduct, recordLocal, reset, DEFAULT, KEY };
+  return { load, get, save, touchProduct, recordLocal, getHistoryCooldown, setHistoryCooldown, reset, DEFAULT, KEY };
 })();
 
 
@@ -741,24 +753,42 @@ const Sources = (() => {
       return offers;
     },
     async fetch(prod, { query, pickKey } = {}) {
-      const tried = []; let found = null; const nearMiss = []; let rejected = 0;
+      const tried = [], nearMiss = new Map(), rejected = new Set(), byKey = new Map();
       const qs = torob.queries(prod, query);
-      for (let i = 0; i < qs.length && !found; i++) {
-        let res; try { res = await torob.search(qs[i]); } catch (e) { if (i === 0) throw e; Log.warn('torob', 'جست‌وجوی مرحلهٔ ' + (i + 1) + ' ناموفق: ' + e.message); break; }
-        tried.push(qs[i]); Log.info('torob', `«${qs[i]}» → ${res.results.length} نتیجه`);
+      const responses = await Promise.all(qs.map(async (q, index) => {
+        try { return { q, index, res: await torob.search(q) }; }
+        catch (error) { return { q, index, error }; }
+      }));
+      const rank = { high: 0, medium: 1, low: 2 };
+      const compareCandidates = (a, b) => rank[a.ev.level] - rank[b.ev.level] || b.ev.score - a.ev.score || a.queryIndex - b.queryIndex || Number(a.r.price) - Number(b.r.price);
+      let firstError = null, successfulSearches = 0;
+      for (const item of responses) {
+        tried.push(item.q);
+        if (item.error) { firstError ||= item.error; Log.warn('torob', 'جست‌وجوی مرحلهٔ ' + (item.index + 1) + ' ناموفق: ' + item.error.message); continue; }
+        successfulSearches++;
+        const res = item.res;
+        Log.info('torob', `«${item.q}» → ${res.results.length} نتیجه`);
         const valid = res.results.filter(r => r && r.name1 && !r.is_adv && Number(r.price) > 0 && r.random_key);
-        const evaluated = valid.map(r => ({ r, ev: torob.evalCand(prod, r) })), ok = evaluated.filter(x => x.ev.ok);
-        rejected += evaluated.length - ok.length;
-        for (const x of evaluated.filter(x => !x.ev.ok && x.ev.flags.includes('model-mismatch')).slice(0, 3)) nearMiss.push({ title: x.r.name1 + ' ' + (x.r.name2 || ''), reason: x.ev.reasons[0] });
-        if (ok.length) { const rank = { high: 0, medium: 1, low: 2 }; ok.sort((a, b) => rank[a.ev.level] - rank[b.ev.level] || b.ev.score - a.ev.score || Number(a.r.price) - Number(b.r.price)); found = { ok, searchId: res.searchId, q: qs[i] }; }
+        for (const r of valid) {
+          const candidate = { r, ev: torob.evalCand(prod, r), searchId: res.searchId, q: item.q, queryIndex: item.index };
+          if (!candidate.ev.ok) {
+            rejected.add(r.random_key);
+            if (candidate.ev.flags.includes('model-mismatch') && nearMiss.size < 8 && !nearMiss.has(r.random_key)) nearMiss.set(r.random_key, { title: r.name1 + ' ' + (r.name2 || ''), reason: candidate.ev.reasons[0] });
+            continue;
+          }
+          const current = byKey.get(r.random_key);
+          if (!current || compareCandidates(candidate, current) < 0) byKey.set(r.random_key, candidate);
+        }
       }
-      if (!found) return { status: 'no-match', offers: [], note: 'محصول مطابقی در ترب با اطمینان کافی پیدا نشد (' + tried.length + ' جست‌وجو)', nearMiss: nearMiss.slice(0, 3), rejected, tried, candidates: [], query: tried[0] || '' };
-      const pick = (pickKey && found.ok.find(x => x.r.random_key === pickKey)) || found.ok[0], base = pick.r;
+      if (!successfulSearches && firstError) throw firstError;
+      const ok = [...byKey.values()].sort(compareCandidates), misses = [...nearMiss.values()].slice(0, 3);
+      if (!ok.length) return { status: 'no-match', offers: [], note: 'محصول مطابقی در ترب با اطمینان کافی پیدا نشد (' + tried.length + ' جست‌وجو)', nearMiss: misses, rejected: rejected.size, tried, candidates: [], query: tried[0] || '' };
+      const pick = (pickKey && ok.find(x => x.r.random_key === pickKey)) || ok[0], base = pick.r;
       const baseTitle = base.name1 + ' ' + (base.name2 || '');
       Log.info('torob', `محصول انتخاب‌شده: ${baseTitle} [${pick.ev.level} ${pick.ev.score}]`);
-      const offers = await torob.sellers(prod, base, pick.ev, found.searchId);
-      const candidates = found.ok.slice(0, 6).map(x => ({ key: x.r.random_key, title: x.r.name1 + ' ' + (x.r.name2 || ''), price: Number(x.r.price), level: x.ev.level }));
-      return { status: offers.length ? 'ok' : 'empty', offers, note: baseTitle, nearMiss: nearMiss.slice(0, 3), rejected, tried, candidates, chosenKey: base.random_key, query: found.q };
+      const offers = await torob.sellers(prod, base, pick.ev, pick.searchId);
+      const candidates = ok.slice(0, 6).map(x => ({ key: x.r.random_key, title: x.r.name1 + ' ' + (x.r.name2 || ''), price: Number(x.r.price), level: x.ev.level }));
+      return { status: offers.length ? 'ok' : 'empty', offers, note: baseTitle, nearMiss: misses, rejected: rejected.size, tried, candidates, chosenKey: base.random_key, query: pick.q };
     }
   };
 
@@ -1181,10 +1211,17 @@ const App = (() => {
     if (Date.now() < state.historyCooldownUntil) {
       state.chartLoading = false; state.historyNotice = 'rate-limit'; state.chartError = '';
       if (cached) { state.chart = cached.chart; state.chartFromCache = true; state.chartFetchedAt = cached.fetchedAt; state.chartStale = true; selectHistoryVariant(p, color); }
-      emit(); return; // the rate limit is shared across products; a tab change cannot reset it
+      emit(); return;
     }
     state.chartLoading = true; state.chartError = ''; state.historyNotice = ''; emit();
     try {
+      const sharedCooldown = Number(await Store.getHistoryCooldown?.()) || 0;
+      if (sharedCooldown > Date.now()) {
+        state.historyCooldownUntil = Math.max(state.historyCooldownUntil, sharedCooldown);
+        state.chartLoading = false; state.historyNotice = 'rate-limit'; state.chartError = '';
+        if (cached) { state.chart = cached.chart; state.chartFromCache = true; state.chartFetchedAt = cached.fetchedAt; state.chartStale = true; selectHistoryVariant(p, color); }
+        emit(); return;
+      }
       state.chart = await Sources.dk.chart(p.id);
       state.historyCooldownUntil = 0; state.historyCooldownNote = ''; state.chartFromCache = false;
       state.chartFetchedAt = Date.now(); state.chartStale = false; state.historyNotice = '';
@@ -1196,6 +1233,7 @@ const App = (() => {
       const retryMs = e.retryAfterMs > 0 ? e.retryAfterMs : (e.status === 429 ? 90000 : 20000);
       state.historyCooldownUntil = Date.now() + retryMs; state.historyCooldownNote = e.status === 429 ? 'rate-limit' : 'error';
       state.historyNotice = e.status === 429 ? 'rate-limit' : 'error';
+      if (e.status === 429 && retryMs >= 30000) await Store.setHistoryCooldown?.(state.historyCooldownUntil);
       if (cached) {
         state.chart = cached.chart; state.chartFromCache = true; state.chartFetchedAt = cached.fetchedAt; state.chartStale = true;
         selectHistoryVariant(p, color); state.chartError = '';
@@ -1342,7 +1380,7 @@ const Exporter = (() => {
     for (const x of (p?.local || [])) rows.push([key, p?.title || '', new Date(x.t).toISOString(), x.p, 'local', x.src || 'local']);
     return rows.map(r => r.map(q).join(',')).join('\n');
   }
-  const jsonAll = extra => JSON.stringify({ app: 'تخفیف‌سنج 15.2.25', exportedAt: new Date().toISOString(), db: Store.get(), ...extra }, null, 2);
+  const jsonAll = extra => JSON.stringify({ app: 'تخفیف‌سنج 15.2.26', exportedAt: new Date().toISOString(), db: Store.get(), ...extra }, null, 2);
   function parseCsv(text) {
     const out = []; const lines = String(text || '').replace(/^\uFEFF/, '').split(/\r?\n/).filter(Boolean); if (!lines.length) return out;
     const head = lines[0].toLowerCase().split(',').map(s => s.trim().replace(/"/g, ''));
@@ -1446,21 +1484,30 @@ header{cursor:move;padding:12px 14px 10px;background:linear-gradient(135deg,rgba
 .price{font-size:24px;font-weight:800;color:var(--acc2);margin:2px 0}.price small{font-size:12px;color:var(--mut);font-weight:400}
 .meta{font-size:11px;color:var(--mut)}.meta s{opacity:.8}
 .workspace{display:flex;flex:1 1 auto;min-height:0;flex-direction:column;overflow:hidden}
-.tabs{position:relative;z-index:2;display:flex;flex:0 0 60px;flex-direction:row;width:100%;min-height:60px;align-items:center;padding:8px 10px;overflow:hidden;border-bottom:1px solid var(--line);background:var(--panel);isolation:isolate}
-.tab-main{direction:rtl;display:flex;flex:1 1 100%;align-items:center;gap:6px;min-width:0;height:44px}
+.tabs{position:relative;z-index:2;display:flex;flex:0 0 60px;flex-direction:row;width:100%;min-height:60px;align-items:center;gap:8px;padding:8px 10px;overflow:hidden;border-bottom:1px solid var(--line);background:var(--panel);isolation:isolate}
+.tab-main{direction:rtl;display:grid;flex:1 1 0;grid-template-columns:repeat(5,minmax(0,1fr));align-items:center;gap:4px;min-width:0;height:44px}
 .tab-indicator{position:absolute;z-index:1;left:0;top:10px;width:0;height:40px;border-radius:999px;background:linear-gradient(145deg,var(--acc2),var(--acc));box-shadow:0 4px 12px color-mix(in srgb,var(--acc) 20%,transparent);pointer-events:none;transform:translateZ(0);transform-origin:0 0;will-change:transform}
 .tab{all:unset;box-sizing:border-box;position:relative;z-index:2;cursor:pointer;display:inline-flex;flex:1 1 0;align-items:center;justify-content:center;width:auto;min-width:0;height:44px;padding:4px 5px;overflow:hidden;border-radius:12px;color:var(--mut);font-size:11px;font-family:inherit;transition:color .18s ease,flex-grow .28s cubic-bezier(.22,1,.36,1)}
 .tab:focus-visible{outline:2px solid var(--acc2);outline-offset:1px}
-.tab-icon{position:absolute;left:50%;top:50%;display:inline-flex;align-items:center;justify-content:center;flex:0 0 22px;width:22px;height:22px;line-height:0;transform:translate(-50%,-50%);transition:opacity .18s ease,transform .28s cubic-bezier(.22,1,.36,1);}
+.tab-icon{position:absolute;left:50%;top:50%;display:inline-flex;align-items:center;justify-content:center;flex:0 0 22px;width:22px;height:22px;line-height:0;transform:translate(-50%,-50%);transition:opacity .18s ease,transform .28s cubic-bezier(.22,1,.36,1),visibility 0s linear 0s;}
 .tab-icon .icon{display:block;width:18px;height:18px}
 .tab-label{position:absolute;top:50%;left:50%;width:calc(100% - 6px);overflow:hidden;text-align:center;text-overflow:ellipsis;white-space:nowrap;opacity:0;transform:translate(-50%,-50%) scale(.96);pointer-events:none;transition:opacity .16s ease,transform .24s cubic-bezier(.22,1,.36,1)}
 .tab.on{flex:1 1 0;min-width:0;padding-inline:5px;background:transparent;color:var(--on-acc);font-weight:800}
-.tab.on .tab-icon{visibility:hidden;opacity:0;transform:translate(-50%,-50%) scale(.72)}
-.tab.on .tab-label{position:static;top:auto;left:auto;width:auto;max-width:100%;flex:0 1 auto;opacity:1;transform:none}
+.tab.on .tab-icon{visibility:hidden;opacity:0;transform:translate(-50%,-50%) scale(.72);transition-delay:0s,0s,.18s}
+.tab.on .tab-label{position:static;top:auto;left:auto;width:auto;max-width:100%;flex:0 1 auto;overflow:visible;text-overflow:clip;opacity:1;transform:none}
 .tab-indicator{transition:none}
+.diagnostics-dock{position:relative;z-index:2;display:flex;flex:0 0 54px;align-items:center;justify-content:center;width:54px;height:44px;margin-inline-start:2px;padding-inline-start:8px;border-inline-start:1px solid var(--line)}
+.diagnostics-dock-button{all:unset;box-sizing:border-box;display:grid;place-items:center;flex:0 0 42px;width:42px;height:42px;border-radius:12px;color:var(--mut);cursor:pointer;transition:color .18s ease,background-color .18s ease,transform .18s ease,box-shadow .18s ease}
+.diagnostics-dock-button:hover{background:var(--card);color:var(--ink)}
+.diagnostics-dock-button:active{transform:scale(.94)}
+.diagnostics-dock-button:focus-visible{outline:2px solid var(--acc2);outline-offset:1px}
+.diagnostics-dock-button.on{background:var(--acc2);color:var(--on-acc);box-shadow:0 4px 12px color-mix(in srgb,var(--acc) 25%,transparent)}
+.diagnostics-dock-button .icon{width:19px;height:19px}
+.tabs.diagnostics-on .tab-indicator{opacity:0}
 .body{direction:rtl;min-width:0;padding:12px 14px;overflow-y:auto;flex:1 1 auto;scrollbar-width:thin;scrollbar-color:var(--scroll-thumb) var(--panel);scrollbar-gutter:stable;overscroll-behavior:contain}
-.body-content{position:relative;z-index:1;min-height:100%;transform-origin:center}
-.body-transition-exit{position:absolute;inset:0;z-index:3;overflow:hidden;padding:12px 14px;background:var(--panel);pointer-events:none;transform-origin:center}
+.body-content{position:relative;z-index:1;min-height:100%;transform-origin:center;will-change:opacity,transform}
+.body-transition-exit{position:absolute;inset:0;z-index:2;overflow:hidden;padding:12px 14px;background:var(--panel);pointer-events:none;transform-origin:center;will-change:opacity,transform}
+.tab-morph-overlay{position:absolute;z-index:4;top:0;left:0;width:1px;height:1px;border:1px solid color-mix(in srgb,var(--acc2) 70%,var(--line));background:var(--acc2);box-shadow:0 8px 28px color-mix(in srgb,var(--acc) 24%,transparent);pointer-events:none;will-change:left,top,width,height,border-radius,background-color,opacity}
 .body-exit-content{position:relative;min-height:100%}
 .body::-webkit-scrollbar{width:7px}
 .body::-webkit-scrollbar-track{background:var(--panel);border-radius:999px}
@@ -1504,7 +1551,21 @@ details.card summary{cursor:pointer;list-style:none}details.card summary::-webki
 .history-countdown{flex:0 0 auto;text-align:center;color:var(--warn);font-size:16px;font-variant-numeric:tabular-nums}
 .history-countdown small{display:block;color:var(--mut);font-size:9px;font-weight:500}
 .history-cache-label{margin-top:4px}
-.watch-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 2px 10px;padding-bottom:9px;border-bottom:1px solid var(--line)}
+.rejected-results{margin:12px 0;padding:10px 12px}
+.rejected-results summary{display:flex;align-items:center;gap:8px;list-style:none;cursor:pointer;color:var(--mut);font-size:11px}
+.rejected-results summary::-webkit-details-marker{display:none}
+.rejected-results summary>.icon{width:16px;height:16px;color:var(--acc2)}
+.rejected-results summary b{flex:1;color:var(--ink);font-size:11.5px}
+.rejected-results summary small{font-size:10px}
+.rejected-results summary:after{content:"";width:7px;height:7px;border-left:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(-45deg);transition:transform .18s ease}
+.rejected-results[open] summary:after{transform:rotate(135deg)}
+.rejected-provider{padding-top:9px;margin-top:9px;border-top:1px solid var(--line)}
+.rejected-provider-title{display:flex;align-items:center;gap:6px;color:var(--ink);font-size:10.5px;font-weight:700}
+.rejected-provider-title>.icon,.rejected-provider-title .brand-logo{width:15px;height:15px}
+.rejected-provider ul{margin-top:4px;color:var(--mut);font-size:10.5px}
+.watch-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0;padding:11px 12px;border:1px solid var(--line);border-radius:13px;background:linear-gradient(135deg,var(--warn-soft),var(--card))}
+.watch-layout{display:grid;gap:12px}
+.watch-layout>*{margin:0!important}
 .watch-head-copy{display:flex;align-items:center;gap:9px;min-width:0}
 .watch-head-icon{display:grid;place-items:center;flex:0 0 32px;width:32px;height:32px;border-radius:10px;background:var(--warn-soft);color:var(--acc2)}
 .watch-head-copy b{display:block;color:var(--ink);font-size:12px}
@@ -1521,7 +1582,8 @@ details.card summary{cursor:pointer;list-style:none}details.card summary::-webki
 .watch-target-controls{display:flex;align-items:center;gap:6px}
 .watch-target-controls input{width:122px!important;height:34px}
 .watch-list-title{display:flex;align-items:center;justify-content:space-between;margin:12px 2px 7px;font-size:12px;font-weight:700}
-.watch-list{display:grid;gap:11px;margin-top:12px}
+.watch-list-title small{color:var(--mut);font-size:10px;font-weight:500}
+.watch-list{display:grid;gap:12px;margin-top:0}
 .watch-item{margin:0;padding:10px 11px;border-radius:12px}
 .watch-item.current{border-color:color-mix(in srgb,var(--acc2) 72%,var(--line))}
 .watch-item-copy{min-width:0;flex:1}
@@ -1543,9 +1605,8 @@ details.card summary{cursor:pointer;list-style:none}details.card summary::-webki
 .collection-manager-title{display:flex;align-items:center;gap:8px;min-width:0}
 .collection-manager-title>.icon{width:18px;height:18px;color:var(--acc2)}
 .collection-manager-title b{display:block;font-size:12px;font-weight:800}
-.collection-pills{display:flex;gap:6px;margin-top:7px;padding:1px 0 3px;overflow-x:auto;scrollbar-width:none}
-.collection-pills::-webkit-scrollbar{display:none}
-.collection-pill{all:unset;box-sizing:border-box;display:inline-flex;align-items:center;gap:5px;flex:0 0 auto;min-height:32px;padding:5px 9px;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--mut);font-size:10.5px;cursor:pointer;transition:color .16s ease,border-color .16s ease,background .16s ease}
+.collection-pills{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px;padding:0;overflow:visible}
+.collection-pill{all:unset;box-sizing:border-box;display:inline-flex;align-items:center;gap:6px;flex:0 1 auto;max-width:100%;min-height:36px;padding:6px 10px;border:1px solid var(--line);border-radius:11px;background:var(--panel);color:var(--mut);font-size:10.5px;cursor:pointer;transition:color .16s ease,border-color .16s ease,background .16s ease}
 .collection-pill:hover,.collection-pill[aria-pressed="true"]{color:var(--ink);border-color:var(--acc2);background:var(--warn-soft)}
 .collection-pill[aria-pressed="true"]{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--acc2) 30%,transparent)}
 .collection-pill .icon{width:14px;height:14px;color:var(--acc2)}
@@ -1570,14 +1631,6 @@ details.card summary{cursor:pointer;list-style:none}details.card summary::-webki
 .watch-item-collection{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid var(--line);color:var(--mut);font-size:9.5px}
 .watch-item-collection select{width:min(180px,62%);height:30px;padding:4px 7px;font-size:10px}
 .settings-section{margin-bottom:13px}
-.diagnostics-option{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:10px;width:100%;min-height:48px;padding:9px 10px;border:1px solid var(--line);border-radius:11px;background:var(--card);color:var(--ink);text-align:right;cursor:pointer;transition:border-color .16s ease,background-color .16s ease,transform .16s ease}
-.diagnostics-option:hover{border-color:var(--acc2);background:var(--warn-soft)}
-.diagnostics-option:active{transform:scale(.99)}
-.diagnostics-option:focus-visible{outline:2px solid var(--acc2);outline-offset:2px}
-.diagnostics-option>.icon{flex:0 0 19px;width:19px;height:19px;color:var(--acc2)}
-.diagnostics-option-copy{flex:1;min-width:0}
-.diagnostics-option-copy b{display:block;font-size:11.5px}
-.diagnostics-option-copy small{display:block;margin-top:1px;color:var(--mut);font-size:10px}
 .settings-heading{display:flex;align-items:center;gap:7px;margin:2px 3px 6px;font-size:12px;font-weight:800;color:var(--ink)}
 .settings-card{padding:4px 10px}
 .setting-input-row{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:42px;padding:6px 2px;border-top:1px solid var(--line)}
@@ -1626,7 +1679,7 @@ svg text{font-family:inherit}
 .dark .v-confirmed{background:var(--good-soft);border-color:var(--good);color:var(--good)}
 .dark .v-rise-signal{background:var(--warn-soft);border-color:var(--warn);color:var(--warn)}
 .dark .v-insufficient{background:rgba(167,171,180,.08);border-color:var(--line);color:var(--mut)}
-@media(max-width:380px){.tabs{padding-inline:6px}.tab-main{gap:2px}.tab{font-size:10px;padding-inline:2px}.tab.on{padding-inline:2px}.body{padding:10px}.history-toolbar{align-items:flex-start;flex-direction:column}.watch-target-controls input{width:108px!important}.collection-icon-choice{width:34px;height:34px}}
+@media(max-width:380px){.tabs{gap:4px;padding-inline:6px}.diagnostics-dock{flex-basis:46px;width:46px;margin-inline-start:0;padding-inline-start:4px}.diagnostics-dock-button{flex-basis:40px;width:40px;height:40px}.tab-main{gap:2px}.tab{font-size:9.5px;padding-inline:1px}.tab.on{padding-inline:1px}.body{padding:10px}.history-toolbar{align-items:flex-start;flex-direction:column}.watch-target-controls input{width:108px!important}.collection-icon-choice{width:34px;height:34px}}
 @media(prefers-reduced-motion:reduce){.tab,.tab-icon,.tab-label,.switch-track,.switch-track:after,.collection-pill,.collection-icon-choice{transition:none}}
 `;
   let host, root, S;
@@ -1700,7 +1753,11 @@ svg text{font-family:inherit}
       const [sourceId, sourceError] = sourceErrors[0], sourceName = Sources.registry[sourceId]?.label || sourceId;
       h += `<div class="empty-state" role="status"><span class="empty-state-icon">${icon('shield', 18)}</span><div class="empty-state-copy"><b>پاسخ قیمت‌ها دریافت نشد</b><p>${U.esc(sourceName)} خطا داد: ${U.esc(sourceError.error)}. پس از رفع محدودیت سرویس، دوباره تلاش کنید.</p></div><button class="btn sec icon-btn empty-state-action" data-act="compare">${iconText('refresh', 'تلاش دوباره')}</button></div>`;
     } else if (!S.running && Object.keys(srcs).length) h += `<div class="empty-state" role="status"><span class="empty-state-icon">${icon('search', 18)}</span><div class="empty-state-copy"><b>فروشندهٔ مطابق پیدا نشد</b><p>برای این محصول نتیجهٔ قابل‌اتکایی در منابع فعال پیدا نشد. مدل یا عبارت جست‌وجو را بررسی کنید؛ قیمت حدسی نمایش داده نمی‌شود.</p></div><button class="btn sec icon-btn empty-state-action" data-act="manual">${iconText('wallet', 'ثبت قیمت دستی')}</button></div>`;
-    for (const id of Object.keys(srcs)) { const nm = srcs[id].nearMiss; if (nm && nm.length) h += `<div class="card muted"><b>نتایج ردشده (مدل متفاوت):</b><ul>${nm.map(n => `<li>${U.esc(n.title)} — ${U.esc(n.reason)}</li>`).join('')}</ul></div>`; }
+    const rejectedGroups = Object.entries(srcs).filter(([, st]) => st.nearMiss?.length);
+    if (rejectedGroups.length) {
+      const rejectedCount = rejectedGroups.reduce((sum, [, st]) => sum + st.nearMiss.length, 0);
+      h += `<details class="card rejected-results"><summary><b>نتایج دیگر محصولات</b><small>${U.toFa(rejectedCount)} مورد</small></summary>${rejectedGroups.map(([id, st]) => { const source = Sources.registry[id]; return `<div class="rejected-provider"><div class="rejected-provider-title">${icon(source?.icon || 'global', 15)}<span>${U.esc(source?.label || id)}</span></div><ul>${st.nearMiss.map(item => `<li>${U.esc(item.title)} — ${U.esc(item.reason)}</li>`).join('')}</ul></div>`; }).join('')}</details>`;
+    }
     if (!S.offers.length && !Object.keys(srcs).length) h += '<div class="card muted">برای دریافت قیمت فروشندگان «شروع مقایسه» را بزنید.</div>';
     return h;
   }
@@ -1717,7 +1774,7 @@ svg text{font-family:inherit}
     const rateLimited = S.historyNotice === 'rate-limit';
     h += `<div class="history-toolbar"><button class="btn sec icon-btn" data-act="reloadHistory" title="دریافت دوبارهٔ تاریخچه" ${S.chartLoading || cooldown > 0 ? 'disabled' : ''}>${icon('refresh')}<span>${S.chartLoading ? 'در حال دریافت…' : cooldown > 0 ? 'منتظر بمانید' : 'تلاش دوباره'}</span></button><div class="history-ranges" aria-label="بازهٔ تاریخچه">${[7, 30, 90].map(d => `<button class="btn ${S.range === d ? '' : 'sec'}" data-range="${d}" aria-pressed="${S.range === d}">${U.toFa(d)} روز</button>`).join('')}</div></div>`;
     if (S.chartLoading) h += `<div class="history-status" role="status"><span class="history-status-icon">${icon('refresh', 18)}</span><div class="history-status-copy"><b>در حال دریافت تاریخچه</b><p>درخواست به دیجی‌کالا فرستاده شد.</p></div></div>`;
-    else if (rateLimited) h += `<div class="history-status" role="status"><span class="history-status-icon">${icon('clock', 18)}</span><div class="history-status-copy"><b>دیجی‌کالا موقتاً دریافت تاریخچه را محدود کرده</b><p>${S.chart ? 'نمودار ذخیره‌شده نمایش داده می‌شود؛ پس از پایان شمارش دوباره تازه‌سازی کنید.' : 'تاریخچهٔ تازه فعلاً در دسترس نیست. تلاش دوباره تا پایان شمارش متوقف است.'}</p></div><strong class="history-countdown" data-history-countdown>${cooldown ? U.toFa(cooldown) : icon('check', 16)}<small>${cooldown ? 'ثانیه' : 'آماده'}</small></strong></div>`;
+    else if (rateLimited) h += `<div class="history-status" role="status"><span class="history-status-icon">${icon('clock', 18)}</span><div class="history-status-copy"><b>دریافت تاریخچه موقتاً محدود شده</b><p>${S.chart ? 'نمودار ذخیره‌شده نمایش داده می‌شود.' : loc.length ? 'قیمت‌های محلی حفظ شده‌اند.' : 'فعلاً دادهٔ ذخیره‌شده‌ای برای نمایش نیست.'}</p></div><strong class="history-countdown" data-history-countdown>${cooldown ? U.toFa(cooldown) : icon('check', 16)}<small>${cooldown ? 'ثانیه' : 'آماده'}</small></strong></div>`;
     else if (S.historyNotice === 'error' && S.chartError) h += `<div class="history-status" role="status"><span class="history-status-icon">${icon('shield', 18)}</span><div class="history-status-copy"><b>${S.chart ? 'تازه‌سازی ناموفق بود' : 'تاریخچه دریافت نشد'}</b><p>${S.chart ? 'دادهٔ ذخیره‌شده حفظ شده است.' : 'برای تلاش مجدد از دکمهٔ بالای صفحه استفاده کنید.'}</p></div></div>`;
     if (cooldown > 0 && !S.chartLoading) scheduleCountdownTick();
     if (S.chart) {
@@ -1777,7 +1834,7 @@ svg text{font-family:inherit}
         <div class="watch-item-bottom"><strong class="watch-item-price">${currentPrice ? U.fmt(currentPrice) : '—'}<small>تومان</small></strong><span class="watch-item-target">${icon('target', 13)}هدف <b>${p.target ? U.fmt(p.target) : 'تنظیم‌نشده'}</b></span><span class="watch-item-state ${hit ? 'good' : 'warn'}" title="${U.esc(state)}">${icon(hit ? 'check' : 'clock', 13)}${hit ? 'به هدف رسید' : p.target ? 'در انتظار هدف' : 'بدون هدف'}${change == null ? '' : ' · ' + U.fmtPct(change)}</span></div>
         ${targetEditor}${collectionSelect(p)}</article>`;
     };
-    let h = `<div class="watch-head"><div class="watch-head-copy"><span class="watch-head-icon">${icon('heart', 18)}</span><div><b>پیگیری قیمت</b><small>${U.toFa(tracked.length)} محصول زیرنظر</small></div></div><button class="btn sec icon-btn" data-act="checkNow" title="بررسی قیمت‌های واچ‌لیست">${iconText('refresh', 'بررسی قیمت‌ها')}</button></div>`;
+    let h = `<div class="watch-head"><div class="watch-head-copy"><span class="watch-head-icon">${icon('heart', 18)}</span><div><b>واچ‌لیست</b><small>${U.toFa(tracked.length)} محصول زیرنظر</small></div></div><button class="btn sec icon-btn" data-act="checkNow" title="بررسی قیمت‌های واچ‌لیست">${iconText('refresh', 'بررسی قیمت‌ها')}</button></div>`;
     if (cur && !cur.watch) {
       const currentTitle = Extract.coreTitle(S.product?.title) || S.product?.title || cur.title || 'محصول فعلی';
       const currentPrice = Number(S.product?.price || cur.lastPrice || 0);
@@ -1806,10 +1863,10 @@ svg text{font-family:inherit}
       : '<p class="muted collection-help">برای دسته‌بندی محصولات، مجموعه بسازید.</p>';
     h += `<section class="collection-manager"><div class="collection-manager-head"><div class="collection-manager-title">${icon('layers')}<b>مجموعه‌ها</b></div><button type="button" class="btn sec icon-btn" data-act="toggleCollectionForm" aria-expanded="${collectionFormOpen}" aria-controls="collectionCreateForm" aria-label="${collectionFormOpen ? 'بستن فرم ساخت مجموعه' : 'ساخت مجموعهٔ جدید'}" title="${collectionFormOpen ? 'بستن فرم' : 'ساخت مجموعه'}">${icon(collectionFormOpen ? 'close' : 'tag')}<span>${collectionFormOpen ? 'بستن' : 'مجموعهٔ جدید'}</span></button></div>${collectionPills}${selectionActions}<div class="collection-create-form" id="collectionCreateForm" ${collectionFormOpen ? '' : 'hidden'}><label for="collectionName" class="collection-icon-label">نام مجموعه</label><div class="collection-name-row"><input type="text" id="collectionName" maxlength="32" aria-describedby="collectionNameError" aria-label="نام مجموعهٔ جدید" placeholder="مثلاً تولد یا هدیه"><button type="button" class="btn collection-create-submit" data-act="createCollection">${iconText('check', 'ساخت')}</button><button type="button" class="btn sec icon-btn" data-act="toggleCollectionForm" aria-label="لغو ساخت مجموعه" title="لغو">${icon('close')}</button></div><small id="collectionNameError" class="collection-form-error" hidden>نام مجموعه را وارد کنید.</small><span class="collection-icon-label">آیکون</span><div class="collection-icon-picker" role="group" aria-label="انتخاب آیکون مجموعه">${iconChoices.map(([name, label], i) => `<button type="button" class="collection-icon-choice" data-collection-icon="${name}" aria-label="${label}" title="${label}" aria-pressed="${i === 0}">${icon(name, 18)}</button>`).join('')}</div></div></section>`;
     const visible = tracked.filter(p => watchCollectionFilter === 'all' || (watchCollectionFilter === 'none' ? !collections[p.collectionId] : p.collectionId === watchCollectionFilter));
-    if (visible.length) h += `<div class="watch-list">${visible.map(itemCard).join('')}</div>`;
+    if (visible.length) h += `<div class="watch-list-title"><span>${U.esc(filters.find(f => f.id === watchCollectionFilter)?.name || 'محصولات زیرنظر')}</span><small>${U.toFa(visible.length)} کالا</small></div><div class="watch-list">${visible.map(itemCard).join('')}</div>`;
     else if (tracked.length) h += `<div class="collection-empty">در این مجموعه هنوز محصولی نیست.</div>`;
     else if (!cur?.watch && !S.product) h += `<div class="empty-state watch-empty" role="status"><span class="empty-state-icon">${icon('heart', 18)}</span><div class="empty-state-copy"><b>هنوز محصولی زیر نظر نیست</b><p>برای افزودن کالا، صفحهٔ محصول را باز کنید.</p></div></div>`;
-    return h;
+    return `<div class="watch-layout">${h}</div>`;
   }
 
   function settingsSection(title, iconName, content) {
@@ -1831,7 +1888,6 @@ svg text{font-family:inherit}
     h += settingsSection('هشدار قیمت', 'bell', alertSettings);
     const dataActions = `<div class="btns"><button class="btn sec icon-btn" data-act="expCsv">${iconText('download', 'خروجی CSV')}</button><button class="btn sec icon-btn" data-act="expJson">${iconText('download', 'خروجی JSON')}</button><button class="btn sec icon-btn" data-act="impCsv">${iconText('upload', 'ورود CSV')}</button><button class="btn bad icon-btn" data-act="clearProd" title="پاک‌کردن تاریخچهٔ محلی این محصول">${iconText('trash', 'حذف محصول')}</button><button class="btn bad icon-btn" data-act="clearAll" title="پاک‌کردن همهٔ داده‌ها و تنظیمات">${iconText('trash', 'حذف همه')}</button></div><input type="file" id="file" accept=".csv" style="display:none">`;
     h += settingsSection('داده‌های ذخیره‌شده', 'file', dataActions);
-    h += `<button type="button" class="diagnostics-option" data-tab="log" aria-label="بازکردن گزارش و عیب‌یابی">${icon('bug', 19)}<span class="diagnostics-option-copy"><b>گزارش و عیب‌یابی</b><small>رویدادها، خطاها و وضعیت منابع قیمت</small></span></button>`;
     return h;
   }
   function tabLog() {
@@ -1878,11 +1934,13 @@ svg text{font-family:inherit}
     tabMorphSequence += 1;
     tabMorphAnimations.forEach(animation => { try { animation.cancel(); } catch {} });
     tabMorphAnimations = []; tabMorphActive = false;
-    $('#body')?.querySelectorAll('.body-transition-exit').forEach(node => node.remove());
+    $('#panel')?.querySelectorAll('.body-transition-exit,.tab-morph-overlay').forEach(node => node.remove());
   }
   function positionTabIndicator(fromRect = null) {
     const nav = $('#tabs'), indicator = nav?.querySelector('.tab-indicator'), active = nav?.querySelector('.tab.on');
-    if (!nav || !indicator || !active) return null;
+    if (!nav || !indicator) return null;
+    if (!active) { indicator.style.opacity = '0'; lastIndicatorTarget = null; return null; }
+    indicator.style.opacity = '1';
     const navRect = nav.getBoundingClientRect(), activeRect = active.getBoundingClientRect();
     const labelWidth = active.querySelector('.tab-label')?.scrollWidth || 0;
     const width = Math.min(activeRect.width, Math.max(48, Math.ceil(labelWidth + 12))), height = 40;
@@ -1927,8 +1985,12 @@ svg text{font-family:inherit}
     if (!TABS.some(([key]) => key === S.tab) && S.tab !== 'log') S.tab = 'compare';
     if (!nav.querySelector('.tab-indicator')) {
       const indicator = document.createElement('span'); indicator.className = 'tab-indicator'; indicator.setAttribute('aria-hidden', 'true');
-      const main = document.createElement('div'); main.className = 'tab-main'; main.setAttribute('role', 'presentation');
-      nav.append(indicator, main);
+      const main = document.createElement('div'); main.className = 'tab-main'; main.setAttribute('role', 'tablist'); main.setAttribute('aria-label', 'بخش‌های اصلی');
+      const dock = document.createElement('div'); dock.className = 'diagnostics-dock';
+      const diagnostics = document.createElement('button'); diagnostics.type = 'button'; diagnostics.className = 'diagnostics-dock-button'; diagnostics.id = 'tab-log'; diagnostics.dataset.tab = 'log';
+      diagnostics.setAttribute('aria-label', 'گزارش و عیب‌یابی'); diagnostics.setAttribute('aria-controls', 'body'); diagnostics.setAttribute('title', 'گزارش و عیب‌یابی');
+      diagnostics.innerHTML = icon('bug', 19); dock.appendChild(diagnostics);
+      nav.append(indicator, main, dock);
       const appendTab = (parent, [key, ico, labelText, title]) => {
         const button = document.createElement('button'); button.type = 'button'; button.id = 'tab-' + key; button.className = 'tab'; button.dataset.tab = key;
         button.setAttribute('role', 'tab'); button.setAttribute('aria-label', title); button.setAttribute('aria-controls', 'body'); button.setAttribute('title', title);
@@ -1940,6 +2002,9 @@ svg text{font-family:inherit}
       TABS.forEach(item => appendTab(main, item));
       nav.addEventListener('scroll', () => positionTabIndicator(), { passive: true });
     }
+    nav.classList.toggle('diagnostics-on', S.tab === 'log');
+    const diagnostics = nav.querySelector('#tab-log');
+    diagnostics?.classList.toggle('on', S.tab === 'log'); diagnostics?.setAttribute('aria-pressed', String(S.tab === 'log'));
     for (const [key] of TABS) {
       const button = nav.querySelector('#tab-' + key), active = key === S.tab || (key === 'settings' && S.tab === 'log');
       button.classList.toggle('on', active); button.setAttribute('aria-selected', String(active));
@@ -1972,48 +2037,52 @@ svg text{font-family:inherit}
     if (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
     const entering = bodyNode.querySelector('.body-content');
     if (!entering || typeof entering.animate !== 'function') return false;
+    const panel = $('#panel'), panelRect = panel?.getBoundingClientRect(), bodyRect = bodyNode.getBoundingClientRect();
+    if (!panel || !panelRect || !bodyRect.width || !bodyRect.height) return false;
+    const source = originRect || { left: bodyRect.left + bodyRect.width / 2 - 28, top: bodyRect.top + 6, width: 56, height: 38 };
     const exit = document.createElement('div'); exit.className = 'body-transition-exit';
     exit.setAttribute('aria-hidden', 'true'); exit.inert = true; exit.innerHTML = `<div class="body-exit-content">${oldHtml}</div>`;
     exit.firstElementChild.style.transform = `translateY(-${Math.max(0, oldScrollTop)}px)`;
     exit.querySelectorAll('[id]').forEach(node => node.removeAttribute('id'));
     exit.querySelectorAll('button,input,select,textarea,a').forEach(node => { node.tabIndex = -1; });
     bodyNode.appendChild(exit);
-    const morphClip = node => {
-      const rect = node.getBoundingClientRect(), width = Math.max(1, rect.width), height = Math.max(1, rect.height);
-      const centerX = originRect ? originRect.left + originRect.width / 2 - rect.left : width / 2;
-      const pillWidth = Math.min(width, Math.max(48, Math.ceil(originRect?.width || 64)));
-      const left = Math.min(width - pillWidth, Math.max(0, centerX - pillWidth / 2));
-      const right = width - left - pillWidth, pillHeight = Math.min(height, 38);
-      const centerY = originRect ? originRect.top + originRect.height / 2 - rect.top : pillHeight / 2;
-      const top = Math.min(height - pillHeight, Math.max(0, centerY - pillHeight / 2));
-      const bottom = height - top - pillHeight;
-      return `inset(${top}px ${right}px ${bottom}px ${left}px round 999px)`;
-    };
-    const collapsed = morphClip(exit), expanded = 'inset(0px 0px 0px 0px round 14px)';
-    const cleanup = () => { if (exit.isConnected) exit.remove(); };
-    let enteringAnimation, leaving;
+    const overlay = document.createElement('div'); overlay.className = 'tab-morph-overlay'; overlay.setAttribute('aria-hidden', 'true');
+    const start = { left: source.left - panelRect.left, top: source.top - panelRect.top, width: source.width, height: source.height };
+    const end = { left: bodyRect.left - panelRect.left, top: bodyRect.top - panelRect.top, width: bodyRect.width, height: bodyRect.height };
+    const boxFrame = box => ({ left: box.left + 'px', top: box.top + 'px', width: box.width + 'px', height: box.height + 'px' });
+    const color = getComputedStyle(bodyNode), accent = color.getPropertyValue('--acc2').trim() || '#f0c65a', panelColor = color.getPropertyValue('--panel').trim() || '#15181e';
+    Object.assign(overlay.style, { left: start.left + 'px', top: start.top + 'px', width: start.width + 'px', height: start.height + 'px', borderRadius: Math.min(22, start.height / 2) + 'px' });
+    panel.appendChild(overlay);
+    const cleanup = () => { if (exit.isConnected) exit.remove(); if (overlay.isConnected) overlay.remove(); };
+    let enteringAnimation, leaving, morphAnimation;
     try {
       enteringAnimation = entering.animate([
-        { opacity: 0.88, clipPath: morphClip(entering), transform: 'translateY(-4px) scale(.99)' },
-        { opacity: 1, clipPath: expanded, transform: 'translateY(0) scale(1)' }
-      ], { duration: 440, easing: 'cubic-bezier(.2,.8,.2,1)' });
+        { opacity: 0, transform: 'translateY(10px) scale(.985)' },
+        { offset: .26, opacity: .05, transform: 'translateY(7px) scale(.99)' },
+        { opacity: 1, transform: 'translateY(0) scale(1)' }
+      ], { duration: 520, easing: 'cubic-bezier(.2,.8,.2,1)' });
       leaving = exit.animate([
-        { opacity: 1, clipPath: expanded, transform: 'translateY(0) scale(1)' },
-        { opacity: 0.18, clipPath: collapsed, transform: 'translateY(-3px) scale(.99)' }
-      ], { duration: 300, easing: 'cubic-bezier(.4,0,.2,1)' });
+        { opacity: 1, transform: 'translateY(0) scale(1)' },
+        { opacity: 0, transform: 'translateY(-5px) scale(.985)' }
+      ], { duration: 220, easing: 'cubic-bezier(.4,0,.2,1)' });
+      morphAnimation = overlay.animate([
+        { ...boxFrame(start), borderRadius: '999px', backgroundColor: accent, opacity: .98 },
+        { offset: .58, ...boxFrame(end), borderRadius: '16px', backgroundColor: panelColor, opacity: .96 },
+        { ...boxFrame(end), borderRadius: '0px', backgroundColor: panelColor, opacity: 0 }
+      ], { duration: 500, easing: 'cubic-bezier(.22,1,.36,1)' });
     } catch {
       cleanup();
       return false;
     }
     const sequence = ++tabMorphSequence;
-    tabMorphActive = true; tabMorphAnimations = [enteringAnimation, leaving];
+    tabMorphActive = true; tabMorphAnimations = [enteringAnimation, leaving, morphAnimation];
     const release = () => {
       if (sequence !== tabMorphSequence) return;
       cleanup(); tabMorphAnimations = []; tabMorphActive = false;
       if (queuedAppRender) queueAppRender();
     };
-    const fallback = setTimeout(release, 520);
-    Promise.allSettled([enteringAnimation.finished, leaving.finished]).then(() => { clearTimeout(fallback); release(); });
+    const fallback = setTimeout(release, 580);
+    Promise.allSettled([enteringAnimation.finished, leaving.finished, morphAnimation.finished]).then(() => { clearTimeout(fallback); release(); });
     return true;
   }
 
@@ -2033,7 +2102,8 @@ svg text{font-family:inherit}
     $('#price').innerHTML = p.price ? `${U.fmt(p.price)} <small>تومان · ${U.esc(p.priceSource || '')}</small>` : '<span class="warn" style="font-size:16px">قیمت شناسایی نشد — «ثبت دستی قیمت»</span>';
     const dk = S.dk && S.dk.chosen;
     $('#meta').innerHTML = [p.oldPrice ? `قبل از تخفیف: <s>${U.fmt(p.oldPrice)}</s>` : '', p.seller ? 'فروشنده: ' + U.esc(p.seller) : '', p.warranty ? 'گارانتی: ' + U.esc(p.warranty) : '', dk && S.dk.lowest30dOfficial ? 'کمینهٔ ۳۰روزهٔ اعلامی دیجی‌کالا: ' + U.fmt(S.dk.lowest30dOfficial) : ''].filter(Boolean).join(' · ');
-    const morphOriginRect = renderTabs(transition.indicatorRect || null);
+    const indicatorTargetRect = renderTabs(transition.indicatorRect || null);
+    const morphOriginRect = transition.originRect || indicatorTargetRect;
     const body = { compare: tabCompare, history: tabHistory, inspect: tabInspector, watch: tabWatch, settings: tabSettings, log: tabLog }[S.tab]();
     const bodyNode = $('#body');
     bodyNode.setAttribute('aria-labelledby', `tab-${S.tab === 'log' ? 'settings' : S.tab}`);
@@ -2109,9 +2179,12 @@ svg text{font-family:inherit}
         if (t.dataset.tab === S.tab) return;
         const fromTab = S.tab, bodyNode = $('#body'), oldScrollTop = bodyNode.scrollTop, fromContent = bodyNode.querySelector('.body-content')?.innerHTML ?? bodyNode.innerHTML;
         tabScrollPositions[fromTab] = oldScrollTop;
-        const indicatorRect = $('#tabs').querySelector('.tab-indicator')?.getBoundingClientRect();
+        const indicator = $('#tabs').querySelector('.tab-indicator');
+        const activeSource = S.tab === 'log' ? $('#tab-log') : indicator;
+        const indicatorRect = activeSource?.getBoundingClientRect();
+        const originRect = t.getBoundingClientRect();
         S.tab = t.dataset.tab; db.settings.tab = S.tab; Store.save();
-        const transition = { indicatorRect, oldBodyHtml: fromContent, oldScrollTop, fromTab, toTab: t.dataset.tab };
+        const transition = { indicatorRect, originRect, oldBodyHtml: fromContent, oldScrollTop, fromTab, toTab: t.dataset.tab };
         const result = render(transition);
         if (S.tab === 'history' && !S.chart && !S.chartLoading) setTimeout(() => App.loadHistory(), 80);
         return result;
@@ -2215,7 +2288,7 @@ svg text{font-family:inherit}
     root.innerHTML = `<style>${CSS}</style><div class="wrap dark"><button type="button" id="pill" aria-label="بازکردن پنل تخفیف‌سنج" aria-expanded="false" title="تخفیف‌سنج — بکشید تا جابه‌جا شود (Alt+Shift+G)">${icon('tag')}<span>تخفیف‌سنج</span></button>
       <section id="panel"><header><div class="brand">تخفیف‌سنج</div><button type="button" class="x x3" id="wide" title="عریض‌کردن پنل" aria-label="عریض‌کردن پنل">${icon('expand')}</button><button type="button" class="x x2" id="min" title="جمع‌کردن پنل" aria-label="جمع‌کردن پنل">${icon('minus')}</button><button type="button" class="x" id="close" title="بستن پنل" aria-label="بستن پنل">${icon('close')}</button></header>
       <div class="hero"><div class="name" id="name"></div><div class="price" id="price"></div><div class="meta" id="meta"></div></div>
-      <div class="workspace"><nav class="tabs" id="tabs" role="tablist" aria-label="بخش‌های تخفیف‌سنج"></nav><div class="body" id="body" role="tabpanel"></div></div>
+      <div class="workspace"><nav class="tabs" id="tabs" role="group" aria-label="ناوبری و عیب‌یابی"></nav><div class="body" id="body" role="tabpanel"></div></div>
       </section></div>`;
     bind(); App.on(queueAppRender); render(); requestAnimationFrame(applyPos);
     addEventListener('resize', () => { applyPos(); positionTabIndicator(); });
@@ -2251,7 +2324,7 @@ const Main = (() => {
     };
     const run = () => { try { check(); } catch (e) { Log.error('main', e.message); } };
     setTimeout(run, 600); setInterval(run, 1500);
-    Log.info('main', 'تخفیف‌سنج 15.2.25 آماده شد');
+    Log.info('main', 'تخفیف‌سنج 15.2.26 آماده شد');
   }
   return { init };
 })();

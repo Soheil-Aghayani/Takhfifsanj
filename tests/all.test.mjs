@@ -243,6 +243,22 @@ test('torob: keeps the user-provided product redirect and still excludes the nam
   assert.equal(offers.length, 2); assert.ok(offers.some(o => o.price === 140000)); assert.ok(offers.some(o => o.sellerKey === 'digikala.com'));
 });
 
+test('Emalls: a failed first search does not block the next query; Persian price and reversed shop URL parse correctly', async () => {
+  const title = 'کابل Type-C به Type-C روموس 100 وات 1.2 متر مدل ROMOSS CB3241';
+  const buyLink = 'https://click.emalls.ir/offer/3241'.split('').reverse().join('');
+  let calls = 0;
+  const gm = o => {
+    if (!o.url.includes('/swservice/site_search')) return setTimeout(() => o.onload({ status: 404, responseText: '' }), 0);
+    calls++;
+    if (calls === 1) return setTimeout(() => o.onload({ status: 502, responseText: 'temporary error' }), 0);
+    setTimeout(() => o.onload({ status: 200, responseText: JSON.stringify({ lstsearchresualt: [{ title, price: '۱,۲۰۰,۰۰۰', buyTitle: 'خرید از فروشگاه نمونه', buyLink }] }) }), 0);
+  };
+  const { api } = makeEnv(BUYBOX, undefined, { GM_xmlhttpRequest: gm }); api.Store.load();
+  const result = await api.Sources.emalls.fetch({ id: 'cb3241', title, altTitles: [], brandAliases: ['Romoss'] });
+  assert.ok(calls >= 2); assert.equal(result.status, 'ok'); assert.equal(result.offers.length, 1);
+  assert.equal(result.offers[0].price, 1200000); assert.equal(result.offers[0].sellerUrl, 'https://click.emalls.ir/offer/3241');
+});
+
 test('E2E (mock net): Torob picks the right base product, dedups sellers, DOES NOT use the wrong model', async () => {
   const routes = [{ m: 'base-product/search', body: TOROB_SEARCH }, { m: 'base-product/sellers', body: TOROB_SELLERS }, { m: '/price-chart/', body: J('fx_price_chart.json') }, { m: '/product/v1/products/', body: headphoneProduct() }];
   const { api, w } = makeEnv(BUYBOX, undefined, { GM_xmlhttpRequest: mockGM(routes) });
@@ -272,10 +288,15 @@ test('UI: exactly ONE panel host, mount is idempotent, every tab renders, legacy
   assert.equal(root.querySelector('.foot'), null); assert.equal(root.querySelectorAll('.credit a').length, 0); assert.ok(root.querySelector('#pill').textContent.includes('تخفیف‌سنج'));
   assert.ok(root.querySelector('#price').textContent.includes('نوار خرید'));
   for (const t of ['compare', 'history', 'inspect', 'watch', 'settings', 'log']) { api.App.state.tab = t; api.UI.render(); assert.ok(root.querySelector('#body').innerHTML.length > 20, t); }
+  api.App.state.tab = 'settings'; api.UI.render();
+  assert.equal(root.querySelectorAll('.tab').length, 5); assert.equal(root.querySelector('.tab-main').nextElementSibling.className, 'diagnostics-dock');
+  assert.equal(root.querySelector('.diagnostics-option'), null); assert.ok(root.querySelectorAll('.switch-input').length > 0); assert.equal(root.querySelectorAll('.switch-input').length, root.querySelectorAll('.switch-track').length); root.querySelector('.diagnostics-dock-button').click();
+  assert.equal(api.App.state.tab, 'log'); assert.ok(root.querySelector('.diagnostics-dock-button').classList.contains('on')); assert.ok(root.querySelector('.diagnostics-back'));
+  root.querySelector('.diagnostics-back').click(); assert.equal(api.App.state.tab, 'settings'); assert.ok(root.querySelector('#tab-settings').classList.contains('on'));
   api.App.state.tab = 'log'; api.UI.render(); assert.ok(root.querySelector('.banner').textContent.includes('ghpro12-host'));
   api.App.state.tab = 'compare'; api.UI.render(); assert.ok(root.querySelectorAll('.offer').length === 3);
   assert.ok(![...root.querySelectorAll('.offer')].some(e => e.textContent.includes('TWSDX')) && !root.innerHTML.includes('2,590,000') && !root.innerHTML.includes('۲٬۵۹۰٬۰۰۰'));
-  assert.ok(root.innerHTML.includes('نتایج ردشده'));
+  assert.ok(root.querySelector('details.rejected-results')); assert.equal(root.querySelector('details.rejected-results').open, false);
 });
 
 test('alerts: fires once per drop under target, not above, not repeatedly', () => {
@@ -310,19 +331,19 @@ test('UI: pill is draggable (drag moves + saves, tap opens); wide toggle; show-a
   root.querySelector('[data-act="toggleAll"]').click(); assert.equal(root.querySelectorAll('.offer').length, 9);
   const adv = root.innerHTML.indexOf('مشاور خرید'), first = root.innerHTML.indexOf('class="card offer'); assert.ok(adv > 0 && adv < first);
   root.querySelector('#wide').click(); assert.ok(root.querySelector('#panel').classList.contains('wide'));
-  const css = root.querySelector('style').textContent; assert.match(css, /\.tabs\{[^}]*flex-direction:row/); assert.match(css, /\.tab-main\{[^}]*display:grid[^}]*grid-template-columns:repeat\(5,minmax\(0,1fr\)\)/); assert.match(css, /\.tab\.on \.tab-icon\{display:none/); assert.match(css, /\.tab\.on \.tab-label\{position:static/); assert.match(css, /\.body\{min-height:0/);
+  const css = root.querySelector('style').textContent; assert.match(css, /\.tabs\{[^}]*flex-direction:row/); assert.match(css, /\.tab-main\{[^}]*display:grid[^}]*grid-template-columns:repeat\(5,minmax\(0,1fr\)\)/); assert.match(css, /\.tab\.on \.tab-icon\{visibility:hidden/); assert.match(css, /\.tab\.on \.tab-label\{position:static/); assert.match(css, /\.diagnostics-dock\{[^}]*flex:0 0 54px/); assert.match(css, /\.tabs\.diagnostics-on \.tab-indicator\{opacity:0/); assert.match(css, /\.body\{min-height:0/);
 });
 
 // ---- v14 ----
 const routeBy = (fn) => (o) => { const r = fn(decodeURIComponent(o.url)); setTimeout(() => r ? o.onload({ status: r.status || 200, responseText: JSON.stringify(r.body) }) : o.onload({ status: 404, responseText: '' }), 0); };
 const CAND = (name2, price, key) => ({ name1: 'هدفون بلوتوثی موزیک آپولو مدل YRB22', name2, price, random_key: key, is_adv: false });
 
-test('torob: stops after the first matching query and reports what was tried', async () => {
+test('torob: searches every query, deduplicates product candidates and reports the full search ladder', async () => {
   const urls = [];
   const gm = routeBy(u => { urls.push(u); if (u.includes('base-product/search')) { const query = new URL(u).searchParams.get('query') || ''; return { body: { search_id: 's', results: /آپولو|apollo/i.test(query) ? [CAND('مشکی', 2100000, 'k1')] : [] } }; } if (u.includes('/sellers/')) return { body: TOROB_SELLERS }; return null; });
   const { api, w } = makeEnv(BUYBOX, undefined, { GM_xmlhttpRequest: gm });
   api.Store.load(); torobOnly(api); await api.App.refreshProduct(); await api.App.runCompare();
-  const t = api.App.state.sources.torob; assert.equal(t.status, 'ok'); assert.equal(t.tried.length, 1); assert.match(t.tried[0], /آپولو|apollo/i); assert.match(t.query, /yrb22/); assert.equal(api.App.state.offers.length, 3); w.close();
+  const t = api.App.state.sources.torob; assert.equal(t.status, 'ok'); assert.ok(t.tried.length > 1); assert.equal(urls.filter(u => u.includes('base-product/search')).length, t.tried.length); assert.ok(t.tried.some(q => /آپولو|apollo/i.test(q))); assert.match(t.query, /yrb22/); assert.equal(t.candidates.length, 1); assert.equal(api.App.state.offers.length, 3); w.close();
 });
 
 test('torob: candidate switch replaces only Torob offers; manual query overrides the ladder', async () => {
@@ -402,6 +423,15 @@ test('UI: history tab disables "دریافت دوباره" and shows a countdown
   await api.App.refreshProduct(); api.App.state.tab = 'history'; api.App.state.historyCooldownUntil = Date.now() + 12000; api.UI.render();
   const root = w.document.getElementById('ghafel-pro-host').shadowRoot;
   const btn = root.querySelector('[data-act="reloadHistory"]'); assert.ok(btn.hasAttribute('disabled')); assert.match(btn.textContent, /منتظر بمانید/);
+});
+
+test('UI: rate-limited history uses one clear status card and never leaks raw SVG text', () => {
+  const { api, w } = makeEnv(BUYBOX); api.Store.load(); api.UI.mount();
+  Object.assign(api.App.state, { product: { id: '123', key: 'digikala:123', title: 'کالای آزمایشی' }, tab: 'history', historyNotice: 'rate-limit', historyCooldownUntil: Date.now() + 90000 });
+  api.UI.render();
+  const root = w.document.getElementById('ghafel-pro-host').shadowRoot;
+  assert.equal(root.querySelectorAll('#body .history-status').length, 1); assert.equal(root.querySelectorAll('#body .empty-state').length, 0);
+  assert.match(root.querySelector('#body').textContent, /دریافت تاریخچه موقتاً محدود شده/); assert.doesNotMatch(root.querySelector('#body').textContent, /\bsvg\b/i);
 });
 
 test('torob: long product headings search by model/core title and still reject a different model', () => {

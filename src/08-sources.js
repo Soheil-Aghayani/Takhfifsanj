@@ -85,24 +85,42 @@ const Sources = (() => {
       return offers;
     },
     async fetch(prod, { query, pickKey } = {}) {
-      const tried = []; let found = null; const nearMiss = []; let rejected = 0;
+      const tried = [], nearMiss = new Map(), rejected = new Set(), byKey = new Map();
       const qs = torob.queries(prod, query);
-      for (let i = 0; i < qs.length && !found; i++) {
-        let res; try { res = await torob.search(qs[i]); } catch (e) { if (i === 0) throw e; Log.warn('torob', 'جست‌وجوی مرحلهٔ ' + (i + 1) + ' ناموفق: ' + e.message); break; }
-        tried.push(qs[i]); Log.info('torob', `«${qs[i]}» → ${res.results.length} نتیجه`);
+      const responses = await Promise.all(qs.map(async (q, index) => {
+        try { return { q, index, res: await torob.search(q) }; }
+        catch (error) { return { q, index, error }; }
+      }));
+      const rank = { high: 0, medium: 1, low: 2 };
+      const compareCandidates = (a, b) => rank[a.ev.level] - rank[b.ev.level] || b.ev.score - a.ev.score || a.queryIndex - b.queryIndex || Number(a.r.price) - Number(b.r.price);
+      let firstError = null, successfulSearches = 0;
+      for (const item of responses) {
+        tried.push(item.q);
+        if (item.error) { firstError ||= item.error; Log.warn('torob', 'جست‌وجوی مرحلهٔ ' + (item.index + 1) + ' ناموفق: ' + item.error.message); continue; }
+        successfulSearches++;
+        const res = item.res;
+        Log.info('torob', `«${item.q}» → ${res.results.length} نتیجه`);
         const valid = res.results.filter(r => r && r.name1 && !r.is_adv && Number(r.price) > 0 && r.random_key);
-        const evaluated = valid.map(r => ({ r, ev: torob.evalCand(prod, r) })), ok = evaluated.filter(x => x.ev.ok);
-        rejected += evaluated.length - ok.length;
-        for (const x of evaluated.filter(x => !x.ev.ok && x.ev.flags.includes('model-mismatch')).slice(0, 3)) nearMiss.push({ title: x.r.name1 + ' ' + (x.r.name2 || ''), reason: x.ev.reasons[0] });
-        if (ok.length) { const rank = { high: 0, medium: 1, low: 2 }; ok.sort((a, b) => rank[a.ev.level] - rank[b.ev.level] || b.ev.score - a.ev.score || Number(a.r.price) - Number(b.r.price)); found = { ok, searchId: res.searchId, q: qs[i] }; }
+        for (const r of valid) {
+          const candidate = { r, ev: torob.evalCand(prod, r), searchId: res.searchId, q: item.q, queryIndex: item.index };
+          if (!candidate.ev.ok) {
+            rejected.add(r.random_key);
+            if (candidate.ev.flags.includes('model-mismatch') && nearMiss.size < 8 && !nearMiss.has(r.random_key)) nearMiss.set(r.random_key, { title: r.name1 + ' ' + (r.name2 || ''), reason: candidate.ev.reasons[0] });
+            continue;
+          }
+          const current = byKey.get(r.random_key);
+          if (!current || compareCandidates(candidate, current) < 0) byKey.set(r.random_key, candidate);
+        }
       }
-      if (!found) return { status: 'no-match', offers: [], note: 'محصول مطابقی در ترب با اطمینان کافی پیدا نشد (' + tried.length + ' جست‌وجو)', nearMiss: nearMiss.slice(0, 3), rejected, tried, candidates: [], query: tried[0] || '' };
-      const pick = (pickKey && found.ok.find(x => x.r.random_key === pickKey)) || found.ok[0], base = pick.r;
+      if (!successfulSearches && firstError) throw firstError;
+      const ok = [...byKey.values()].sort(compareCandidates), misses = [...nearMiss.values()].slice(0, 3);
+      if (!ok.length) return { status: 'no-match', offers: [], note: 'محصول مطابقی در ترب با اطمینان کافی پیدا نشد (' + tried.length + ' جست‌وجو)', nearMiss: misses, rejected: rejected.size, tried, candidates: [], query: tried[0] || '' };
+      const pick = (pickKey && ok.find(x => x.r.random_key === pickKey)) || ok[0], base = pick.r;
       const baseTitle = base.name1 + ' ' + (base.name2 || '');
       Log.info('torob', `محصول انتخاب‌شده: ${baseTitle} [${pick.ev.level} ${pick.ev.score}]`);
-      const offers = await torob.sellers(prod, base, pick.ev, found.searchId);
-      const candidates = found.ok.slice(0, 6).map(x => ({ key: x.r.random_key, title: x.r.name1 + ' ' + (x.r.name2 || ''), price: Number(x.r.price), level: x.ev.level }));
-      return { status: offers.length ? 'ok' : 'empty', offers, note: baseTitle, nearMiss: nearMiss.slice(0, 3), rejected, tried, candidates, chosenKey: base.random_key, query: found.q };
+      const offers = await torob.sellers(prod, base, pick.ev, pick.searchId);
+      const candidates = ok.slice(0, 6).map(x => ({ key: x.r.random_key, title: x.r.name1 + ' ' + (x.r.name2 || ''), price: Number(x.r.price), level: x.ev.level }));
+      return { status: offers.length ? 'ok' : 'empty', offers, note: baseTitle, nearMiss: misses, rejected: rejected.size, tried, candidates, chosenKey: base.random_key, query: pick.q };
     }
   };
 

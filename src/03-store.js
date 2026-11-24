@@ -1,6 +1,7 @@
 /* ===== Store: persistent data (GM storage with localStorage fallback), single JSON document ===== */
 const Store = (() => {
   const KEY = 'ghafel13:db';
+  const HISTORY_COOLDOWN_KEY = 'ghafel13:history-cooldown';
   const DEFAULT = () => ({
     v: 2,
     settings: {
@@ -49,6 +50,17 @@ const Store = (() => {
   }
   const get = () => db || load();
   const save = () => rawSet(JSON.stringify(get()));
+  async function getHistoryCooldown() {
+    try {
+      const value = hasGM() ? await GM_getValue(HISTORY_COOLDOWN_KEY, 0) : localStorage.getItem(HISTORY_COOLDOWN_KEY);
+      const until = Number(value); return Number.isFinite(until) ? until : 0;
+    } catch { return 0; }
+  }
+  async function setHistoryCooldown(until) {
+    const value = Math.max(0, Number(until) || 0);
+    try { if (hasGM()) { await GM_setValue(HISTORY_COOLDOWN_KEY, value); return; } localStorage.setItem(HISTORY_COOLDOWN_KEY, String(value)); }
+    catch (e) { Log.warn('store', 'history cooldown save failed: ' + e.message); }
+  }
 
   function touchProduct(key, init) {
     const d = get();
@@ -68,5 +80,5 @@ const Store = (() => {
     return true;
   }
   function reset() { db = DEFAULT(); save(); }
-  return { load, get, save, touchProduct, recordLocal, reset, DEFAULT, KEY };
+  return { load, get, save, touchProduct, recordLocal, getHistoryCooldown, setHistoryCooldown, reset, DEFAULT, KEY };
 })();

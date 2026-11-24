@@ -85,10 +85,17 @@ const App = (() => {
     if (Date.now() < state.historyCooldownUntil) {
       state.chartLoading = false; state.historyNotice = 'rate-limit'; state.chartError = '';
       if (cached) { state.chart = cached.chart; state.chartFromCache = true; state.chartFetchedAt = cached.fetchedAt; state.chartStale = true; selectHistoryVariant(p, color); }
-      emit(); return; // the rate limit is shared across products; a tab change cannot reset it
+      emit(); return;
     }
     state.chartLoading = true; state.chartError = ''; state.historyNotice = ''; emit();
     try {
+      const sharedCooldown = Number(await Store.getHistoryCooldown?.()) || 0;
+      if (sharedCooldown > Date.now()) {
+        state.historyCooldownUntil = Math.max(state.historyCooldownUntil, sharedCooldown);
+        state.chartLoading = false; state.historyNotice = 'rate-limit'; state.chartError = '';
+        if (cached) { state.chart = cached.chart; state.chartFromCache = true; state.chartFetchedAt = cached.fetchedAt; state.chartStale = true; selectHistoryVariant(p, color); }
+        emit(); return;
+      }
       state.chart = await Sources.dk.chart(p.id);
       state.historyCooldownUntil = 0; state.historyCooldownNote = ''; state.chartFromCache = false;
       state.chartFetchedAt = Date.now(); state.chartStale = false; state.historyNotice = '';
@@ -100,6 +107,7 @@ const App = (() => {
       const retryMs = e.retryAfterMs > 0 ? e.retryAfterMs : (e.status === 429 ? 90000 : 20000);
       state.historyCooldownUntil = Date.now() + retryMs; state.historyCooldownNote = e.status === 429 ? 'rate-limit' : 'error';
       state.historyNotice = e.status === 429 ? 'rate-limit' : 'error';
+      if (e.status === 429 && retryMs >= 30000) await Store.setHistoryCooldown?.(state.historyCooldownUntil);
       if (cached) {
         state.chart = cached.chart; state.chartFromCache = true; state.chartFetchedAt = cached.fetchedAt; state.chartStale = true;
         selectHistoryVariant(p, color); state.chartError = '';

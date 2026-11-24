@@ -139,7 +139,7 @@ test('background: AlertsBG fetches exact Digikala variant via Net, fires once un
   const r2 = await api.AlertsBG.checkAll(true); assert.equal(r2.fired, 0); // no repeat notification for the same price
 });
 
-test('UI: single host in a real content-script DOM; credits render with correct links; tamper banner appears when CreditGuard fails', async () => {
+test('UI: one host, removed footer credit chips stay absent, and tamper banner appears when CreditGuard fails', async () => {
   const chromeMock = makeBus();
   const routes = [{ m: 'base-product/search', body: { results: [] } }];
   wireBackground(chromeMock, fetchRouter(routes));
@@ -147,8 +147,7 @@ test('UI: single host in a real content-script DOM; credits render with correct 
   await api.Store.ready; api.UI.mount(); api.UI.mount();
   assert.equal(w.document.querySelectorAll('#ghafel-pro-host').length, 1);
   const root = w.document.getElementById('ghafel-pro-host').shadowRoot;
-  const links = [...root.querySelectorAll('.credit a')].map(a => a.href).sort();
-  assert.deepEqual(links, ['https://aqilistudio.ir/', 'https://t.me/GHAFEL_com', 'https://t.me/RealMahdi_a']);
+  assert.equal(root.querySelector('.foot'), null); assert.equal(root.querySelectorAll('.credit a').length, 0);
   api.CreditGuard.verify = async () => false; api.CreditGuard.isOk = () => false; api.UI.render();
   assert.ok(root.querySelector('.body').innerHTML.includes('تغییر داده شده')); w.close();
 });

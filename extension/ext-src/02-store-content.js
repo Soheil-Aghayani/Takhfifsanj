@@ -1,12 +1,15 @@
 /* ===== Store (content-script build): same public API as the userscript version, backed by chrome.storage.local ===== */
 const Store = (() => {
   const KEY = 'ghafel:db';
+  const HISTORY_COOLDOWN_KEY = 'ghafel:history-cooldown';
   const DEFAULT = () => ({ v: 2, settings: { theme: 'dark', productPageOnly: true, sources: { torob: true, emalls: true, basalam: true, snappshop: true }, alerts: { enabled: true, intervalMin: 60 }, snappCity: 'tehran', pos: null, open: false, tab: 'compare', table: false, wide: false, size: null, snap: true }, products: {}, collections: {} });
   function merge(base, src) { for (const k of Object.keys(src || {})) { if (src[k] && typeof src[k] === 'object' && !Array.isArray(src[k]) && base[k] && typeof base[k] === 'object' && !Array.isArray(base[k])) merge(base[k], src[k]); else base[k] = src[k]; } return base; }
   let db = DEFAULT();
   let ready = Ext.storage.get(KEY).then(r => { try { db = r && r[KEY] ? merge(DEFAULT(), r[KEY]) : DEFAULT(); if (!db.settings.sources || typeof db.settings.sources !== 'object') db.settings.sources = { ...DEFAULT().settings.sources }; if (!db.settings.snappCity) db.settings.snappCity = 'tehran'; if (Number(db.v) < 2) { Object.assign(db.settings.sources, { emalls: true, basalam: true, snappshop: true }); db.v = 2; Ext.storage.set({ [KEY]: db }).catch(e => Log.error('store', 'migration save failed: ' + e.message)); } db.collections ||= {}; for (const product of Object.values(db.products || {})) if (product && typeof product === 'object' && !('collectionId' in product)) product.collectionId = ''; } catch (e) { Log.error('store', 'corrupt db: ' + e.message); db = DEFAULT(); } }).catch(e => { Log.error('store', 'load failed: ' + e.message); });
   const get = () => db;
   function save() { Ext.storage.set({ [KEY]: db }).catch(e => Log.error('store', 'save failed: ' + e.message)); }
+  async function getHistoryCooldown() { try { const r = await Ext.storage.get(HISTORY_COOLDOWN_KEY); const until = Number(r?.[HISTORY_COOLDOWN_KEY]); return Number.isFinite(until) ? until : 0; } catch { return 0; } }
+  function setHistoryCooldown(until) { return Ext.storage.set({ [HISTORY_COOLDOWN_KEY]: Math.max(0, Number(until) || 0) }).catch(e => Log.warn('store', 'history cooldown save failed: ' + e.message)); }
   function touchProduct(key, init) { const p = db.products[key] ||= { key, host: '', pid: '', title: '', url: '', variantTitle: '', local: [], watch: false, target: null, collectionId: '', lastPrice: null, lastTs: 0, notifiedAt: 0, lastSource: '' }; if (init) Object.assign(p, init); return p; }
   const MAX_LOCAL = 1500, MIN_GAP = 6 * 3600e3;
   function recordLocal(p, price, source, ts = Date.now(), variantId = '') {
@@ -17,5 +20,5 @@ const Store = (() => {
     return true;
   }
   function reset() { db = DEFAULT(); save(); }
-  return { ready, load: () => db, get, save, touchProduct, recordLocal, reset, DEFAULT, KEY };
+  return { ready, load: () => db, get, save, touchProduct, recordLocal, getHistoryCooldown, setHistoryCooldown, reset, DEFAULT, KEY };
 })();
