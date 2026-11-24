@@ -301,9 +301,24 @@ test('UI: exactly ONE panel host, mount is idempotent, every tab renders, legacy
   await api.App.refreshProduct(); await api.App.runCompare(); await new Promise(r => setTimeout(r, 50));
   const root = w.document.getElementById('ghafel-pro-host').shadowRoot;
   assert.equal(root.querySelector('.foot'), null); assert.equal(root.querySelectorAll('.credit a').length, 0); assert.ok(root.querySelector('#pill').textContent.includes('تخفیف‌سنج'));
-  assert.ok(root.querySelector('#price').textContent.includes('نوار خرید'));
+  assert.doesNotMatch(root.querySelector('#price').textContent, /نوار خرید/);
+  assert.ok(root.querySelector('#price .currency-symbol path'));
+  assert.equal(root.querySelector('.hero-main').children[0].id, 'name');
+  assert.equal(root.querySelector('.hero-main').children[1].id, 'price');
+  assert.doesNotMatch(root.querySelector('#meta').textContent, /قبل از تخفیف|کمینهٔ ۳۰روزه/);
   for (const t of ['compare', 'history', 'inspect', 'watch', 'settings', 'log']) { api.App.state.tab = t; api.UI.render(); assert.ok(root.querySelector('#body').innerHTML.length > 20, t); }
   api.App.state.tab = 'settings'; api.UI.render();
+  assert.equal(root.querySelector('#ival').type, 'text');
+  assert.equal(root.querySelector('#ival').getAttribute('inputmode'), 'numeric');
+  assert.match(root.querySelector('#ival').value, /^[۰-۹]+$/);
+  assert.ok(root.querySelectorAll('#snappCity option').length >= 15);
+  assert.doesNotMatch([...root.querySelectorAll('.settings-section')].map(section => section.textContent).join(' '), /قیمت اسنپ‌شاپ با توجه به شهر انتخابی محاسبه می‌شود/);
+  assert.ok(root.querySelector('input[data-src="emalls"]')?.closest('.switch-row').querySelector('.brand-logo'));
+  assert.match(root.querySelector('#body').textContent, /دربارهٔ تخفیف‌سنج/);
+  assert.equal(root.querySelectorAll('.contact-links a').length, 2);
+  assert.equal(root.querySelector('.contact-links a[href^="mailto:"]')?.getAttribute('href'), 'mailto:soheyl.aghayani@gmail.com');
+  assert.equal(root.querySelector('.contact-links a[href*="t.me"]')?.getAttribute('href'), 'https://t.me/env_soh');
+  assert.ok(root.querySelector('.diagnostics-back') === null || root.querySelector('.diagnostics-back').getBoundingClientRect().height > 0);
   assert.equal(root.querySelectorAll('.tab').length, 5); assert.equal(root.querySelector('.tab-main').nextElementSibling, null);
   const legacyDiagnostic = w.document.createElement('button'); legacyDiagnostic.className = 'tab diagnostics-dock'; legacyDiagnostic.dataset.tab = 'diagnostics';
   root.querySelector('.tab-main').append(legacyDiagnostic); api.UI.render();
@@ -313,6 +328,11 @@ test('UI: exactly ONE panel host, mount is idempotent, every tab renders, legacy
   root.querySelector('.diagnostics-back').click(); assert.equal(api.App.state.tab, 'settings'); assert.ok(root.querySelector('#tab-settings').classList.contains('on'));
   api.App.state.tab = 'log'; api.UI.render(); assert.ok(root.querySelector('.banner').textContent.includes('ghpro12-host'));
   api.App.state.tab = 'compare'; api.UI.render(); assert.ok(root.querySelectorAll('.offer').length === 3);
+  assert.doesNotMatch(root.querySelector('#body').textContent, /تطبیق مطمئن/);
+  assert.equal(root.querySelectorAll('.offer-top-row').length, 3);
+  assert.equal(root.querySelectorAll('.offer-bottom-row .offer-price').length, 3);
+  assert.ok(root.querySelector('.offer-top-row .offer-link'));
+  assert.doesNotMatch(root.querySelector('#body').textContent, /اطمینان تطبیق محصول در ترب|سابقهٔ قیمت کافی برای قضاوت|هزینهٔ ارسال و گارانتی در مقایسه لحاظ نشده/);
   assert.ok(![...root.querySelectorAll('.offer')].some(e => e.textContent.includes('TWSDX')) && !root.innerHTML.includes('2,590,000') && !root.innerHTML.includes('۲٬۵۹۰٬۰۰۰'));
   assert.ok(root.querySelector('details.rejected-results')); assert.equal(root.querySelector('details.rejected-results').open, false);
   for (const card of root.querySelectorAll('.offer')) {
@@ -325,6 +345,18 @@ test('UI: exactly ONE panel host, mount is idempotent, every tab renders, legacy
   assert.ok(emallsCard.querySelectorAll('.offer-info').length === 2);
   const bareCard = [...root.querySelectorAll('.offer')].find(card => !card.querySelector('.offer-info'));
   assert.equal(bareCard.querySelectorAll('.offer-info').length, 0);
+  const originalOffers = api.App.state.offers;
+  const exemplar = originalOffers[0];
+  api.App.state.offers = [
+    { ...exemplar, seller: 'فروشنده الف', price: 1200000 },
+    { ...exemplar, seller: 'فروشنده ب', price: 1100000 },
+    { ...exemplar, seller: 'فروشنده پ', price: 1300000 },
+    { ...exemplar, seller: 'فروشنده ت', price: 600000 }
+  ];
+  api.UI.render();
+  assert.ok([...root.querySelectorAll('.offer .chip.warn')].some(chip => chip.textContent.includes('قیمت غیرمعمول')));
+  api.App.state.offers = originalOffers;
+  api.UI.render();
   root.querySelector('[data-act="toggleTable"]').click();
   assert.equal(root.querySelectorAll('.tb .match-score').length, 3);
   for (const score of root.querySelectorAll('.tb .match-score')) assert.match(score.textContent, /^[۰-۹]+٪$/);

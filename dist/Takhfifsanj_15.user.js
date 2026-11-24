@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         تخفیف‌سنج
 // @namespace    ghafel-com-pro
-// @version      15.2.30
+// @version      15.2.31
 // @description  مقایسهٔ قیمت فروشندگان، تاریخچهٔ قیمت دیجی‌کالا، بازرس تخفیف، واچ‌لیست و هشدار قیمت
 // @author       GHAFEL_com (Original Creator)
 // @contributor  RealMahdi_a (Upgrade & Development)
@@ -22,7 +22,7 @@
 // @noframes
 // @run-at       document-idle
 // ==/UserScript==
-/* تخفیف‌سنج 15.2.30 — Original Creator: GHAFEL_com (https://t.me/GHAFEL_com) · Upgrade & Development: RealMahdi_a (https://t.me/RealMahdi_a) · Website: https://aqilistudio.ir/
+/* تخفیف‌سنج 15.2.31 — Original Creator: GHAFEL_com (https://t.me/GHAFEL_com) · Upgrade & Development: RealMahdi_a (https://t.me/RealMahdi_a) · Website: https://aqilistudio.ir/
    Built from readable modules in /src. The 8.7 engine logic is preserved in src/06-extract.js (extraction),
    src/07-match.js (baseline rule) and src/08-sources.js (Torob flow). */
 (function () {
@@ -830,7 +830,22 @@ const Sources = (() => {
     tehran: { label: 'تهران', lat: 35.6892, lng: 51.3890 },
     mashhad: { label: 'مشهد', lat: 36.2972, lng: 59.6067 },
     isfahan: { label: 'اصفهان', lat: 32.6546, lng: 51.6680 },
-    shiraz: { label: 'شیراز', lat: 29.5918, lng: 52.5837 }
+    shiraz: { label: 'شیراز', lat: 29.5918, lng: 52.5837 },
+    tabriz: { label: 'تبریز', lat: 38.0800, lng: 46.2919 },
+    karaj: { label: 'کرج', lat: 35.8400, lng: 50.9391 },
+    qom: { label: 'قم', lat: 34.6416, lng: 50.8746 },
+    ahvaz: { label: 'اهواز', lat: 31.3183, lng: 48.6706 },
+    kermanshah: { label: 'کرمانشاه', lat: 34.3142, lng: 47.0650 },
+    urmia: { label: 'ارومیه', lat: 37.5527, lng: 45.0759 },
+    rasht: { label: 'رشت', lat: 37.2808, lng: 49.5832 },
+    yazd: { label: 'یزد', lat: 31.8974, lng: 54.3569 },
+    kerman: { label: 'کرمان', lat: 30.2839, lng: 57.0834 },
+    sari: { label: 'ساری', lat: 36.5633, lng: 53.0601 },
+    arak: { label: 'اراک', lat: 34.0917, lng: 49.6892 },
+    zahedan: { label: 'زاهدان', lat: 29.4963, lng: 60.8629 },
+    bandarAbbas: { label: 'بندرعباس', lat: 27.1865, lng: 56.2808 },
+    sanandaj: { label: 'سنندج', lat: 35.3114, lng: 46.9960 },
+    zanjan: { label: 'زنجان', lat: 36.6736, lng: 48.4787 }
   };
   const searchTerms = (prod, override) => {
     if (override) return [String(override).trim()].filter(Boolean);
@@ -952,7 +967,7 @@ const Sources = (() => {
   };
   const snappshop = {
     id: 'snappshop', label: 'اسنپ‌شاپ', icon: 'snappshop', kind: 'offers', implemented: true, hosts: ['apix.snappshop.ir'], cities: SNAPP_CITIES,
-    note: 'قیمت اسنپ‌شاپ بر اساس شهر انتخابی محاسبه می‌شود',
+    note: 'جست‌وجوی زندهٔ قیمت در اسنپ‌شاپ',
     async fetch(prod, { query } = {}) {
       const city = SNAPP_CITIES[Store.get().settings.snappCity] || SNAPP_CITIES.tehran;
       const coordinates = `lat=${encodeURIComponent(city.lat)}&lng=${encodeURIComponent(city.lng)}`;
@@ -1132,16 +1147,14 @@ const Analysis = (() => {
       const diff = (current - best.price) / current;
       if (diff >= 0.02) { cheaper = true; points.push({ k: 'good', text: `${best.seller} حدود ${U.fmtPct(diff * 100)} (${U.fmt(current - best.price)} تومان) ارزان‌تر است.` }); }
       else points.push({ k: 'ok', text: 'قیمت این صفحه با ارزان‌ترین فروشندهٔ تطبیق‌یافته برابر یا کمتر است.' });
-      if (best.matchLevel === 'medium') caveats.push('اطمینان تطبیق محصول در ترب «متوسط» است؛ مدل را قبل از خرید تأیید کنید.');
-    } else caveats.push('فروشندهٔ دیگری با تطبیق قابل‌اتکا پیدا نشد.');
+    }
     let histGood = null;
     if (st && st.count >= 10) {
       if (current <= st.min * 1.03) { histGood = true; points.push({ k: 'good', text: `قیمت نزدیک کمترین قیمت ثبت‌شده (${U.fmt(st.min)}) در ${U.toFa(st.span)} روز اخیر است.` }); }
       else if (current >= st.median * 1.1) { histGood = false; points.push({ k: 'warn', text: `قیمت ${U.fmtPct((current / st.median - 1) * 100)} بالاتر از میانهٔ ${U.toFa(st.span)} روز اخیر (${U.fmt(st.median)}) است.` }); }
       else points.push({ k: 'ok', text: `قیمت در محدودهٔ معمول ${U.toFa(st.span)} روز اخیر است (کمینه ${U.fmt(st.min)}، میانه ${U.fmt(st.median)}).` });
-    } else caveats.push('سابقهٔ قیمت کافی برای قضاوت دربارهٔ زمان خرید وجود ندارد.');
+    }
     if (insp && insp.verdict === 'rise-signal') { points.push({ k: 'warn', text: 'نشانهٔ افزایش قیمت پیش از تخفیف دیده می‌شود؛ تخفیف ادعایی را با احتیاط ببینید.' }); }
-    caveats.push('هزینهٔ ارسال و گارانتی در مقایسه لحاظ نشده (داده‌ی قابل‌اتکا موجود نیست).');
     if (cheaper) { tone = 'warn'; headline = 'فروشندهٔ ارزان‌تری وجود دارد'; }
     else if (histGood === true) { tone = 'good'; headline = 'از نظر قیمت، زمان نسبتاً مناسبی است'; }
     else if (histGood === false) { tone = 'warn'; headline = 'قیمت فعلی از حد معمول بالاتر است'; }
@@ -1162,7 +1175,7 @@ const App = (() => {
     sources: {},              // id -> {status, count, note, error, ts, nearMiss}
     dk: null,                 // parsed Digikala product record
     chart: null, chartError: '', chartLoading: false, chartFromCache: false, chartFetchedAt: 0, chartStale: false, historyNotice: '', variantIdx: 0, variantExact: false, variantManual: false,
-    range: 90, tab: 'compare', running: false, sort: 'price', trustedOnly: false, banner: '',
+    range: 90, tab: 'compare', running: false, sort: 'price', banner: '',
     dkFetching: false, dkTs: 0, historyCooldownUntil: 0, historyCooldownNote: ''
   };
   const subs = new Set(); const emit = () => subs.forEach(f => { try { f(state); } catch (e) { Log.error('ui', e.message); } });
@@ -1409,7 +1422,7 @@ const Exporter = (() => {
     for (const x of (p?.local || [])) rows.push([key, p?.title || '', new Date(x.t).toISOString(), x.p, 'local', x.src || 'local']);
     return rows.map(r => r.map(q).join(',')).join('\n');
   }
-  const jsonAll = extra => JSON.stringify({ app: 'تخفیف‌سنج 15.2.30', exportedAt: new Date().toISOString(), db: Store.get(), ...extra }, null, 2);
+  const jsonAll = extra => JSON.stringify({ app: 'تخفیف‌سنج 15.2.31', exportedAt: new Date().toISOString(), db: Store.get(), ...extra }, null, 2);
   function parseCsv(text) {
     const out = []; const lines = String(text || '').replace(/^\uFEFF/, '').split(/\r?\n/).filter(Boolean); if (!lines.length) return out;
     const head = lines[0].toLowerCase().split(',').map(s => s.trim().replace(/"/g, ''));
@@ -1438,6 +1451,7 @@ const Exporter = (() => {
 // ---- 12-icons.js ----
 /* Solar Icon Set by 480 Design, licensed CC BY 4.0: https://github.com/480-Design/Solar-Icon-Set */
 const SolarIcons = {
+  toman: "<path fill=\"currentColor\" d=\"M1.14878 6.91843C1.44428 6.91843 1.70285 6.87142 1.92447 6.77739C2.15282 6.68337 2.34422 6.55577 2.49869 6.39458C2.65316 6.2334 2.77069 6.04535 2.85128 5.83044C2.93187 5.62224 2.97888 5.40062 2.99231 5.16556H1.98492C1.6424 5.16556 1.36033 5.12862 1.1387 5.05474C0.917077 4.98087 0.742461 4.87341 0.614858 4.73238C0.487254 4.59134 0.396588 4.42344 0.34286 4.22868C0.295849 4.0272 0.272343 3.80221 0.272343 3.55372C0.272343 3.29852 0.309281 3.05674 0.383156 2.8284C0.457032 2.60005 0.564488 2.39857 0.705523 2.22396C0.846559 2.04934 1.02117 1.91167 1.22937 1.81093C1.44428 1.70347 1.68941 1.64974 1.96477 1.64974C2.1864 1.64974 2.39795 1.68668 2.59943 1.76056C2.80091 1.83443 2.97888 1.95196 3.13335 2.11315C3.28782 2.26761 3.40871 2.47245 3.49601 2.72766C3.59004 2.97615 3.63705 3.27837 3.63705 3.63431V4.47045H4.60415C4.68474 4.47045 4.73847 4.50068 4.76533 4.56112C4.79891 4.61485 4.8157 4.6988 4.8157 4.81297C4.8157 4.93386 4.79891 5.02452 4.76533 5.08497C4.73847 5.13869 4.68474 5.16556 4.60415 5.16556H3.6169C3.60347 5.49464 3.53631 5.80693 3.41542 6.10244C3.30125 6.39794 3.14007 6.65651 2.93187 6.87813C2.72368 7.09976 2.47518 7.27438 2.1864 7.40198C1.89761 7.5363 1.57188 7.60346 1.20922 7.60346H0.141381L0.0809373 6.91843H1.14878ZM0.896929 3.51343C0.896929 3.68133 0.913719 3.82572 0.947299 3.94661C0.987594 4.0675 1.0514 4.16823 1.1387 4.24883C1.23273 4.3227 1.35697 4.37979 1.51144 4.42008C1.66591 4.45366 1.86067 4.47045 2.09573 4.47045H3.00239V3.71491C3.00239 3.21792 2.90501 2.86198 2.71024 2.64707C2.51548 2.43215 2.24684 2.3247 1.90433 2.3247C1.58196 2.3247 1.33347 2.43215 1.15885 2.64707C0.984237 2.86198 0.896929 3.15076 0.896929 3.51343ZM6.26895 4.47045C6.35626 4.47045 6.41335 4.50068 6.44021 4.56112C6.47379 4.61485 6.49058 4.6988 6.49058 4.81297C6.49058 4.93386 6.47379 5.02452 6.44021 5.08497C6.41335 5.13869 6.35626 5.16556 6.26895 5.16556H4.60675C4.51944 5.16556 4.46235 5.13869 4.43549 5.08497C4.40191 5.03124 4.38512 4.94729 4.38512 4.83312C4.38512 4.71223 4.40191 4.62156 4.43549 4.56112C4.46235 4.50068 4.51944 4.47045 4.60675 4.47045H6.26895ZM7.93155 4.47045C8.01886 4.47045 8.07594 4.50068 8.10281 4.56112C8.13639 4.61485 8.15318 4.6988 8.15318 4.81297C8.15318 4.93386 8.13639 5.02452 8.10281 5.08497C8.07594 5.13869 8.01886 5.16556 7.93155 5.16556H6.26935C6.18204 5.16556 6.12495 5.13869 6.09809 5.08497C6.06451 5.03124 6.04772 4.94729 6.04772 4.83312C6.04772 4.71223 6.06451 4.62156 6.09809 4.56112C6.12495 4.50068 6.18204 4.47045 6.26935 4.47045H7.93155ZM9.59415 4.47045C9.68146 4.47045 9.73854 4.50068 9.76541 4.56112C9.79899 4.61485 9.81578 4.6988 9.81578 4.81297C9.81578 4.93386 9.79899 5.02452 9.76541 5.08497C9.73854 5.13869 9.68146 5.16556 9.59415 5.16556H7.93194C7.84464 5.16556 7.78755 5.13869 7.76069 5.08497C7.72711 5.03124 7.71032 4.94729 7.71032 4.83312C7.71032 4.71223 7.72711 4.62156 7.76069 4.56112C7.78755 4.50068 7.84464 4.47045 7.93194 4.47045H9.59415ZM11.2567 4.47045C11.3441 4.47045 11.4011 4.50068 11.428 4.56112C11.4616 4.61485 11.4784 4.6988 11.4784 4.81297C11.4784 4.93386 11.4616 5.02452 11.428 5.08497C11.4011 5.13869 11.3441 5.16556 11.2567 5.16556H9.59454C9.50723 5.16556 9.45015 5.13869 9.42328 5.08497C9.3897 5.03124 9.37291 4.94729 9.37291 4.83312C9.37291 4.71223 9.3897 4.62156 9.42328 4.56112C9.45015 4.50068 9.50723 4.47045 9.59454 4.47045H11.2567ZM12.1638 4.47045C12.4257 4.47045 12.6339 4.39994 12.7884 4.2589C12.9496 4.11787 13.0302 3.9231 13.0302 3.67461V2.2844H13.685V3.67461C13.685 4.15144 13.5506 4.52082 13.282 4.78275C13.0201 5.03795 12.6608 5.16556 12.2041 5.16556H11.2571C11.1698 5.16556 11.1127 5.13869 11.0859 5.08497C11.0523 5.03124 11.0355 4.94729 11.0355 4.83312C11.0355 4.71223 11.0523 4.62156 11.0859 4.56112C11.1127 4.50068 11.1698 4.47045 11.2571 4.47045H12.1638ZM13.7857 0.994934H12.9798V0.279683H13.7857V0.994934ZM12.5063 0.994934H11.7004V0.279683H12.5063V0.994934ZM5.64177 12.9641C5.64177 13.3267 5.58468 13.6659 5.47051 13.9815C5.35634 14.3039 5.1918 14.5826 4.97689 14.8177C4.76198 15.0595 4.50005 15.2509 4.19112 15.3919C3.8889 15.5329 3.54638 15.6035 3.16357 15.6035H2.56921C1.81702 15.6035 1.23273 15.3718 0.816337 14.9084C0.399946 14.445 0.191751 13.8103 0.191751 13.0044V11.2414H0.836485V12.9842C0.836485 13.273 0.870065 13.5349 0.937225 13.77C1.0111 14.0051 1.12191 14.2065 1.26967 14.3744C1.42413 14.549 1.61554 14.6834 1.84388 14.7774C2.07223 14.8714 2.34758 14.9184 2.66995 14.9184H3.1132C3.42885 14.9184 3.70421 14.8647 3.93927 14.7572C4.17433 14.6565 4.36909 14.5188 4.52356 14.3442C4.68474 14.1696 4.80227 13.9648 4.87615 13.7297C4.95674 13.4946 4.99703 13.2495 4.99703 12.9943V10.2844H5.64177V12.9641ZM3.21394 10.0628H2.36773V9.32738H3.21394V10.0628ZM8.24526 13.1656C8.07064 13.1656 7.90274 13.1421 7.74156 13.095C7.58038 13.0413 7.43598 12.954 7.30838 12.8331C7.18749 12.7122 7.09011 12.5544 7.01624 12.3596C6.94236 12.1582 6.90542 11.9097 6.90542 11.6142V6.9197H7.56023V11.4933C7.56023 11.7754 7.62067 12.0104 7.74156 12.1985C7.86916 12.3798 8.074 12.4705 8.35607 12.4705H8.52733C8.67508 12.4705 8.74896 12.5846 8.74896 12.813C8.74896 13.048 8.67508 13.1656 8.52733 13.1656H8.24526ZM8.69324 12.4705C8.95516 12.4705 9.15328 12.4067 9.2876 12.279C9.42192 12.1514 9.48908 11.9802 9.48908 11.7653V11.3825C9.48908 10.7982 9.63683 10.3415 9.93233 10.0124C10.2346 9.68332 10.6509 9.51878 11.1815 9.51878C11.4569 9.51878 11.6986 9.56243 11.9068 9.64974C12.115 9.73705 12.2863 9.8613 12.4206 10.0225C12.5616 10.1837 12.6657 10.3751 12.7329 10.5967C12.8001 10.8183 12.8336 11.0635 12.8336 11.3321C12.8336 11.9097 12.6825 12.3596 12.3803 12.682C12.0781 13.0044 11.6651 13.1656 11.1412 13.1656C10.8726 13.1656 10.614 13.1152 10.3655 13.0144C10.117 12.907 9.92226 12.7189 9.78123 12.4503C9.72078 12.6048 9.64691 12.729 9.5596 12.823C9.47229 12.9171 9.38162 12.9909 9.2876 13.0447C9.19358 13.0917 9.09284 13.1253 8.98538 13.1454C8.88464 13.1588 8.78726 13.1656 8.69324 13.1656H8.53205C8.44475 13.1656 8.38766 13.1387 8.3608 13.085C8.32722 13.0312 8.31043 12.9473 8.31043 12.8331C8.31043 12.7122 8.32722 12.6216 8.3608 12.5611C8.38766 12.5007 8.44475 12.4705 8.53205 12.4705H8.69324ZM12.1889 11.3925C12.1889 11.0433 12.1117 10.7612 11.9572 10.5463C11.8027 10.3247 11.5375 10.2139 11.1614 10.2139C10.4629 10.2139 10.1137 10.6202 10.1137 11.4328C10.1137 11.7754 10.2077 12.0339 10.3957 12.2085C10.5905 12.3831 10.839 12.4705 11.1412 12.4705C11.4837 12.4705 11.7423 12.3764 11.9169 12.1884C12.0982 12.0003 12.1889 11.7351 12.1889 11.3925Z\"/>",
   check: "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"><path d=\"M5 12.5L10 17.5L20 7.5\"/></g>",
   tag: "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\"><path d=\"M2.85574 7.39057L2.57231 8.61875C2.08083 10.7485 1.83509 11.8134 2.12264 12.816C2.41018 13.8186 3.18295 14.5914 4.72848 16.1369L6.55812 17.9665C9.24711 20.6555 10.5916 22 12.2623 22C13.933 22 15.2775 20.6555 17.9665 17.9665C20.6555 15.2775 22 13.933 22 12.2623C22 10.5916 20.6555 9.24711 17.9665 6.55812L16.1369 4.72848C14.5914 3.18295 13.8186 2.41018 12.816 2.12264C11.8134 1.83509 10.7485 2.08083 8.61875 2.57231L7.39057 2.85574C5.59881 3.26922 4.70292 3.47597 4.08944 4.08944C3.47597 4.70292 3.26922 5.59881 2.85574 7.39057Z\"/><circle cx=\"8.607\" cy=\"8.879\" r=\"2\"/><path d=\"M11.5413 18.4998L18.5203 11.5205\"/></g>",
   pen: "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"><path d=\"M13.5 6.5L17.5 10.5\"/><path d=\"M4.5 19.5L8.4 18.7L19.6 7.5C20.4 6.7 20.4 5.3 19.6 4.5C18.8 3.7 17.4 3.7 16.6 4.5L5.3 15.7L4.5 19.5Z\"/><path d=\"M4 22H20\"/></g>",
@@ -1458,6 +1472,7 @@ const SolarIcons = {
   target: "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\"><path d=\"M22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12Z\"/><path d=\"M2 12L5 12\"/><path d=\"M19 12L22 12\"/><path d=\"M12 22L12 19\"/><path d=\"M12 5L12 2\"/><path stroke-linejoin=\"round\" d=\"M10 12H12H14\"/><path stroke-linejoin=\"round\" d=\"M12 14L12 12L12 10\"/></g>",
   global: "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\"><path d=\"M22 12C22 13.3132 21.7413 14.6136 21.2388 15.8268C20.7362 17.0401 19.9997 18.1425 19.0711 19.0711C18.1425 19.9997 17.0401 20.7362 15.8268 21.2388C14.6136 21.7413 13.3132 22 12 22C10.6868 22 9.38642 21.7413 8.17317 21.2388C6.95991 20.7362 5.85752 19.9997 4.92893 19.0711C4.00035 18.1425 3.26375 17.0401 2.7612 15.8268C2.25866 14.6136 2 13.3132 2 12C2 10.6868 2.25866 9.38642 2.76121 8.17316C3.26375 6.95991 4.00035 5.85752 4.92893 4.92893C5.85752 4.00035 6.95991 3.26375 8.17317 2.7612C9.38642 2.25866 10.6868 2 12 2C13.3132 2 14.6136 2.25866 15.8268 2.76121C17.0401 3.26375 18.1425 4.00035 19.0711 4.92893C19.9997 5.85752 20.7362 6.95991 21.2388 8.17317C21.7413 9.38642 22 10.6868 22 12L22 12Z\"/><path d=\"M16 12C16 13.3132 15.8965 14.6136 15.6955 15.8268C15.4945 17.0401 15.1999 18.1425 14.8284 19.0711C14.457 19.9997 14.016 20.7362 13.5307 21.2388C13.0454 21.7413 12.5253 22 12 22C11.4747 22 10.9546 21.7413 10.4693 21.2388C9.98396 20.7362 9.54301 19.9997 9.17157 19.0711C8.80014 18.1425 8.5055 17.0401 8.30448 15.8268C8.10346 14.6136 8 13.3132 8 12C8 10.6868 8.10346 9.38642 8.30448 8.17316C8.5055 6.95991 8.80014 5.85752 9.17157 4.92893C9.54301 4.00035 9.98396 3.26375 10.4693 2.7612C10.9546 2.25866 11.4747 2 12 2C12.5253 2 13.0454 2.25866 13.5307 2.76121C14.016 3.26375 14.457 4.00035 14.8284 4.92893C15.1999 5.85752 15.4945 6.95991 15.6955 8.17317C15.8965 9.38642 16 10.6868 16 12L16 12Z\"/><path d=\"M2 12H22\"/></g>",
   chat: "<path fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\" d=\"M22 12C22 17.5228 17.5228 22 12 22C10.4003 22 8.88837 21.6244 7.54753 20.9565C7.19121 20.7791 6.78393 20.72 6.39939 20.8229L4.17335 21.4185C3.20701 21.677 2.32295 20.793 2.58151 19.8267L3.17712 17.6006C3.28001 17.2161 3.22094 16.8088 3.04346 16.4525C2.37562 15.1116 2 13.5997 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12Z\"/>",
+  letter: "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"><rect x=\"2\" y=\"4\" width=\"20\" height=\"16\" rx=\"3\"/><path d=\"m3 7 9 6 9-6\"/></g>",
   layers: "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\"><path d=\"M16.2127 10.8085L19.0212 9.68508C21.0071 8.89073 22 8.49355 22 8C22 7.50645 21.0071 7.10927 19.0212 6.31492L16.2127 5.19153C14.2268 4.39718 13.2339 4 12 4C10.7661 4 9.77318 4.39718 7.7873 5.19153L4.97883 6.31492C2.99294 7.10927 2 7.50645 2 8C2 8.49355 2.99294 8.89073 4.97883 9.68508L7.7873 10.8085C9.77318 11.6028 10.7661 12 12 12C13.2339 12 14.2268 11.6028 16.2127 10.8085Z\"/><path d=\"M22 12C22 12 21.0071 12.8907 19.0212 13.6851L16.2127 14.8085C14.2268 15.6028 13.2339 16 12 16C10.7661 16 9.77318 15.6028 7.7873 14.8085L4.97883 13.6851C2.99294 12.8907 2 12 2 12\"/><path d=\"M22 16C22 16 21.0071 16.8907 19.0212 17.6851L16.2127 18.8085C14.2268 19.6028 13.2339 20 12 20C10.7661 20 9.77318 19.6028 7.7873 18.8085L4.97883 17.6851C2.99294 16.8907 2 16 2 16\"/></g>",
   link: "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\"><path d=\"M10.0464 14C8.54044 12.4882 8.67609 9.90087 10.3494 8.22108L15.197 3.35462C16.8703 1.67483 19.4476 1.53865 20.9536 3.05046C22.4596 4.56228 22.3239 7.14956 20.6506 8.82935L18.2268 11.2626\"/><path d=\"M13.9536 10C15.4596 11.5118 15.3239 14.0991 13.6506 15.7789L11.2268 18.2121L8.80299 20.6454C7.12969 22.3252 4.55237 22.4613 3.0464 20.9495C1.54043 19.4377 1.67609 16.8504 3.34939 15.1706L5.77323 12.7373\"/></g>",
   shield: "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\"><path d=\"M21 11.9914C21 11.4234 21 10.8996 21 10.4167C21 7.21907 21 5.62028 20.6225 5.08241C20.245 4.54454 18.7417 4.02996 15.7351 3.00079L15.1623 2.80472C13.595 2.26824 12.8114 2 12 2C11.1886 2 10.405 2.26824 8.83772 2.80472L8.26491 3.00079C5.25832 4.02996 3.75503 4.54454 3.37752 5.08241C3 5.62028 3 7.21907 3 10.4167C3 10.8996 3 11.4234 3 11.9914C3 17.6294 7.23896 20.3655 9.89856 21.5273C10.62 21.8424 10.9807 22 12 22C13.0193 22 13.38 21.8424 14.1014 21.5273C16.761 20.3655 21 17.6294 21 11.9914Z\"/><path stroke-linejoin=\"round\" d=\"M9.5 12.4L10.9286 14L14.5 10\"/></g>",
@@ -1510,7 +1525,10 @@ header{cursor:move;padding:12px 14px 10px;background:linear-gradient(135deg,rgba
 .x{all:unset;cursor:pointer;position:absolute;left:10px;top:10px;display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;color:var(--mut)}.x .icon{width:15px;height:15px}.x:hover{background:var(--card);color:var(--ink)}
 .x2{left:40px}.x3{left:70px}
 .hero{padding:10px 14px;border-bottom:1px solid var(--line)}
+.hero-main{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;direction:rtl}
 .name{font-weight:700;font-size:13px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.hero-main .name{flex:1 1 auto;min-width:0;overflow-wrap:anywhere}
+.hero-main .price{flex:0 0 auto;max-width:44%;margin:0;text-align:left;white-space:nowrap}
 .price{font-size:24px;font-weight:800;color:var(--acc2);margin:2px 0}.price small{font-size:12px;color:var(--mut);font-weight:400}
 .meta{font-size:11px;color:var(--mut)}.meta s{opacity:.8}
 .workspace{display:flex;flex:1 1 auto;min-height:0;flex-direction:column;overflow:hidden}
@@ -1690,10 +1708,28 @@ details.card summary{cursor:pointer;list-style:none}details.card summary::-webki
 .chip{display:inline-block;padding:1px 8px;border-radius:999px;font-size:10.5px;border:1px solid var(--line);color:var(--mut)}
 .chip.good{color:var(--acc2);border-color:var(--acc2)}.chip.warn{color:var(--warn);border-color:var(--warn)}.chip.bad{color:var(--bad);border-color:var(--bad)}
 .muted{color:var(--mut);font-size:11.5px}.good{color:var(--acc2)}.warn{color:var(--warn)}.bad{color:var(--bad)}
-.offer{display:flex;justify-content:space-between;gap:8px;align-items:center}.offer.best{border-color:var(--acc2);box-shadow:0 0 0 1px var(--acc2) inset}
+.offer{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}.offer.best{border-color:var(--acc2);box-shadow:0 0 0 1px var(--acc2) inset}
+.offer-top-row,.offer-bottom-row{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0;direction:rtl}
+.offer-top-row{align-items:flex-start}.offer-seller-group,.offer-source-score{display:flex;align-items:center;gap:7px;flex-wrap:wrap;min-width:0}
+.offer-seller-group{flex:1 1 auto}.offer-seller-group>b{font-size:12px}.offer-diff{font-size:10.5px;white-space:nowrap}
+.offer-link{display:grid;place-items:center;flex:0 0 32px;width:32px;height:32px;border:1px solid var(--line);border-radius:9px;color:var(--acc2);text-decoration:none}
+.offer-link .icon{width:16px;height:16px}.offer-price{flex:0 0 auto;text-align:left;font-size:15px;font-weight:800;white-space:nowrap}
+.offer-source{display:inline-flex;align-items:center;gap:5px;color:var(--mut);font-size:10px}.offer-source .brand-logo{width:15px;height:15px}
+.offer-source-score .match-score{font-size:10px}
 .offer a{color:var(--acc);text-decoration:none;font-size:11px}
 .pv{font-weight:800;font-size:15px;white-space:nowrap}
 select,input[type=number],input[type=text]{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:5px 8px;font-family:inherit;font-size:12px}
+.select-shell{position:relative;display:inline-flex;min-width:0;align-items:center}
+.select-shell:after{content:"";position:absolute;left:11px;top:calc(50% - 3px);width:7px;height:7px;border-left:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(-45deg);pointer-events:none;color:var(--mut)}
+.select-shell select{appearance:none;padding:5px 12px 5px 30px;min-width:116px}
+.setting-city-select{flex:0 1 178px}.setting-city-select select{width:100%;min-width:0;height:36px}
+.diagnostics-back{margin-bottom:12px}
+.about-copy p{margin:4px 0 8px;color:var(--mut);font-size:11px;line-height:1.6}
+.about-repo,.contact-links{display:flex;align-items:center;gap:8px}
+.about-repo a,.contact-links a{display:grid;place-items:center;width:38px;height:38px;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--acc2);text-decoration:none}
+.about-repo a{display:inline-flex;width:auto;gap:6px;padding:0 10px;font-size:10.5px}
+.contact-links a .icon,.about-repo a .icon{width:18px;height:18px}
+.switch-copy .brand-logo,.source-chip-icon .brand-logo,.rejected-provider-title .brand-logo{display:block;object-fit:contain;background:#fff;border-radius:4px;box-shadow:0 0 0 1px rgba(255,255,255,.12)}
 input[type=number]{width:130px}
 label.ck{display:flex;gap:6px;align-items:center;margin:5px 0;font-size:12px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}.m{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:7px 9px}.m span{display:block;color:var(--mut);font-size:10.5px}.m b{font-size:13px}
@@ -1799,23 +1835,28 @@ svg text{font-family:inherit}
     const tr = srcs.torob; if (tr && tr.candidates && tr.candidates.length > 1) h += `<div class="card"><div class="muted" style="margin-bottom:4px">محصول تطبیق‌یافته در ترب — اگر رنگ/مدل دیگری مدنظر است تغییر دهید</div><select data-sel="cand" style="width:100%">${tr.candidates.map(c => `<option value="${U.esc(c.key)}" ${c.key === tr.chosenKey ? 'selected' : ''}>${U.esc(c.title.slice(0, 60))}</option>`).join('')}</select></div>`;
     if (tr && tr.tried && tr.tried.length > 1) h += `<div class="muted" style="margin-bottom:6px">جست‌وجوی چندمرحله‌ای: ${U.toFa(tr.tried.length)} عبارت امتحان شد؛ عبارت موفق: «${U.esc(tr.query)}»</div>`;
     const sourceErrors = Object.entries(srcs).filter(([, st]) => st.error);
-    let offers = S.offers.slice();
-    if (S.trustedOnly) offers = offers.filter(o => o.matchLevel !== 'low');
+    const offers = S.offers.slice();
     offers.sort((a, b) => S.sort === 'name' ? a.seller.localeCompare(b.seller, 'fa') : S.sort === 'desc' ? b.price - a.price : a.price - b.price);
     if (S.offers.length) {
-      h += `<div class="row" style="margin-bottom:6px"><select data-sel="sort" aria-label="مرتب‌سازی فروشندگان"><option value="price" ${S.sort === 'price' ? 'selected' : ''}>ارزان‌ترین</option><option value="desc" ${S.sort === 'desc' ? 'selected' : ''}>گران‌ترین</option><option value="name" ${S.sort === 'name' ? 'selected' : ''}>نام فروشنده</option></select><label class="switch-row" style="min-height:38px;padding:2px 0;border:0"><span class="switch-copy"><span>تطبیق مطمئن</span></span><input class="switch-input" type="checkbox" role="switch" aria-checked="${S.trustedOnly}" data-ck="trusted" ${S.trustedOnly ? 'checked' : ''}><span class="switch-track" aria-hidden="true"></span></label><button class="btn sec icon-btn" data-act="toggleTable" title="${S.table ? 'نمای کارتی' : 'نمای جدول'}" aria-label="${S.table ? 'نمای کارتی' : 'نمای جدول'}">${icon(S.table ? 'layers' : 'compare')}</button></div>`;
+      h += `<div class="row" style="margin-bottom:8px"><span class="select-shell"><select data-sel="sort" aria-label="مرتب‌سازی فروشندگان"><option value="price" ${S.sort === 'price' ? 'selected' : ''}>ارزان‌ترین</option><option value="desc" ${S.sort === 'desc' ? 'selected' : ''}>گران‌ترین</option><option value="name" ${S.sort === 'name' ? 'selected' : ''}>نام فروشنده</option></select></span><button class="btn sec icon-btn" data-act="toggleTable" title="${S.table ? 'نمای کارتی' : 'نمای جدول'}" aria-label="${S.table ? 'نمای کارتی' : 'نمای جدول'}">${icon(S.table ? 'layers' : 'compare')}</button></div>`;
       const a = App.advice();
       h += `<div class="card"><b class="${a.tone === 'good' ? 'good' : a.tone === 'warn' ? 'warn' : ''}">مشاور خرید: ${U.esc(a.headline)}</b><ul>${a.points.map(x => `<li class="${x.k === 'good' ? 'good' : x.k === 'warn' ? 'warn' : ''}">${textWithCurrency(x.text)}</li>`).join('')}</ul><div class="muted" style="margin-top:6px">${a.caveats.map(U.esc).join('<br>')}</div></div>`;
+      const comparablePrices = [...new Set(S.offers.filter(o => o.matchLevel !== 'low' && o.price > 0).map(o => o.price))];
+      const comparableMedian = comparablePrices.length >= 3 ? U.median(comparablePrices) : null;
       const bestPrice = Math.min(...S.offers.filter(o => o.matchLevel !== 'low').map(o => o.price));
       const shown = S.showAll ? offers : offers.slice(0, 5);
       if (S.table) {
-        h += '<table class="tb">' + shown.map(o => { const diff = p.price ? (o.price - p.price) / p.price * 100 : null, pct = matchPercent(o), lv = LV[o.matchLevel] || ['', '']; return `<tr class="${o.price === bestPrice && o.matchLevel !== 'low' ? 'best' : ''}"><td>${pct ? `<span class="chip ${lv[1]} match-score" title="امتیاز تطبیق">${pct}</span> ` : ''}${U.esc(o.seller)}</td><td><b>${money(o.price, 12)}</b></td><td class="${diff != null && diff < -0.5 ? 'good' : diff > 0.5 ? 'bad' : 'muted'}">${diff == null ? '' : (diff < 0 ? '−' : diff > 0 ? '+' : '') + U.fmtPct(Math.abs(diff))}</td><td>${o.sellerUrl ? `<a style="color:var(--acc)" href="${U.esc(o.sellerUrl)}" target="_blank" rel="noopener noreferrer" title="بازکردن صفحهٔ فروشنده" aria-label="بازکردن صفحهٔ فروشنده">${icon('link', 14, 'icon-sm')}</a>` : ''}</td></tr>`; }).join('') + '</table>';
+        h += '<table class="tb">' + shown.map(o => { const diff = p.price ? (o.price - p.price) / p.price * 100 : null, pct = matchPercent(o), lv = LV[o.matchLevel] || ['', '']; return `<tr class="${o.price === bestPrice && o.matchLevel !== 'low' ? 'best' : ''}"><td>${pct ? `<span class="chip ${lv[1]} match-score" title="${pct}" aria-label="${pct}">${pct}</span> ` : ''}${U.esc(o.seller)}</td><td><b>${money(o.price, 12)}</b></td><td class="${diff != null && diff < -0.5 ? 'good' : diff > 0.5 ? 'bad' : 'muted'}">${diff == null ? '' : (diff < 0 ? '−' : diff > 0 ? '+' : '') + U.fmtPct(Math.abs(diff))}</td><td>${o.sellerUrl ? `<a style="color:var(--acc)" href="${U.esc(o.sellerUrl)}" target="_blank" rel="noopener noreferrer" title="بازکردن صفحهٔ فروشنده" aria-label="بازکردن صفحهٔ فروشنده">${icon('link', 14, 'icon-sm')}</a>` : ''}</td></tr>`; }).join('') + '</table>';
       }
       else for (const o of shown) {
         const diff = p.price ? (o.price - p.price) / p.price * 100 : null, lv = LV[o.matchLevel] || ['', ''];
         const dd = diff == null ? '' : Math.abs(diff) < 0.5 ? '<span class="muted">هم‌قیمت با این صفحه</span>' : diff < 0 ? `<span class="good">${U.fmtPct(-diff)} ارزان‌تر · صرفه‌جویی ${money(p.price - o.price, 12)}</span>` : `<span class="bad">${U.fmtPct(diff)} گران‌تر</span>`;
-        const pct = matchPercent(o), infoTags = [offerInfoTag('روش ارسال', 'bag', o.shippingInfo), offerInfoTag('گارانتی', 'shield', o.warrantyInfo)].filter(Boolean).join('');
-        h += `<div class="card offer ${o.price === bestPrice && o.matchLevel !== 'low' ? 'best' : ''}"><div><b>${U.esc(o.seller)}</b> ${o.price === bestPrice && o.matchLevel !== 'low' ? '<span class="chip good">ارزان‌ترین</span>' : ''}<br>${dd}<br>${pct ? `<span class="chip ${lv[1]} match-score" title="امتیاز تطبیق" aria-label="امتیاز تطبیق ${pct}">${pct}</span>` : ''}${infoTags ? `<div class="offer-info-row">${infoTags}</div>` : ''}<div class="muted">${U.esc(o.sourceId)} · ${new Date(o.ts).toLocaleTimeString('fa-IR')}</div></div><div style="text-align:left"><div class="pv">${money(o.price, 14)}</div>${o.sellerUrl ? `<a href="${U.esc(o.sellerUrl)}" target="_blank" rel="noopener noreferrer" title="بازکردن صفحهٔ فروشنده">${icon('link', 14, 'icon-sm')} فروشگاه</a>` : ''}</div></div>`;
+        const pct = matchPercent(o), source = Sources.registry[o.sourceId], checked = new Date(o.ts).toLocaleTimeString('fa-IR');
+        const infoTags = [offerInfoTag('روش ارسال', 'bag', o.shippingInfo), offerInfoTag('گارانتی', 'shield', o.warrantyInfo)].filter(Boolean).join('');
+        const lowPrice = comparableMedian && o.matchLevel !== 'low' && o.price <= comparableMedian * .65;
+        const priceSignal = lowPrice ? `<span class="chip warn" title="${U.toFa(Math.round((1 - o.price / comparableMedian) * 100))}٪ پایین‌تر از میانهٔ قیمت‌های همسان؛ شرایط فروش و موجودی را بررسی کنید.">قیمت غیرمعمول</span>` : '';
+        const offerLink = o.sellerUrl ? `<a class="offer-link" href="${U.esc(o.sellerUrl)}" target="_blank" rel="noopener noreferrer" title="بازکردن صفحهٔ فروشنده" aria-label="بازکردن صفحهٔ فروشنده">${icon('link')}</a>` : '';
+        h += `<article class="card offer ${o.price === bestPrice && o.matchLevel !== 'low' ? 'best' : ''}"><div class="offer-top-row"><div class="offer-seller-group"><b>${U.esc(o.seller)}</b>${o.price === bestPrice && o.matchLevel !== 'low' ? '<span class="chip good">ارزان‌ترین</span>' : ''}<span class="offer-diff">${dd}</span>${priceSignal}${infoTags}</div>${offerLink}</div><div class="offer-bottom-row"><div class="offer-source-score"><span class="offer-source">${icon(source?.icon || 'global', 15)}<span>${U.esc(source?.label || o.sourceId)} · ${checked}</span></span>${pct ? `<span class="chip ${lv[1]} match-score" title="${pct}" aria-label="${pct}">${pct}</span>` : ''}</div><strong class="offer-price">${money(o.price, 14)}</strong></div></article>`;
       }
       if (offers.length > 5) h += `<div class="btns"><button class="btn sec" data-act="toggleAll">${S.showAll ? 'نمایش کمتر' : 'نمایش همهٔ ' + U.toFa(offers.length) + ' مورد'}</button></div>`;
     } else if (!S.running && sourceErrors.length) {
@@ -1950,13 +1991,15 @@ svg text{font-family:inherit}
       switchRow('نمایش فقط در صفحهٔ محصول', 'data-set="productPageOnly"', !!st.productPageOnly, 'search'));
     const sources = Object.values(Sources.registry).map(r => switchRow(r.label, `data-src="${r.id}"`, !!st.sources[r.id], r.icon || 'global', !r.implemented)).join('');
     const city = Sources.snappshop.cities[st.snappCity] ? st.snappCity : 'tehran';
-    const citySelector = `<div class="setting-input-row"><label for="snappCity">${icon('cart')}<span>شهر قیمت‌گذاری اسنپ‌شاپ</span></label><select id="snappCity" data-sel="snappCity" aria-label="شهر قیمت‌گذاری اسنپ‌شاپ">${Object.entries(Sources.snappshop.cities).map(([id, value]) => `<option value="${id}" ${id === city ? 'selected' : ''}>${U.esc(value.label)}</option>`).join('')}</select></div><div class="muted setting-note">قیمت اسنپ‌شاپ با توجه به شهر انتخابی محاسبه می‌شود.</div>`;
+    const citySelector = `<div class="setting-input-row"><label for="snappCity">${icon('cart')}<span>شهر قیمت‌گذاری اسنپ‌شاپ</span></label><span class="select-shell setting-city-select"><select id="snappCity" data-sel="snappCity" aria-label="شهر قیمت‌گذاری اسنپ‌شاپ">${Object.entries(Sources.snappshop.cities).map(([id, value]) => `<option value="${id}" ${id === city ? 'selected' : ''}>${U.esc(value.label)}</option>`).join('')}</select></span></div>`;
     h += settingsSection('منابع قیمت', 'global', sources + citySelector + `<div class="setting-hint" title="مجوزهای شبکه فقط: ${U.esc(Net.ALLOWED.join('، '))}"><kbd>Alt+Shift+G</kbd><span>باز/بستن پنل</span></div>`);
     const alertSettings = switchRow('فعال‌کردن هشدار قیمت', 'data-set="alertsEnabled"', !!alerts.enabled, 'bell') +
-      `<div class="setting-input-row"><label for="ival">${icon('clock')}<span>فاصلهٔ بررسی (دقیقه)</span></label><input type="number" id="ival" aria-label="فاصلهٔ بررسی هشدار به دقیقه، حداقل ۱۵" min="15" value="${alerts.intervalMin || 60}"></div><div class="muted setting-note">حداقل ۱۵ دقیقه</div>`;
+      `<div class="setting-input-row"><label for="ival">${icon('clock')}<span>فاصلهٔ بررسی (دقیقه)</span></label><input type="text" inputmode="numeric" id="ival" aria-label="فاصلهٔ بررسی هشدار به دقیقه، حداقل ۱۵" value="${U.toFa(alerts.intervalMin || 60)}"></div><div class="muted setting-note">حداقل ۱۵ دقیقه</div>`;
     h += settingsSection('هشدار قیمت', 'bell', alertSettings);
     const diagnostics = `<div class="diagnostics-option"><div class="diagnostics-option-copy">${icon('bug')}<div><b>گزارش و عیب‌یابی</b><small>نسخهٔ افزونه، رویدادها و خطاهای اخیر</small></div></div><button type="button" class="btn sec icon-btn diagnostics-open" data-tab="log" aria-controls="body" title="بازکردن گزارش و عیب‌یابی">${iconText('bug', 'بازکردن')}</button></div>`;
     h += settingsSection('عیب‌یابی', 'bug', diagnostics);
+    h += settingsSection('دربارهٔ تخفیف‌سنج', 'tag', `<div class="about-copy"><b>تخفیف‌سنج</b><p>ابزاری برای مقایسهٔ قیمت، بررسی سابقه و پیگیری کاهش قیمت محصولات در فروشگاه‌های پشتیبانی‌شده.</p></div><div class="about-repo"><a href="https://github.com/Soheil-Aghayani/Takhfifsanj" target="_blank" rel="noopener noreferrer" aria-label="مخزن تخفیف‌سنج در گیت‌هاب" title="مخزن تخفیف‌سنج در گیت‌هاب">${icon('global')}<span>مخزن پروژه</span></a></div>`);
+    h += settingsSection('تماس با ما', 'chat', `<div class="contact-links"><a href="mailto:soheyl.aghayani@gmail.com" aria-label="ارسال ایمیل" title="ایمیل">${icon('letter')}</a><a href="https://t.me/env_soh" target="_blank" rel="noopener noreferrer" aria-label="تماس در تلگرام" title="تلگرام">${icon('chat')}</a></div>`);
     const dataActions = `<div class="btns"><button class="btn sec icon-btn" data-act="expCsv">${iconText('download', 'خروجی CSV')}</button><button class="btn sec icon-btn" data-act="expJson">${iconText('download', 'خروجی JSON')}</button><button class="btn sec icon-btn" data-act="impCsv">${iconText('upload', 'ورود CSV')}</button><button class="btn bad icon-btn" data-act="clearProd" title="پاک‌کردن تاریخچهٔ محلی این محصول">${iconText('trash', 'حذف محصول')}</button><button class="btn bad icon-btn" data-act="clearAll" title="پاک‌کردن همهٔ داده‌ها و تنظیمات">${iconText('trash', 'حذف همه')}</button></div><input type="file" id="file" accept=".csv" style="display:none">`;
     h += settingsSection('داده‌های ذخیره‌شده', 'file', dataActions);
     return h;
@@ -2036,7 +2079,7 @@ svg text{font-family:inherit}
       const sx = fromRect.width / Math.max(destinationRect.width, 1), sy = fromRect.height / Math.max(destinationRect.height, 1);
       const start = `translate3d(${dx}px, ${dy}px, 0) scale(${sx}, ${sy})`;
       const settle = `translate3d(${dx * 0.08}px, ${dy * 0.08}px, 0) scale(${1 + (sx - 1) * 0.08}, ${1 + (sy - 1) * 0.08})`;
-      const duration = Math.max(300, Math.min(420, 320 + Math.abs(dx) * 0.22));
+      const duration = 500;
       const animation = indicator.animate([
         { transform: start, borderRadius: '999px' },
         { offset: 0.72, transform: settle, borderRadius: '999px' },
@@ -2131,12 +2174,12 @@ svg text{font-family:inherit}
       enteringAnimation = entering.animate([
         { opacity: 0, transform: 'translateY(6px)' },
         { opacity: 1, transform: 'translateY(0)' }
-      ], { duration: 340, delay: 90, easing: 'cubic-bezier(.2,.8,.2,1)' });
+      ], { duration: 420, delay: 80, easing: 'cubic-bezier(.2,.8,.2,1)' });
       morphAnimation = overlay.animate([
         { transform: startTransform, borderRadius: '18px', backgroundColor: accent, opacity: .96 },
         { offset: .72, transform: 'translate3d(0,0,0) scale(1.015,1.015)', borderRadius: '12px', backgroundColor: panelColor, opacity: .92 },
         { transform: 'translate3d(0,0,0) scale(1,1)', borderRadius: '0px', backgroundColor: panelColor, opacity: 0 }
-      ], { duration: 430, easing: 'cubic-bezier(.22,1,.36,1)' });
+      ], { duration: 500, easing: 'cubic-bezier(.22,1,.36,1)' });
     } catch {
       try { enteringAnimation?.cancel(); morphAnimation?.cancel(); } catch {}
       cleanup();
@@ -2149,7 +2192,7 @@ svg text{font-family:inherit}
       cleanup(); tabMorphAnimations = []; tabMorphActive = false;
       if (queuedAppRender) queueAppRender();
     };
-    const fallback = setTimeout(release, 500);
+    const fallback = setTimeout(release, 540);
     Promise.allSettled([enteringAnimation.finished, morphAnimation.finished]).then(() => { clearTimeout(fallback); release(); });
     return true;
   }
@@ -2167,9 +2210,8 @@ svg text{font-family:inherit}
     $('.wrap').className = 'wrap ' + (st.theme === 'light' ? 'light' : 'dark');
     $('#name').textContent = Extract.coreTitle(p.title) || p.title || 'نام محصول شناسایی نشد';
     $('#name').setAttribute('title', p.title || '');
-    $('#price').innerHTML = p.price ? `${money(p.price, 20)} <small>· ${U.esc(p.priceSource || '')}</small>` : '<span class="warn" style="font-size:16px">قیمت شناسایی نشد — «ثبت دستی قیمت»</span>';
-    const dk = S.dk && S.dk.chosen;
-    $('#meta').innerHTML = [p.oldPrice ? `قبل از تخفیف: <s>${money(p.oldPrice, 12)}</s>` : '', p.seller ? 'فروشنده: ' + U.esc(p.seller) : '', p.warranty ? 'گارانتی: ' + U.esc(p.warranty) : '', dk && S.dk.lowest30dOfficial ? 'کمینهٔ ۳۰روزهٔ اعلامی دیجی‌کالا: ' + money(S.dk.lowest30dOfficial, 12) : ''].filter(Boolean).join(' · ');
+    $('#price').innerHTML = p.price ? money(p.price, 20) : '<span class="warn" style="font-size:16px">قیمت شناسایی نشد — «ثبت دستی قیمت»</span>';
+    $('#meta').innerHTML = [p.seller ? 'فروشنده: ' + U.esc(p.seller) : '', p.warranty ? 'گارانتی: ' + U.esc(p.warranty) : ''].filter(Boolean).join(' · ');
     const indicatorTargetRect = renderTabs(transition.indicatorRect || null);
     const morphOriginRect = transition.originRect || indicatorTargetRect;
     const body = { compare: tabCompare, history: tabHistory, inspect: tabInspector, watch: tabWatch, settings: tabSettings, log: tabLog }[S.tab]();
@@ -2177,7 +2219,7 @@ svg text{font-family:inherit}
     bodyNode.setAttribute('aria-labelledby', `tab-${S.tab === 'log' ? 'settings' : S.tab}`);
     const keep = bodyNode.scrollTop;
     const tamper = (typeof CreditGuard !== 'undefined' && CreditGuard.isOk() === false)
-      ? '<div class="banner" style="background:rgba(248,113,113,.15);border-color:var(--bad);color:var(--bad)"><b>این نسخه تغییر داده شده و اعتبار سازندگان حذف/تغییر کرده است.</b> نسخهٔ اصلی: <a style="color:inherit" href="https://t.me/RealMahdi_a" target="_blank" rel="noopener noreferrer">t.me/RealMahdi_a</a></div>' : '';
+      ? '<div class="banner" style="background:rgba(248,113,113,.15);border-color:var(--bad);color:var(--bad)"><b>این نسخه تغییر داده شده است.</b></div>' : '';
     bodyNode.innerHTML = `<div class="body-content">${tamper + (S.banner ? `<div class="banner">${U.esc(S.banner)}</div>` : '') + body}</div>`;
     bodyNode.scrollTop = transition.toTab ? (tabScrollPositions[transition.toTab] || 0) : keep;
     if (transition.toTab && transition.fromTab !== transition.toTab) {
@@ -2319,6 +2361,7 @@ svg text{font-family:inherit}
     root.addEventListener('input', e => {
       if (e.target.id === 'q') S.manualQuery = e.target.value;
       else if (e.target.id === 'tgt') formatPriceTargetInput(e.target);
+      else if (e.target.id === 'ival') e.target.value = U.toFa(U.digits(e.target.value).replace(/\D/g, '').slice(0, 3));
       else if (e.target.id === 'collectionName' || e.target.id === 'collectionEditName') {
         e.target.removeAttribute('aria-invalid');
         const errorId = e.target.id === 'collectionName' ? 'collectionNameError' : 'collectionEditNameError';
@@ -2344,14 +2387,13 @@ svg text{font-family:inherit}
         S.banner = 'شهر اسنپ‌شاپ تغییر کرد؛ برای دریافت قیمت شهر جدید دوباره مقایسه را اجرا کنید.';
       }
       else if (t.dataset.sel === 'sort') S.sort = t.value; else if (t.dataset.sel === 'variant') { S.variantIdx = +t.value; S.variantManual = true; }
-      else if (t.dataset.ck === 'trusted') S.trustedOnly = t.checked;
       else if (t.dataset.ck === 'watch') { Store.touchProduct(S.key).watch = t.checked; Store.save(); }
       else if (t.dataset.set === 'theme') { st.theme = t.checked ? 'light' : 'dark'; Store.save(); }
       else if (t.dataset.set === 'snap') { st.snap = t.checked; Store.save(); }
       else if (t.dataset.set === 'productPageOnly') { st.productPageOnly = t.checked; Store.save(); }
       else if (t.dataset.set === 'alertsEnabled') { st.alerts.enabled = t.checked; Store.save(); }
       else if (t.dataset.src) { st.sources[t.dataset.src] = t.checked; Store.save(); }
-      else if (t.id === 'ival') { st.alerts.intervalMin = Math.max(15, Number(U.digits(t.value)) || 60); Store.save(); }
+      else if (t.id === 'ival') { st.alerts.intervalMin = Math.max(15, Number(U.digits(t.value)) || 60); t.value = U.toFa(st.alerts.intervalMin); Store.save(); }
       else if (t.id === 'file' && t.files[0]) { t.files[0].text().then(tx => { try { const n = Exporter.importLocal(S.key, Exporter.parseCsv(tx)); S.banner = `${U.toFa(n)} نقطه وارد شد (به‌عنوان دادهٔ محلی)`; } catch (er) { S.banner = 'ورود CSV ناموفق: ' + er.message; } render(); }); return; }
       render();
     });
@@ -2363,7 +2405,7 @@ svg text{font-family:inherit}
     root = host.attachShadow({ mode: 'open' });
     root.innerHTML = `<style>${CSS}</style><div class="wrap dark"><button type="button" id="pill" aria-label="بازکردن پنل تخفیف‌سنج" aria-expanded="false" title="تخفیف‌سنج — بکشید تا جابه‌جا شود (Alt+Shift+G)">${icon('tag')}<span>تخفیف‌سنج</span></button>
       <section id="panel"><header><div class="brand">تخفیف‌سنج</div><button type="button" class="x x3" id="wide" title="عریض‌کردن پنل" aria-label="عریض‌کردن پنل">${icon('expand')}</button><button type="button" class="x x2" id="min" title="جمع‌کردن پنل" aria-label="جمع‌کردن پنل">${icon('minus')}</button><button type="button" class="x" id="close" title="بستن پنل" aria-label="بستن پنل">${icon('close')}</button></header>
-      <div class="hero"><div class="name" id="name"></div><div class="price" id="price"></div><div class="meta" id="meta"></div></div>
+      <div class="hero"><div class="hero-main"><div class="name" id="name"></div><div class="price" id="price"></div></div><div class="meta" id="meta"></div></div>
       <div class="workspace"><nav class="tabs" id="tabs" role="group" aria-label="بخش‌های اصلی"></nav><div class="body" id="body" role="tabpanel"></div></div>
       </section></div>`;
     bind(); App.on(queueAppRender); render(); requestAnimationFrame(applyPos);
@@ -2400,7 +2442,7 @@ const Main = (() => {
     };
     const run = () => { try { check(); } catch (e) { Log.error('main', e.message); } };
     setTimeout(run, 600); setInterval(run, 1500);
-    Log.info('main', 'تخفیف‌سنج 15.2.30 آماده شد');
+    Log.info('main', 'تخفیف‌سنج 15.2.31 آماده شد');
   }
   return { init };
 })();

@@ -27,7 +27,10 @@ header{cursor:move;padding:12px 14px 10px;background:linear-gradient(135deg,rgba
 .x{all:unset;cursor:pointer;position:absolute;left:10px;top:10px;display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;color:var(--mut)}.x .icon{width:15px;height:15px}.x:hover{background:var(--card);color:var(--ink)}
 .x2{left:40px}.x3{left:70px}
 .hero{padding:10px 14px;border-bottom:1px solid var(--line)}
+.hero-main{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;direction:rtl}
 .name{font-weight:700;font-size:13px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.hero-main .name{flex:1 1 auto;min-width:0;overflow-wrap:anywhere}
+.hero-main .price{flex:0 0 auto;max-width:44%;margin:0;text-align:left;white-space:nowrap}
 .price{font-size:24px;font-weight:800;color:var(--acc2);margin:2px 0}.price small{font-size:12px;color:var(--mut);font-weight:400}
 .meta{font-size:11px;color:var(--mut)}.meta s{opacity:.8}
 .workspace{display:flex;flex:1 1 auto;min-height:0;flex-direction:column;overflow:hidden}
@@ -207,10 +210,28 @@ details.card summary{cursor:pointer;list-style:none}details.card summary::-webki
 .chip{display:inline-block;padding:1px 8px;border-radius:999px;font-size:10.5px;border:1px solid var(--line);color:var(--mut)}
 .chip.good{color:var(--acc2);border-color:var(--acc2)}.chip.warn{color:var(--warn);border-color:var(--warn)}.chip.bad{color:var(--bad);border-color:var(--bad)}
 .muted{color:var(--mut);font-size:11.5px}.good{color:var(--acc2)}.warn{color:var(--warn)}.bad{color:var(--bad)}
-.offer{display:flex;justify-content:space-between;gap:8px;align-items:center}.offer.best{border-color:var(--acc2);box-shadow:0 0 0 1px var(--acc2) inset}
+.offer{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}.offer.best{border-color:var(--acc2);box-shadow:0 0 0 1px var(--acc2) inset}
+.offer-top-row,.offer-bottom-row{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0;direction:rtl}
+.offer-top-row{align-items:flex-start}.offer-seller-group,.offer-source-score{display:flex;align-items:center;gap:7px;flex-wrap:wrap;min-width:0}
+.offer-seller-group{flex:1 1 auto}.offer-seller-group>b{font-size:12px}.offer-diff{font-size:10.5px;white-space:nowrap}
+.offer-link{display:grid;place-items:center;flex:0 0 32px;width:32px;height:32px;border:1px solid var(--line);border-radius:9px;color:var(--acc2);text-decoration:none}
+.offer-link .icon{width:16px;height:16px}.offer-price{flex:0 0 auto;text-align:left;font-size:15px;font-weight:800;white-space:nowrap}
+.offer-source{display:inline-flex;align-items:center;gap:5px;color:var(--mut);font-size:10px}.offer-source .brand-logo{width:15px;height:15px}
+.offer-source-score .match-score{font-size:10px}
 .offer a{color:var(--acc);text-decoration:none;font-size:11px}
 .pv{font-weight:800;font-size:15px;white-space:nowrap}
 select,input[type=number],input[type=text]{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:5px 8px;font-family:inherit;font-size:12px}
+.select-shell{position:relative;display:inline-flex;min-width:0;align-items:center}
+.select-shell:after{content:"";position:absolute;left:11px;top:calc(50% - 3px);width:7px;height:7px;border-left:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(-45deg);pointer-events:none;color:var(--mut)}
+.select-shell select{appearance:none;padding:5px 12px 5px 30px;min-width:116px}
+.setting-city-select{flex:0 1 178px}.setting-city-select select{width:100%;min-width:0;height:36px}
+.diagnostics-back{margin-bottom:12px}
+.about-copy p{margin:4px 0 8px;color:var(--mut);font-size:11px;line-height:1.6}
+.about-repo,.contact-links{display:flex;align-items:center;gap:8px}
+.about-repo a,.contact-links a{display:grid;place-items:center;width:38px;height:38px;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--acc2);text-decoration:none}
+.about-repo a{display:inline-flex;width:auto;gap:6px;padding:0 10px;font-size:10.5px}
+.contact-links a .icon,.about-repo a .icon{width:18px;height:18px}
+.switch-copy .brand-logo,.source-chip-icon .brand-logo,.rejected-provider-title .brand-logo{display:block;object-fit:contain;background:#fff;border-radius:4px;box-shadow:0 0 0 1px rgba(255,255,255,.12)}
 input[type=number]{width:130px}
 label.ck{display:flex;gap:6px;align-items:center;margin:5px 0;font-size:12px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}.m{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:7px 9px}.m span{display:block;color:var(--mut);font-size:10.5px}.m b{font-size:13px}
@@ -316,23 +337,28 @@ svg text{font-family:inherit}
     const tr = srcs.torob; if (tr && tr.candidates && tr.candidates.length > 1) h += `<div class="card"><div class="muted" style="margin-bottom:4px">محصول تطبیق‌یافته در ترب — اگر رنگ/مدل دیگری مدنظر است تغییر دهید</div><select data-sel="cand" style="width:100%">${tr.candidates.map(c => `<option value="${U.esc(c.key)}" ${c.key === tr.chosenKey ? 'selected' : ''}>${U.esc(c.title.slice(0, 60))}</option>`).join('')}</select></div>`;
     if (tr && tr.tried && tr.tried.length > 1) h += `<div class="muted" style="margin-bottom:6px">جست‌وجوی چندمرحله‌ای: ${U.toFa(tr.tried.length)} عبارت امتحان شد؛ عبارت موفق: «${U.esc(tr.query)}»</div>`;
     const sourceErrors = Object.entries(srcs).filter(([, st]) => st.error);
-    let offers = S.offers.slice();
-    if (S.trustedOnly) offers = offers.filter(o => o.matchLevel !== 'low');
+    const offers = S.offers.slice();
     offers.sort((a, b) => S.sort === 'name' ? a.seller.localeCompare(b.seller, 'fa') : S.sort === 'desc' ? b.price - a.price : a.price - b.price);
     if (S.offers.length) {
-      h += `<div class="row" style="margin-bottom:6px"><select data-sel="sort" aria-label="مرتب‌سازی فروشندگان"><option value="price" ${S.sort === 'price' ? 'selected' : ''}>ارزان‌ترین</option><option value="desc" ${S.sort === 'desc' ? 'selected' : ''}>گران‌ترین</option><option value="name" ${S.sort === 'name' ? 'selected' : ''}>نام فروشنده</option></select><label class="switch-row" style="min-height:38px;padding:2px 0;border:0"><span class="switch-copy"><span>تطبیق مطمئن</span></span><input class="switch-input" type="checkbox" role="switch" aria-checked="${S.trustedOnly}" data-ck="trusted" ${S.trustedOnly ? 'checked' : ''}><span class="switch-track" aria-hidden="true"></span></label><button class="btn sec icon-btn" data-act="toggleTable" title="${S.table ? 'نمای کارتی' : 'نمای جدول'}" aria-label="${S.table ? 'نمای کارتی' : 'نمای جدول'}">${icon(S.table ? 'layers' : 'compare')}</button></div>`;
+      h += `<div class="row" style="margin-bottom:8px"><span class="select-shell"><select data-sel="sort" aria-label="مرتب‌سازی فروشندگان"><option value="price" ${S.sort === 'price' ? 'selected' : ''}>ارزان‌ترین</option><option value="desc" ${S.sort === 'desc' ? 'selected' : ''}>گران‌ترین</option><option value="name" ${S.sort === 'name' ? 'selected' : ''}>نام فروشنده</option></select></span><button class="btn sec icon-btn" data-act="toggleTable" title="${S.table ? 'نمای کارتی' : 'نمای جدول'}" aria-label="${S.table ? 'نمای کارتی' : 'نمای جدول'}">${icon(S.table ? 'layers' : 'compare')}</button></div>`;
       const a = App.advice();
       h += `<div class="card"><b class="${a.tone === 'good' ? 'good' : a.tone === 'warn' ? 'warn' : ''}">مشاور خرید: ${U.esc(a.headline)}</b><ul>${a.points.map(x => `<li class="${x.k === 'good' ? 'good' : x.k === 'warn' ? 'warn' : ''}">${textWithCurrency(x.text)}</li>`).join('')}</ul><div class="muted" style="margin-top:6px">${a.caveats.map(U.esc).join('<br>')}</div></div>`;
+      const comparablePrices = [...new Set(S.offers.filter(o => o.matchLevel !== 'low' && o.price > 0).map(o => o.price))];
+      const comparableMedian = comparablePrices.length >= 3 ? U.median(comparablePrices) : null;
       const bestPrice = Math.min(...S.offers.filter(o => o.matchLevel !== 'low').map(o => o.price));
       const shown = S.showAll ? offers : offers.slice(0, 5);
       if (S.table) {
-        h += '<table class="tb">' + shown.map(o => { const diff = p.price ? (o.price - p.price) / p.price * 100 : null, pct = matchPercent(o), lv = LV[o.matchLevel] || ['', '']; return `<tr class="${o.price === bestPrice && o.matchLevel !== 'low' ? 'best' : ''}"><td>${pct ? `<span class="chip ${lv[1]} match-score" title="امتیاز تطبیق">${pct}</span> ` : ''}${U.esc(o.seller)}</td><td><b>${money(o.price, 12)}</b></td><td class="${diff != null && diff < -0.5 ? 'good' : diff > 0.5 ? 'bad' : 'muted'}">${diff == null ? '' : (diff < 0 ? '−' : diff > 0 ? '+' : '') + U.fmtPct(Math.abs(diff))}</td><td>${o.sellerUrl ? `<a style="color:var(--acc)" href="${U.esc(o.sellerUrl)}" target="_blank" rel="noopener noreferrer" title="بازکردن صفحهٔ فروشنده" aria-label="بازکردن صفحهٔ فروشنده">${icon('link', 14, 'icon-sm')}</a>` : ''}</td></tr>`; }).join('') + '</table>';
+        h += '<table class="tb">' + shown.map(o => { const diff = p.price ? (o.price - p.price) / p.price * 100 : null, pct = matchPercent(o), lv = LV[o.matchLevel] || ['', '']; return `<tr class="${o.price === bestPrice && o.matchLevel !== 'low' ? 'best' : ''}"><td>${pct ? `<span class="chip ${lv[1]} match-score" title="${pct}" aria-label="${pct}">${pct}</span> ` : ''}${U.esc(o.seller)}</td><td><b>${money(o.price, 12)}</b></td><td class="${diff != null && diff < -0.5 ? 'good' : diff > 0.5 ? 'bad' : 'muted'}">${diff == null ? '' : (diff < 0 ? '−' : diff > 0 ? '+' : '') + U.fmtPct(Math.abs(diff))}</td><td>${o.sellerUrl ? `<a style="color:var(--acc)" href="${U.esc(o.sellerUrl)}" target="_blank" rel="noopener noreferrer" title="بازکردن صفحهٔ فروشنده" aria-label="بازکردن صفحهٔ فروشنده">${icon('link', 14, 'icon-sm')}</a>` : ''}</td></tr>`; }).join('') + '</table>';
       }
       else for (const o of shown) {
         const diff = p.price ? (o.price - p.price) / p.price * 100 : null, lv = LV[o.matchLevel] || ['', ''];
         const dd = diff == null ? '' : Math.abs(diff) < 0.5 ? '<span class="muted">هم‌قیمت با این صفحه</span>' : diff < 0 ? `<span class="good">${U.fmtPct(-diff)} ارزان‌تر · صرفه‌جویی ${money(p.price - o.price, 12)}</span>` : `<span class="bad">${U.fmtPct(diff)} گران‌تر</span>`;
-        const pct = matchPercent(o), infoTags = [offerInfoTag('روش ارسال', 'bag', o.shippingInfo), offerInfoTag('گارانتی', 'shield', o.warrantyInfo)].filter(Boolean).join('');
-        h += `<div class="card offer ${o.price === bestPrice && o.matchLevel !== 'low' ? 'best' : ''}"><div><b>${U.esc(o.seller)}</b> ${o.price === bestPrice && o.matchLevel !== 'low' ? '<span class="chip good">ارزان‌ترین</span>' : ''}<br>${dd}<br>${pct ? `<span class="chip ${lv[1]} match-score" title="امتیاز تطبیق" aria-label="امتیاز تطبیق ${pct}">${pct}</span>` : ''}${infoTags ? `<div class="offer-info-row">${infoTags}</div>` : ''}<div class="muted">${U.esc(o.sourceId)} · ${new Date(o.ts).toLocaleTimeString('fa-IR')}</div></div><div style="text-align:left"><div class="pv">${money(o.price, 14)}</div>${o.sellerUrl ? `<a href="${U.esc(o.sellerUrl)}" target="_blank" rel="noopener noreferrer" title="بازکردن صفحهٔ فروشنده">${icon('link', 14, 'icon-sm')} فروشگاه</a>` : ''}</div></div>`;
+        const pct = matchPercent(o), source = Sources.registry[o.sourceId], checked = new Date(o.ts).toLocaleTimeString('fa-IR');
+        const infoTags = [offerInfoTag('روش ارسال', 'bag', o.shippingInfo), offerInfoTag('گارانتی', 'shield', o.warrantyInfo)].filter(Boolean).join('');
+        const lowPrice = comparableMedian && o.matchLevel !== 'low' && o.price <= comparableMedian * .65;
+        const priceSignal = lowPrice ? `<span class="chip warn" title="${U.toFa(Math.round((1 - o.price / comparableMedian) * 100))}٪ پایین‌تر از میانهٔ قیمت‌های همسان؛ شرایط فروش و موجودی را بررسی کنید.">قیمت غیرمعمول</span>` : '';
+        const offerLink = o.sellerUrl ? `<a class="offer-link" href="${U.esc(o.sellerUrl)}" target="_blank" rel="noopener noreferrer" title="بازکردن صفحهٔ فروشنده" aria-label="بازکردن صفحهٔ فروشنده">${icon('link')}</a>` : '';
+        h += `<article class="card offer ${o.price === bestPrice && o.matchLevel !== 'low' ? 'best' : ''}"><div class="offer-top-row"><div class="offer-seller-group"><b>${U.esc(o.seller)}</b>${o.price === bestPrice && o.matchLevel !== 'low' ? '<span class="chip good">ارزان‌ترین</span>' : ''}<span class="offer-diff">${dd}</span>${priceSignal}${infoTags}</div>${offerLink}</div><div class="offer-bottom-row"><div class="offer-source-score"><span class="offer-source">${icon(source?.icon || 'global', 15)}<span>${U.esc(source?.label || o.sourceId)} · ${checked}</span></span>${pct ? `<span class="chip ${lv[1]} match-score" title="${pct}" aria-label="${pct}">${pct}</span>` : ''}</div><strong class="offer-price">${money(o.price, 14)}</strong></div></article>`;
       }
       if (offers.length > 5) h += `<div class="btns"><button class="btn sec" data-act="toggleAll">${S.showAll ? 'نمایش کمتر' : 'نمایش همهٔ ' + U.toFa(offers.length) + ' مورد'}</button></div>`;
     } else if (!S.running && sourceErrors.length) {
@@ -467,13 +493,15 @@ svg text{font-family:inherit}
       switchRow('نمایش فقط در صفحهٔ محصول', 'data-set="productPageOnly"', !!st.productPageOnly, 'search'));
     const sources = Object.values(Sources.registry).map(r => switchRow(r.label, `data-src="${r.id}"`, !!st.sources[r.id], r.icon || 'global', !r.implemented)).join('');
     const city = Sources.snappshop.cities[st.snappCity] ? st.snappCity : 'tehran';
-    const citySelector = `<div class="setting-input-row"><label for="snappCity">${icon('cart')}<span>شهر قیمت‌گذاری اسنپ‌شاپ</span></label><select id="snappCity" data-sel="snappCity" aria-label="شهر قیمت‌گذاری اسنپ‌شاپ">${Object.entries(Sources.snappshop.cities).map(([id, value]) => `<option value="${id}" ${id === city ? 'selected' : ''}>${U.esc(value.label)}</option>`).join('')}</select></div><div class="muted setting-note">قیمت اسنپ‌شاپ با توجه به شهر انتخابی محاسبه می‌شود.</div>`;
+    const citySelector = `<div class="setting-input-row"><label for="snappCity">${icon('cart')}<span>شهر قیمت‌گذاری اسنپ‌شاپ</span></label><span class="select-shell setting-city-select"><select id="snappCity" data-sel="snappCity" aria-label="شهر قیمت‌گذاری اسنپ‌شاپ">${Object.entries(Sources.snappshop.cities).map(([id, value]) => `<option value="${id}" ${id === city ? 'selected' : ''}>${U.esc(value.label)}</option>`).join('')}</select></span></div>`;
     h += settingsSection('منابع قیمت', 'global', sources + citySelector + `<div class="setting-hint" title="مجوزهای شبکه فقط: ${U.esc(Net.ALLOWED.join('، '))}"><kbd>Alt+Shift+G</kbd><span>باز/بستن پنل</span></div>`);
     const alertSettings = switchRow('فعال‌کردن هشدار قیمت', 'data-set="alertsEnabled"', !!alerts.enabled, 'bell') +
-      `<div class="setting-input-row"><label for="ival">${icon('clock')}<span>فاصلهٔ بررسی (دقیقه)</span></label><input type="number" id="ival" aria-label="فاصلهٔ بررسی هشدار به دقیقه، حداقل ۱۵" min="15" value="${alerts.intervalMin || 60}"></div><div class="muted setting-note">حداقل ۱۵ دقیقه</div>`;
+      `<div class="setting-input-row"><label for="ival">${icon('clock')}<span>فاصلهٔ بررسی (دقیقه)</span></label><input type="text" inputmode="numeric" id="ival" aria-label="فاصلهٔ بررسی هشدار به دقیقه، حداقل ۱۵" value="${U.toFa(alerts.intervalMin || 60)}"></div><div class="muted setting-note">حداقل ۱۵ دقیقه</div>`;
     h += settingsSection('هشدار قیمت', 'bell', alertSettings);
     const diagnostics = `<div class="diagnostics-option"><div class="diagnostics-option-copy">${icon('bug')}<div><b>گزارش و عیب‌یابی</b><small>نسخهٔ افزونه، رویدادها و خطاهای اخیر</small></div></div><button type="button" class="btn sec icon-btn diagnostics-open" data-tab="log" aria-controls="body" title="بازکردن گزارش و عیب‌یابی">${iconText('bug', 'بازکردن')}</button></div>`;
     h += settingsSection('عیب‌یابی', 'bug', diagnostics);
+    h += settingsSection('دربارهٔ تخفیف‌سنج', 'tag', `<div class="about-copy"><b>تخفیف‌سنج</b><p>ابزاری برای مقایسهٔ قیمت، بررسی سابقه و پیگیری کاهش قیمت محصولات در فروشگاه‌های پشتیبانی‌شده.</p></div><div class="about-repo"><a href="https://github.com/Soheil-Aghayani/Takhfifsanj" target="_blank" rel="noopener noreferrer" aria-label="مخزن تخفیف‌سنج در گیت‌هاب" title="مخزن تخفیف‌سنج در گیت‌هاب">${icon('global')}<span>مخزن پروژه</span></a></div>`);
+    h += settingsSection('تماس با ما', 'chat', `<div class="contact-links"><a href="mailto:soheyl.aghayani@gmail.com" aria-label="ارسال ایمیل" title="ایمیل">${icon('letter')}</a><a href="https://t.me/env_soh" target="_blank" rel="noopener noreferrer" aria-label="تماس در تلگرام" title="تلگرام">${icon('chat')}</a></div>`);
     const dataActions = `<div class="btns"><button class="btn sec icon-btn" data-act="expCsv">${iconText('download', 'خروجی CSV')}</button><button class="btn sec icon-btn" data-act="expJson">${iconText('download', 'خروجی JSON')}</button><button class="btn sec icon-btn" data-act="impCsv">${iconText('upload', 'ورود CSV')}</button><button class="btn bad icon-btn" data-act="clearProd" title="پاک‌کردن تاریخچهٔ محلی این محصول">${iconText('trash', 'حذف محصول')}</button><button class="btn bad icon-btn" data-act="clearAll" title="پاک‌کردن همهٔ داده‌ها و تنظیمات">${iconText('trash', 'حذف همه')}</button></div><input type="file" id="file" accept=".csv" style="display:none">`;
     h += settingsSection('داده‌های ذخیره‌شده', 'file', dataActions);
     return h;
@@ -553,7 +581,7 @@ svg text{font-family:inherit}
       const sx = fromRect.width / Math.max(destinationRect.width, 1), sy = fromRect.height / Math.max(destinationRect.height, 1);
       const start = `translate3d(${dx}px, ${dy}px, 0) scale(${sx}, ${sy})`;
       const settle = `translate3d(${dx * 0.08}px, ${dy * 0.08}px, 0) scale(${1 + (sx - 1) * 0.08}, ${1 + (sy - 1) * 0.08})`;
-      const duration = Math.max(300, Math.min(420, 320 + Math.abs(dx) * 0.22));
+      const duration = 500;
       const animation = indicator.animate([
         { transform: start, borderRadius: '999px' },
         { offset: 0.72, transform: settle, borderRadius: '999px' },
@@ -648,12 +676,12 @@ svg text{font-family:inherit}
       enteringAnimation = entering.animate([
         { opacity: 0, transform: 'translateY(6px)' },
         { opacity: 1, transform: 'translateY(0)' }
-      ], { duration: 340, delay: 90, easing: 'cubic-bezier(.2,.8,.2,1)' });
+      ], { duration: 420, delay: 80, easing: 'cubic-bezier(.2,.8,.2,1)' });
       morphAnimation = overlay.animate([
         { transform: startTransform, borderRadius: '18px', backgroundColor: accent, opacity: .96 },
         { offset: .72, transform: 'translate3d(0,0,0) scale(1.015,1.015)', borderRadius: '12px', backgroundColor: panelColor, opacity: .92 },
         { transform: 'translate3d(0,0,0) scale(1,1)', borderRadius: '0px', backgroundColor: panelColor, opacity: 0 }
-      ], { duration: 430, easing: 'cubic-bezier(.22,1,.36,1)' });
+      ], { duration: 500, easing: 'cubic-bezier(.22,1,.36,1)' });
     } catch {
       try { enteringAnimation?.cancel(); morphAnimation?.cancel(); } catch {}
       cleanup();
@@ -666,7 +694,7 @@ svg text{font-family:inherit}
       cleanup(); tabMorphAnimations = []; tabMorphActive = false;
       if (queuedAppRender) queueAppRender();
     };
-    const fallback = setTimeout(release, 500);
+    const fallback = setTimeout(release, 540);
     Promise.allSettled([enteringAnimation.finished, morphAnimation.finished]).then(() => { clearTimeout(fallback); release(); });
     return true;
   }
@@ -684,9 +712,8 @@ svg text{font-family:inherit}
     $('.wrap').className = 'wrap ' + (st.theme === 'light' ? 'light' : 'dark');
     $('#name').textContent = Extract.coreTitle(p.title) || p.title || 'نام محصول شناسایی نشد';
     $('#name').setAttribute('title', p.title || '');
-    $('#price').innerHTML = p.price ? `${money(p.price, 20)} <small>· ${U.esc(p.priceSource || '')}</small>` : '<span class="warn" style="font-size:16px">قیمت شناسایی نشد — «ثبت دستی قیمت»</span>';
-    const dk = S.dk && S.dk.chosen;
-    $('#meta').innerHTML = [p.oldPrice ? `قبل از تخفیف: <s>${money(p.oldPrice, 12)}</s>` : '', p.seller ? 'فروشنده: ' + U.esc(p.seller) : '', p.warranty ? 'گارانتی: ' + U.esc(p.warranty) : '', dk && S.dk.lowest30dOfficial ? 'کمینهٔ ۳۰روزهٔ اعلامی دیجی‌کالا: ' + money(S.dk.lowest30dOfficial, 12) : ''].filter(Boolean).join(' · ');
+    $('#price').innerHTML = p.price ? money(p.price, 20) : '<span class="warn" style="font-size:16px">قیمت شناسایی نشد — «ثبت دستی قیمت»</span>';
+    $('#meta').innerHTML = [p.seller ? 'فروشنده: ' + U.esc(p.seller) : '', p.warranty ? 'گارانتی: ' + U.esc(p.warranty) : ''].filter(Boolean).join(' · ');
     const indicatorTargetRect = renderTabs(transition.indicatorRect || null);
     const morphOriginRect = transition.originRect || indicatorTargetRect;
     const body = { compare: tabCompare, history: tabHistory, inspect: tabInspector, watch: tabWatch, settings: tabSettings, log: tabLog }[S.tab]();
@@ -694,7 +721,7 @@ svg text{font-family:inherit}
     bodyNode.setAttribute('aria-labelledby', `tab-${S.tab === 'log' ? 'settings' : S.tab}`);
     const keep = bodyNode.scrollTop;
     const tamper = (typeof CreditGuard !== 'undefined' && CreditGuard.isOk() === false)
-      ? '<div class="banner" style="background:rgba(248,113,113,.15);border-color:var(--bad);color:var(--bad)"><b>این نسخه تغییر داده شده و اعتبار سازندگان حذف/تغییر کرده است.</b> نسخهٔ اصلی: <a style="color:inherit" href="https://t.me/RealMahdi_a" target="_blank" rel="noopener noreferrer">t.me/RealMahdi_a</a></div>' : '';
+      ? '<div class="banner" style="background:rgba(248,113,113,.15);border-color:var(--bad);color:var(--bad)"><b>این نسخه تغییر داده شده است.</b></div>' : '';
     bodyNode.innerHTML = `<div class="body-content">${tamper + (S.banner ? `<div class="banner">${U.esc(S.banner)}</div>` : '') + body}</div>`;
     bodyNode.scrollTop = transition.toTab ? (tabScrollPositions[transition.toTab] || 0) : keep;
     if (transition.toTab && transition.fromTab !== transition.toTab) {
@@ -836,6 +863,7 @@ svg text{font-family:inherit}
     root.addEventListener('input', e => {
       if (e.target.id === 'q') S.manualQuery = e.target.value;
       else if (e.target.id === 'tgt') formatPriceTargetInput(e.target);
+      else if (e.target.id === 'ival') e.target.value = U.toFa(U.digits(e.target.value).replace(/\D/g, '').slice(0, 3));
       else if (e.target.id === 'collectionName' || e.target.id === 'collectionEditName') {
         e.target.removeAttribute('aria-invalid');
         const errorId = e.target.id === 'collectionName' ? 'collectionNameError' : 'collectionEditNameError';
@@ -861,14 +889,13 @@ svg text{font-family:inherit}
         S.banner = 'شهر اسنپ‌شاپ تغییر کرد؛ برای دریافت قیمت شهر جدید دوباره مقایسه را اجرا کنید.';
       }
       else if (t.dataset.sel === 'sort') S.sort = t.value; else if (t.dataset.sel === 'variant') { S.variantIdx = +t.value; S.variantManual = true; }
-      else if (t.dataset.ck === 'trusted') S.trustedOnly = t.checked;
       else if (t.dataset.ck === 'watch') { Store.touchProduct(S.key).watch = t.checked; Store.save(); }
       else if (t.dataset.set === 'theme') { st.theme = t.checked ? 'light' : 'dark'; Store.save(); }
       else if (t.dataset.set === 'snap') { st.snap = t.checked; Store.save(); }
       else if (t.dataset.set === 'productPageOnly') { st.productPageOnly = t.checked; Store.save(); }
       else if (t.dataset.set === 'alertsEnabled') { st.alerts.enabled = t.checked; Store.save(); }
       else if (t.dataset.src) { st.sources[t.dataset.src] = t.checked; Store.save(); }
-      else if (t.id === 'ival') { st.alerts.intervalMin = Math.max(15, Number(U.digits(t.value)) || 60); Store.save(); }
+      else if (t.id === 'ival') { st.alerts.intervalMin = Math.max(15, Number(U.digits(t.value)) || 60); t.value = U.toFa(st.alerts.intervalMin); Store.save(); }
       else if (t.id === 'file' && t.files[0]) { t.files[0].text().then(tx => { try { const n = Exporter.importLocal(S.key, Exporter.parseCsv(tx)); S.banner = `${U.toFa(n)} نقطه وارد شد (به‌عنوان دادهٔ محلی)`; } catch (er) { S.banner = 'ورود CSV ناموفق: ' + er.message; } render(); }); return; }
       render();
     });
@@ -880,7 +907,7 @@ svg text{font-family:inherit}
     root = host.attachShadow({ mode: 'open' });
     root.innerHTML = `<style>${CSS}</style><div class="wrap dark"><button type="button" id="pill" aria-label="بازکردن پنل تخفیف‌سنج" aria-expanded="false" title="تخفیف‌سنج — بکشید تا جابه‌جا شود (Alt+Shift+G)">${icon('tag')}<span>تخفیف‌سنج</span></button>
       <section id="panel"><header><div class="brand">تخفیف‌سنج</div><button type="button" class="x x3" id="wide" title="عریض‌کردن پنل" aria-label="عریض‌کردن پنل">${icon('expand')}</button><button type="button" class="x x2" id="min" title="جمع‌کردن پنل" aria-label="جمع‌کردن پنل">${icon('minus')}</button><button type="button" class="x" id="close" title="بستن پنل" aria-label="بستن پنل">${icon('close')}</button></header>
-      <div class="hero"><div class="name" id="name"></div><div class="price" id="price"></div><div class="meta" id="meta"></div></div>
+      <div class="hero"><div class="hero-main"><div class="name" id="name"></div><div class="price" id="price"></div></div><div class="meta" id="meta"></div></div>
       <div class="workspace"><nav class="tabs" id="tabs" role="group" aria-label="بخش‌های اصلی"></nav><div class="body" id="body" role="tabpanel"></div></div>
       </section></div>`;
     bind(); App.on(queueAppRender); render(); requestAnimationFrame(applyPos);

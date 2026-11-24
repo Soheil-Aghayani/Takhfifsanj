@@ -88,16 +88,14 @@ const Analysis = (() => {
       const diff = (current - best.price) / current;
       if (diff >= 0.02) { cheaper = true; points.push({ k: 'good', text: `${best.seller} حدود ${U.fmtPct(diff * 100)} (${U.fmt(current - best.price)} تومان) ارزان‌تر است.` }); }
       else points.push({ k: 'ok', text: 'قیمت این صفحه با ارزان‌ترین فروشندهٔ تطبیق‌یافته برابر یا کمتر است.' });
-      if (best.matchLevel === 'medium') caveats.push('اطمینان تطبیق محصول در ترب «متوسط» است؛ مدل را قبل از خرید تأیید کنید.');
-    } else caveats.push('فروشندهٔ دیگری با تطبیق قابل‌اتکا پیدا نشد.');
+    }
     let histGood = null;
     if (st && st.count >= 10) {
       if (current <= st.min * 1.03) { histGood = true; points.push({ k: 'good', text: `قیمت نزدیک کمترین قیمت ثبت‌شده (${U.fmt(st.min)}) در ${U.toFa(st.span)} روز اخیر است.` }); }
       else if (current >= st.median * 1.1) { histGood = false; points.push({ k: 'warn', text: `قیمت ${U.fmtPct((current / st.median - 1) * 100)} بالاتر از میانهٔ ${U.toFa(st.span)} روز اخیر (${U.fmt(st.median)}) است.` }); }
       else points.push({ k: 'ok', text: `قیمت در محدودهٔ معمول ${U.toFa(st.span)} روز اخیر است (کمینه ${U.fmt(st.min)}، میانه ${U.fmt(st.median)}).` });
-    } else caveats.push('سابقهٔ قیمت کافی برای قضاوت دربارهٔ زمان خرید وجود ندارد.');
+    }
     if (insp && insp.verdict === 'rise-signal') { points.push({ k: 'warn', text: 'نشانهٔ افزایش قیمت پیش از تخفیف دیده می‌شود؛ تخفیف ادعایی را با احتیاط ببینید.' }); }
-    caveats.push('هزینهٔ ارسال و گارانتی در مقایسه لحاظ نشده (داده‌ی قابل‌اتکا موجود نیست).');
     if (cheaper) { tone = 'warn'; headline = 'فروشندهٔ ارزان‌تری وجود دارد'; }
     else if (histGood === true) { tone = 'good'; headline = 'از نظر قیمت، زمان نسبتاً مناسبی است'; }
     else if (histGood === false) { tone = 'warn'; headline = 'قیمت فعلی از حد معمول بالاتر است'; }

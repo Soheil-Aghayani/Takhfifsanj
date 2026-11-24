@@ -150,7 +150,22 @@ const Sources = (() => {
     tehran: { label: 'تهران', lat: 35.6892, lng: 51.3890 },
     mashhad: { label: 'مشهد', lat: 36.2972, lng: 59.6067 },
     isfahan: { label: 'اصفهان', lat: 32.6546, lng: 51.6680 },
-    shiraz: { label: 'شیراز', lat: 29.5918, lng: 52.5837 }
+    shiraz: { label: 'شیراز', lat: 29.5918, lng: 52.5837 },
+    tabriz: { label: 'تبریز', lat: 38.0800, lng: 46.2919 },
+    karaj: { label: 'کرج', lat: 35.8400, lng: 50.9391 },
+    qom: { label: 'قم', lat: 34.6416, lng: 50.8746 },
+    ahvaz: { label: 'اهواز', lat: 31.3183, lng: 48.6706 },
+    kermanshah: { label: 'کرمانشاه', lat: 34.3142, lng: 47.0650 },
+    urmia: { label: 'ارومیه', lat: 37.5527, lng: 45.0759 },
+    rasht: { label: 'رشت', lat: 37.2808, lng: 49.5832 },
+    yazd: { label: 'یزد', lat: 31.8974, lng: 54.3569 },
+    kerman: { label: 'کرمان', lat: 30.2839, lng: 57.0834 },
+    sari: { label: 'ساری', lat: 36.5633, lng: 53.0601 },
+    arak: { label: 'اراک', lat: 34.0917, lng: 49.6892 },
+    zahedan: { label: 'زاهدان', lat: 29.4963, lng: 60.8629 },
+    bandarAbbas: { label: 'بندرعباس', lat: 27.1865, lng: 56.2808 },
+    sanandaj: { label: 'سنندج', lat: 35.3114, lng: 46.9960 },
+    zanjan: { label: 'زنجان', lat: 36.6736, lng: 48.4787 }
   };
   const searchTerms = (prod, override) => {
     if (override) return [String(override).trim()].filter(Boolean);
@@ -272,7 +287,7 @@ const Sources = (() => {
   };
   const snappshop = {
     id: 'snappshop', label: 'اسنپ‌شاپ', icon: 'snappshop', kind: 'offers', implemented: true, hosts: ['apix.snappshop.ir'], cities: SNAPP_CITIES,
-    note: 'قیمت اسنپ‌شاپ بر اساس شهر انتخابی محاسبه می‌شود',
+    note: 'جست‌وجوی زندهٔ قیمت در اسنپ‌شاپ',
     async fetch(prod, { query } = {}) {
       const city = SNAPP_CITIES[Store.get().settings.snappCity] || SNAPP_CITIES.tehran;
       const coordinates = `lat=${encodeURIComponent(city.lat)}&lng=${encodeURIComponent(city.lng)}`;

@@ -7,7 +7,7 @@ const App = (() => {
     sources: {},              // id -> {status, count, note, error, ts, nearMiss}
     dk: null,                 // parsed Digikala product record
     chart: null, chartError: '', chartLoading: false, chartFromCache: false, chartFetchedAt: 0, chartStale: false, historyNotice: '', variantIdx: 0, variantExact: false, variantManual: false,
-    range: 90, tab: 'compare', running: false, sort: 'price', trustedOnly: false, banner: '',
+    range: 90, tab: 'compare', running: false, sort: 'price', banner: '',
     dkFetching: false, dkTs: 0, historyCooldownUntil: 0, historyCooldownNote: ''
   };
   const subs = new Set(); const emit = () => subs.forEach(f => { try { f(state); } catch (e) { Log.error('ui', e.message); } });
