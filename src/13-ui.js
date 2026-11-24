@@ -100,18 +100,20 @@ details.card summary{cursor:pointer;list-style:none}details.card summary::-webki
 .watch-target-controls{display:flex;align-items:center;gap:6px}
 .watch-target-controls input{width:122px!important;height:34px}
 .watch-list-title{display:flex;align-items:center;justify-content:space-between;margin:12px 2px 7px;font-size:12px;font-weight:700}
-.watch-list{display:grid;gap:7px;margin-top:9px}
-.watch-item{margin:0;padding:10px 11px}
+.watch-list{display:grid;gap:6px;margin-top:9px}
+.watch-item{margin:0;padding:10px 11px;border-radius:12px}
 .watch-item.current{border-color:color-mix(in srgb,var(--acc2) 72%,var(--line))}
 .watch-item-copy{min-width:0;flex:1}
-.watch-item-copy b{display:-webkit-box;overflow:hidden;-webkit-line-clamp:2;-webkit-box-orient:vertical;font-size:11px;line-height:1.45}
-.watch-item-copy span{display:block;margin-top:3px;color:var(--mut);font-size:9.5px}
-.watch-item-current-label{display:inline-flex;align-items:center;gap:4px;margin-top:5px;color:var(--acc2);font-size:9px}
-.watch-item-bottom{margin-top:8px;align-items:flex-end}
-.watch-item-metric span{display:block;color:var(--mut);font-size:9.5px}
-.watch-item-metric b{display:block;margin-top:2px;color:var(--ink);font-size:12px;font-variant-numeric:tabular-nums}
-.watch-item-metric.current b{color:var(--acc2);font-size:14px}
-.watch-item-state{display:inline-flex;align-items:center;gap:4px;margin-top:7px;font-size:9.5px}
+.watch-item-copy b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;line-height:1.5}
+.watch-item-copy span{display:block;margin-top:2px;color:var(--mut);font-size:10px}
+.watch-item-actions{display:flex;align-items:center;gap:4px;flex:0 0 auto}
+.watch-item-actions .btn.icon-only{width:34px;height:34px;flex-basis:34px}
+.watch-item-bottom{margin-top:9px;align-items:center;justify-content:flex-start;flex-wrap:wrap;gap:7px 12px}
+.watch-item-price{color:var(--acc2);font-size:15px;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
+.watch-item-price small{margin-right:3px;color:var(--mut);font-size:9px;font-weight:500}
+.watch-item-target{display:inline-flex;align-items:center;gap:4px;color:var(--mut);font-size:10px;white-space:nowrap}
+.watch-item-target b{color:var(--ink);font-size:11px;font-variant-numeric:tabular-nums}
+.watch-item-state{display:inline-flex;align-items:center;gap:4px;margin-right:auto;padding:3px 7px;border:1px solid var(--line);border-radius:999px;font-size:9.5px;white-space:nowrap}
 .watch-item-state.good{color:var(--good)}
 .watch-item-state.warn{color:var(--warn)}
 .watch-empty{margin-top:8px}
@@ -340,7 +342,10 @@ svg text{font-family:inherit}
       const state = hit ? 'به قیمت هدف رسیده' : p.target ? 'در انتظار قیمت هدف' : 'قیمت هدف تنظیم نشده';
       const currentPrice = current ? Number(S.product?.price || p.lastPrice || 0) : Number(p.lastPrice || 0);
       const targetEditor = current ? `<div class="watch-target-row"><label for="tgt">قیمت هشدار</label><div class="watch-target-controls"><input type="number" id="tgt" aria-label="قیمت هدف به تومان" min="0" value="${p.target || ''}" placeholder="تومان"><button class="btn icon-btn" data-act="setTarget" aria-label="ثبت قیمت هدف" title="ثبت قیمت هدف">${icon('check')}</button></div></div>` : '';
-      return `<article class="card watch-item ${current ? 'current' : ''}"><div class="watch-item-top"><div class="watch-item-copy"><b title="${U.esc(p.title || p.key)}">${U.esc((p.title || p.key).slice(0, 90))}</b><span>${U.esc(p.lastSource || 'قیمت ثبت‌شده')} · ${priceLabel}</span>${current ? `<small class="watch-item-current-label">${icon('pin', 12)} محصول این صفحه</small>` : ''}</div><button class="btn sec icon-btn icon-only" data-rm="${U.esc(p.key)}" aria-label="حذف از واچ‌لیست" title="حذف از واچ‌لیست">${icon('trash')}</button></div><div class="watch-item-bottom"><div class="watch-item-metric current"><span>آخرین قیمت</span><b>${currentPrice ? U.fmt(currentPrice) : '—'}</b></div><div class="watch-item-metric"><span>قیمت هدف</span><b>${p.target ? U.fmt(p.target) : '—'}</b></div><a class="btn sec icon-btn icon-only" href="${U.esc(p.url)}" target="_blank" rel="noopener noreferrer" aria-label="بازکردن محصول" title="بازکردن محصول">${icon('global')}</a></div>${targetEditor}${collectionSelect(p)}<span class="watch-item-state ${hit ? 'good' : 'warn'}">${icon(hit ? 'check' : 'clock', 13)}${state}${change == null ? '' : ' · ' + U.fmtPct(change)}</span></article>`;
+      return `<article class="card watch-item ${current ? 'current' : ''}">
+        <div class="watch-item-top"><div class="watch-item-copy"><b title="${U.esc(p.title || p.key)}">${U.esc((p.title || p.key).slice(0, 90))}</b><span>${U.esc(p.lastSource || 'قیمت ثبت‌شده')} · ${priceLabel}</span></div><div class="watch-item-actions"><a class="btn sec icon-btn icon-only" href="${U.esc(p.url)}" target="_blank" rel="noopener noreferrer" aria-label="بازکردن محصول" title="بازکردن محصول">${icon('global')}</a><button class="btn sec icon-btn icon-only" data-rm="${U.esc(p.key)}" aria-label="حذف از واچ‌لیست" title="حذف از واچ‌لیست">${icon('trash')}</button></div></div>
+        <div class="watch-item-bottom"><strong class="watch-item-price">${currentPrice ? U.fmt(currentPrice) : '—'}<small>تومان</small></strong><span class="watch-item-target">${icon('target', 13)}هدف <b>${p.target ? U.fmt(p.target) : 'تنظیم‌نشده'}</b></span><span class="watch-item-state ${hit ? 'good' : 'warn'}" title="${U.esc(state)}">${icon(hit ? 'check' : 'clock', 13)}${hit ? 'به هدف رسید' : p.target ? 'در انتظار هدف' : 'بدون هدف'}${change == null ? '' : ' · ' + U.fmtPct(change)}</span></div>
+        ${targetEditor}${collectionSelect(p)}</article>`;
     };
     let h = `<div class="watch-head"><div class="watch-head-copy"><span class="watch-head-icon">${icon('heart', 19)}</span><b>واچ‌لیست</b><span class="watch-count" aria-label="${U.toFa(tracked.length)} محصول">${U.toFa(tracked.length)}</span></div><button class="btn sec icon-btn" data-act="checkNow" title="بررسی قیمت‌های واچ‌لیست">${iconText('refresh', 'بررسی حالا')}</button></div>`;
     if (cur && !cur.watch) {
@@ -485,24 +490,23 @@ svg text{font-family:inherit}
     exit.querySelectorAll('[id]').forEach(node => node.removeAttribute('id'));
     exit.querySelectorAll('button,input,select,textarea,a').forEach(node => { node.tabIndex = -1; });
     bodyNode.appendChild(exit);
-    const enterRect = entering.getBoundingClientRect();
-    const originX = originRect ? originRect.left + originRect.width / 2 - enterRect.left : enterRect.width / 2;
-    const originY = originRect ? originRect.top + originRect.height / 2 - enterRect.top : 0;
-    const radius = Math.ceil(Math.max(
-      Math.hypot(originX, originY),
-      Math.hypot(enterRect.width - originX, originY),
-      Math.hypot(originX, enterRect.height - originY),
-      Math.hypot(enterRect.width - originX, enterRect.height - originY)
-    ));
-    const origin = `${originX}px ${originY}px`;
+    const morphClip = node => {
+      const rect = node.getBoundingClientRect(), width = Math.max(1, rect.width), height = Math.max(1, rect.height);
+      const centerX = originRect ? originRect.left + originRect.width / 2 - rect.left : width / 2;
+      const pillWidth = Math.min(width, Math.max(48, Math.ceil(originRect?.width || 64)));
+      const left = Math.min(width - pillWidth, Math.max(0, centerX - pillWidth / 2));
+      const right = width - left - pillWidth, pillHeight = Math.min(height, 38);
+      return `inset(0px ${right}px calc(100% - ${pillHeight}px) ${left}px round 999px)`;
+    };
+    const collapsed = morphClip(exit), expanded = 'inset(0px 0px 0px 0px round 0px)';
     const enteringAnimation = entering.animate([
-      { opacity: 0.72, clipPath: `circle(0px at ${origin})`, transform: 'scale(.985)' },
-      { opacity: 1, clipPath: `circle(${radius}px at ${origin})`, transform: 'scale(1)' }
-    ], { duration: 360, easing: 'cubic-bezier(.22,1,.36,1)' });
+      { opacity: 0.62, clipPath: morphClip(entering), transform: 'translateY(-5px) scale(.985)' },
+      { opacity: 1, clipPath: expanded, transform: 'translateY(0) scale(1)' }
+    ], { duration: 390, easing: 'cubic-bezier(.22,1,.36,1)' });
     const leaving = exit.animate([
-      { opacity: 1, transform: 'scale(1)', filter: 'blur(0px)' },
-      { opacity: 0, transform: 'scale(.99)', filter: 'blur(1px)' }
-    ], { duration: 190, easing: 'cubic-bezier(.4,0,1,1)' });
+      { opacity: 1, clipPath: expanded, transform: 'translateY(0) scale(1)' },
+      { opacity: 0.2, clipPath: collapsed, transform: 'translateY(-5px) scale(.99)' }
+    ], { duration: 330, easing: 'cubic-bezier(.4,0,.2,1)' });
     const cleanup = () => { if (exit.isConnected) exit.remove(); };
     leaving.onfinish = cleanup;
     leaving.oncancel = cleanup;

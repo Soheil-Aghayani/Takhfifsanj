@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         تخفیف‌سنج
 // @namespace    ghafel-com-pro
-// @version      15.2.16
+// @version      15.2.17
 // @description  مقایسهٔ قیمت فروشندگان، تاریخچهٔ قیمت دیجی‌کالا، بازرس تخفیف، واچ‌لیست و هشدار قیمت
 // @author       GHAFEL_com (Original Creator)
 // @contributor  RealMahdi_a (Upgrade & Development)
@@ -19,7 +19,7 @@
 // @noframes
 // @run-at       document-idle
 // ==/UserScript==
-/* تخفیف‌سنج 15.2.16 — Original Creator: GHAFEL_com (https://t.me/GHAFEL_com) · Upgrade & Development: RealMahdi_a (https://t.me/RealMahdi_a) · Website: https://aqilistudio.ir/
+/* تخفیف‌سنج 15.2.17 — Original Creator: GHAFEL_com (https://t.me/GHAFEL_com) · Upgrade & Development: RealMahdi_a (https://t.me/RealMahdi_a) · Website: https://aqilistudio.ir/
    Built from readable modules in /src. The 8.7 engine logic is preserved in src/06-extract.js (extraction),
    src/07-match.js (baseline rule) and src/08-sources.js (Torob flow). */
 (function () {
@@ -1112,7 +1112,7 @@ const Exporter = (() => {
     for (const x of (p?.local || [])) rows.push([key, p?.title || '', new Date(x.t).toISOString(), x.p, 'local', x.src || 'local']);
     return rows.map(r => r.map(q).join(',')).join('\n');
   }
-  const jsonAll = extra => JSON.stringify({ app: 'تخفیف‌سنج 15.2.16', exportedAt: new Date().toISOString(), db: Store.get(), ...extra }, null, 2);
+  const jsonAll = extra => JSON.stringify({ app: 'تخفیف‌سنج 15.2.17', exportedAt: new Date().toISOString(), db: Store.get(), ...extra }, null, 2);
   function parseCsv(text) {
     const out = []; const lines = String(text || '').replace(/^\uFEFF/, '').split(/\r?\n/).filter(Boolean); if (!lines.length) return out;
     const head = lines[0].toLowerCase().split(',').map(s => s.trim().replace(/"/g, ''));
@@ -1157,6 +1157,7 @@ const SolarIcons = {
   trash: "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\"><path d=\"M20.5001 6H3.5\"/><path d=\"M18.8332 8.5L18.3732 15.3991C18.1962 18.054 18.1077 19.3815 17.2427 20.1907C16.3777 21 15.0473 21 12.3865 21H11.6132C8.95235 21 7.62195 21 6.75694 20.1907C5.89194 19.3815 5.80344 18.054 5.62644 15.3991L5.1665 8.5\"/><path d=\"M9.5 11L10 16\"/><path d=\"M14.5 11L14 16\"/><path d=\"M6.5 6C6.55588 6 6.58382 6 6.60915 5.99936C7.43259 5.97849 8.15902 5.45491 8.43922 4.68032C8.44784 4.65649 8.45667 4.62999 8.47434 4.57697L8.57143 4.28571L8.57143 4.2857C8.65431 4.03708 8.69575 3.91275 8.75071 3.8072C8.97001 3.38607 9.37574 3.09364 9.84461 3.01877C9.96213 3 10.0932 3 10.3553 3H13.6447C13.9068 3 14.0379 3 14.1554 3.01877C14.6243 3.09364 15.03 3.38607 15.2493 3.8072C15.3043 3.91276 15.3457 4.03708 15.4286 4.28571L15.5257 4.57697L15.5258 4.57733C15.5433 4.63004 15.5522 4.65656 15.5608 4.68032C15.841 5.45491 16.5674 5.97849 17.3909 5.99936C17.4162 6 17.4441 6 17.5 6\"/></g>",
   bell: "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\"><path d=\"M18.7491 9.70957V9.00496C18.7491 5.13623 15.7274 2 12 2C8.27256 2 5.25087 5.13623 5.25087 9.00496V9.70957C5.25087 10.5552 5.00972 11.3818 4.5578 12.0854L3.45036 13.8095C2.43882 15.3843 3.21105 17.5249 4.97036 18.0229C9.57274 19.3257 14.4273 19.3257 19.0296 18.0229C20.789 17.5249 21.5612 15.3843 20.5496 13.8095L19.4422 12.0854C18.9903 11.3818 18.7491 10.5552 18.7491 9.70957Z\"/><path d=\"M7.5 19C8.15503 20.7478 9.92246 22 12 22C14.0775 22 15.845 20.7478 16.5 19\"/></g>",
   clock: "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><path stroke-linejoin=\"round\" d=\"M12 8V12L14.5 14.5\"/></g>",
+  target: "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\"><path d=\"M22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12Z\"/><path d=\"M2 12L5 12\"/><path d=\"M19 12L22 12\"/><path d=\"M12 22L12 19\"/><path d=\"M12 5L12 2\"/><path stroke-linejoin=\"round\" d=\"M10 12H12H14\"/><path stroke-linejoin=\"round\" d=\"M12 14L12 12L12 10\"/></g>",
   global: "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\"><path d=\"M22 12C22 13.3132 21.7413 14.6136 21.2388 15.8268C20.7362 17.0401 19.9997 18.1425 19.0711 19.0711C18.1425 19.9997 17.0401 20.7362 15.8268 21.2388C14.6136 21.7413 13.3132 22 12 22C10.6868 22 9.38642 21.7413 8.17317 21.2388C6.95991 20.7362 5.85752 19.9997 4.92893 19.0711C4.00035 18.1425 3.26375 17.0401 2.7612 15.8268C2.25866 14.6136 2 13.3132 2 12C2 10.6868 2.25866 9.38642 2.76121 8.17316C3.26375 6.95991 4.00035 5.85752 4.92893 4.92893C5.85752 4.00035 6.95991 3.26375 8.17317 2.7612C9.38642 2.25866 10.6868 2 12 2C13.3132 2 14.6136 2.25866 15.8268 2.76121C17.0401 3.26375 18.1425 4.00035 19.0711 4.92893C19.9997 5.85752 20.7362 6.95991 21.2388 8.17317C21.7413 9.38642 22 10.6868 22 12L22 12Z\"/><path d=\"M16 12C16 13.3132 15.8965 14.6136 15.6955 15.8268C15.4945 17.0401 15.1999 18.1425 14.8284 19.0711C14.457 19.9997 14.016 20.7362 13.5307 21.2388C13.0454 21.7413 12.5253 22 12 22C11.4747 22 10.9546 21.7413 10.4693 21.2388C9.98396 20.7362 9.54301 19.9997 9.17157 19.0711C8.80014 18.1425 8.5055 17.0401 8.30448 15.8268C8.10346 14.6136 8 13.3132 8 12C8 10.6868 8.10346 9.38642 8.30448 8.17316C8.5055 6.95991 8.80014 5.85752 9.17157 4.92893C9.54301 4.00035 9.98396 3.26375 10.4693 2.7612C10.9546 2.25866 11.4747 2 12 2C12.5253 2 13.0454 2.25866 13.5307 2.76121C14.016 3.26375 14.457 4.00035 14.8284 4.92893C15.1999 5.85752 15.4945 6.95991 15.6955 8.17317C15.8965 9.38642 16 10.6868 16 12L16 12Z\"/><path d=\"M2 12H22\"/></g>",
   chat: "<path fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\" d=\"M22 12C22 17.5228 17.5228 22 12 22C10.4003 22 8.88837 21.6244 7.54753 20.9565C7.19121 20.7791 6.78393 20.72 6.39939 20.8229L4.17335 21.4185C3.20701 21.677 2.32295 20.793 2.58151 19.8267L3.17712 17.6006C3.28001 17.2161 3.22094 16.8088 3.04346 16.4525C2.37562 15.1116 2 13.5997 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12Z\"/>",
   layers: "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\"><path d=\"M16.2127 10.8085L19.0212 9.68508C21.0071 8.89073 22 8.49355 22 8C22 7.50645 21.0071 7.10927 19.0212 6.31492L16.2127 5.19153C14.2268 4.39718 13.2339 4 12 4C10.7661 4 9.77318 4.39718 7.7873 5.19153L4.97883 6.31492C2.99294 7.10927 2 7.50645 2 8C2 8.49355 2.99294 8.89073 4.97883 9.68508L7.7873 10.8085C9.77318 11.6028 10.7661 12 12 12C13.2339 12 14.2268 11.6028 16.2127 10.8085Z\"/><path d=\"M22 12C22 12 21.0071 12.8907 19.0212 13.6851L16.2127 14.8085C14.2268 15.6028 13.2339 16 12 16C10.7661 16 9.77318 15.6028 7.7873 14.8085L4.97883 13.6851C2.99294 12.8907 2 12 2 12\"/><path d=\"M22 16C22 16 21.0071 16.8907 19.0212 17.6851L16.2127 18.8085C14.2268 19.6028 13.2339 20 12 20C10.7661 20 9.77318 19.6028 7.7873 18.8085L4.97883 17.6851C2.99294 16.8907 2 16 2 16\"/></g>",
@@ -1273,18 +1274,20 @@ details.card summary{cursor:pointer;list-style:none}details.card summary::-webki
 .watch-target-controls{display:flex;align-items:center;gap:6px}
 .watch-target-controls input{width:122px!important;height:34px}
 .watch-list-title{display:flex;align-items:center;justify-content:space-between;margin:12px 2px 7px;font-size:12px;font-weight:700}
-.watch-list{display:grid;gap:7px;margin-top:9px}
-.watch-item{margin:0;padding:10px 11px}
+.watch-list{display:grid;gap:6px;margin-top:9px}
+.watch-item{margin:0;padding:10px 11px;border-radius:12px}
 .watch-item.current{border-color:color-mix(in srgb,var(--acc2) 72%,var(--line))}
 .watch-item-copy{min-width:0;flex:1}
-.watch-item-copy b{display:-webkit-box;overflow:hidden;-webkit-line-clamp:2;-webkit-box-orient:vertical;font-size:11px;line-height:1.45}
-.watch-item-copy span{display:block;margin-top:3px;color:var(--mut);font-size:9.5px}
-.watch-item-current-label{display:inline-flex;align-items:center;gap:4px;margin-top:5px;color:var(--acc2);font-size:9px}
-.watch-item-bottom{margin-top:8px;align-items:flex-end}
-.watch-item-metric span{display:block;color:var(--mut);font-size:9.5px}
-.watch-item-metric b{display:block;margin-top:2px;color:var(--ink);font-size:12px;font-variant-numeric:tabular-nums}
-.watch-item-metric.current b{color:var(--acc2);font-size:14px}
-.watch-item-state{display:inline-flex;align-items:center;gap:4px;margin-top:7px;font-size:9.5px}
+.watch-item-copy b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;line-height:1.5}
+.watch-item-copy span{display:block;margin-top:2px;color:var(--mut);font-size:10px}
+.watch-item-actions{display:flex;align-items:center;gap:4px;flex:0 0 auto}
+.watch-item-actions .btn.icon-only{width:34px;height:34px;flex-basis:34px}
+.watch-item-bottom{margin-top:9px;align-items:center;justify-content:flex-start;flex-wrap:wrap;gap:7px 12px}
+.watch-item-price{color:var(--acc2);font-size:15px;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
+.watch-item-price small{margin-right:3px;color:var(--mut);font-size:9px;font-weight:500}
+.watch-item-target{display:inline-flex;align-items:center;gap:4px;color:var(--mut);font-size:10px;white-space:nowrap}
+.watch-item-target b{color:var(--ink);font-size:11px;font-variant-numeric:tabular-nums}
+.watch-item-state{display:inline-flex;align-items:center;gap:4px;margin-right:auto;padding:3px 7px;border:1px solid var(--line);border-radius:999px;font-size:9.5px;white-space:nowrap}
 .watch-item-state.good{color:var(--good)}
 .watch-item-state.warn{color:var(--warn)}
 .watch-empty{margin-top:8px}
@@ -1513,7 +1516,10 @@ svg text{font-family:inherit}
       const state = hit ? 'به قیمت هدف رسیده' : p.target ? 'در انتظار قیمت هدف' : 'قیمت هدف تنظیم نشده';
       const currentPrice = current ? Number(S.product?.price || p.lastPrice || 0) : Number(p.lastPrice || 0);
       const targetEditor = current ? `<div class="watch-target-row"><label for="tgt">قیمت هشدار</label><div class="watch-target-controls"><input type="number" id="tgt" aria-label="قیمت هدف به تومان" min="0" value="${p.target || ''}" placeholder="تومان"><button class="btn icon-btn" data-act="setTarget" aria-label="ثبت قیمت هدف" title="ثبت قیمت هدف">${icon('check')}</button></div></div>` : '';
-      return `<article class="card watch-item ${current ? 'current' : ''}"><div class="watch-item-top"><div class="watch-item-copy"><b title="${U.esc(p.title || p.key)}">${U.esc((p.title || p.key).slice(0, 90))}</b><span>${U.esc(p.lastSource || 'قیمت ثبت‌شده')} · ${priceLabel}</span>${current ? `<small class="watch-item-current-label">${icon('pin', 12)} محصول این صفحه</small>` : ''}</div><button class="btn sec icon-btn icon-only" data-rm="${U.esc(p.key)}" aria-label="حذف از واچ‌لیست" title="حذف از واچ‌لیست">${icon('trash')}</button></div><div class="watch-item-bottom"><div class="watch-item-metric current"><span>آخرین قیمت</span><b>${currentPrice ? U.fmt(currentPrice) : '—'}</b></div><div class="watch-item-metric"><span>قیمت هدف</span><b>${p.target ? U.fmt(p.target) : '—'}</b></div><a class="btn sec icon-btn icon-only" href="${U.esc(p.url)}" target="_blank" rel="noopener noreferrer" aria-label="بازکردن محصول" title="بازکردن محصول">${icon('global')}</a></div>${targetEditor}${collectionSelect(p)}<span class="watch-item-state ${hit ? 'good' : 'warn'}">${icon(hit ? 'check' : 'clock', 13)}${state}${change == null ? '' : ' · ' + U.fmtPct(change)}</span></article>`;
+      return `<article class="card watch-item ${current ? 'current' : ''}">
+        <div class="watch-item-top"><div class="watch-item-copy"><b title="${U.esc(p.title || p.key)}">${U.esc((p.title || p.key).slice(0, 90))}</b><span>${U.esc(p.lastSource || 'قیمت ثبت‌شده')} · ${priceLabel}</span></div><div class="watch-item-actions"><a class="btn sec icon-btn icon-only" href="${U.esc(p.url)}" target="_blank" rel="noopener noreferrer" aria-label="بازکردن محصول" title="بازکردن محصول">${icon('global')}</a><button class="btn sec icon-btn icon-only" data-rm="${U.esc(p.key)}" aria-label="حذف از واچ‌لیست" title="حذف از واچ‌لیست">${icon('trash')}</button></div></div>
+        <div class="watch-item-bottom"><strong class="watch-item-price">${currentPrice ? U.fmt(currentPrice) : '—'}<small>تومان</small></strong><span class="watch-item-target">${icon('target', 13)}هدف <b>${p.target ? U.fmt(p.target) : 'تنظیم‌نشده'}</b></span><span class="watch-item-state ${hit ? 'good' : 'warn'}" title="${U.esc(state)}">${icon(hit ? 'check' : 'clock', 13)}${hit ? 'به هدف رسید' : p.target ? 'در انتظار هدف' : 'بدون هدف'}${change == null ? '' : ' · ' + U.fmtPct(change)}</span></div>
+        ${targetEditor}${collectionSelect(p)}</article>`;
     };
     let h = `<div class="watch-head"><div class="watch-head-copy"><span class="watch-head-icon">${icon('heart', 19)}</span><b>واچ‌لیست</b><span class="watch-count" aria-label="${U.toFa(tracked.length)} محصول">${U.toFa(tracked.length)}</span></div><button class="btn sec icon-btn" data-act="checkNow" title="بررسی قیمت‌های واچ‌لیست">${iconText('refresh', 'بررسی حالا')}</button></div>`;
     if (cur && !cur.watch) {
@@ -1658,24 +1664,23 @@ svg text{font-family:inherit}
     exit.querySelectorAll('[id]').forEach(node => node.removeAttribute('id'));
     exit.querySelectorAll('button,input,select,textarea,a').forEach(node => { node.tabIndex = -1; });
     bodyNode.appendChild(exit);
-    const enterRect = entering.getBoundingClientRect();
-    const originX = originRect ? originRect.left + originRect.width / 2 - enterRect.left : enterRect.width / 2;
-    const originY = originRect ? originRect.top + originRect.height / 2 - enterRect.top : 0;
-    const radius = Math.ceil(Math.max(
-      Math.hypot(originX, originY),
-      Math.hypot(enterRect.width - originX, originY),
-      Math.hypot(originX, enterRect.height - originY),
-      Math.hypot(enterRect.width - originX, enterRect.height - originY)
-    ));
-    const origin = `${originX}px ${originY}px`;
+    const morphClip = node => {
+      const rect = node.getBoundingClientRect(), width = Math.max(1, rect.width), height = Math.max(1, rect.height);
+      const centerX = originRect ? originRect.left + originRect.width / 2 - rect.left : width / 2;
+      const pillWidth = Math.min(width, Math.max(48, Math.ceil(originRect?.width || 64)));
+      const left = Math.min(width - pillWidth, Math.max(0, centerX - pillWidth / 2));
+      const right = width - left - pillWidth, pillHeight = Math.min(height, 38);
+      return `inset(0px ${right}px calc(100% - ${pillHeight}px) ${left}px round 999px)`;
+    };
+    const collapsed = morphClip(exit), expanded = 'inset(0px 0px 0px 0px round 0px)';
     const enteringAnimation = entering.animate([
-      { opacity: 0.72, clipPath: `circle(0px at ${origin})`, transform: 'scale(.985)' },
-      { opacity: 1, clipPath: `circle(${radius}px at ${origin})`, transform: 'scale(1)' }
-    ], { duration: 360, easing: 'cubic-bezier(.22,1,.36,1)' });
+      { opacity: 0.62, clipPath: morphClip(entering), transform: 'translateY(-5px) scale(.985)' },
+      { opacity: 1, clipPath: expanded, transform: 'translateY(0) scale(1)' }
+    ], { duration: 390, easing: 'cubic-bezier(.22,1,.36,1)' });
     const leaving = exit.animate([
-      { opacity: 1, transform: 'scale(1)', filter: 'blur(0px)' },
-      { opacity: 0, transform: 'scale(.99)', filter: 'blur(1px)' }
-    ], { duration: 190, easing: 'cubic-bezier(.4,0,1,1)' });
+      { opacity: 1, clipPath: expanded, transform: 'translateY(0) scale(1)' },
+      { opacity: 0.2, clipPath: collapsed, transform: 'translateY(-5px) scale(.99)' }
+    ], { duration: 330, easing: 'cubic-bezier(.4,0,.2,1)' });
     const cleanup = () => { if (exit.isConnected) exit.remove(); };
     leaving.onfinish = cleanup;
     leaving.oncancel = cleanup;
@@ -1881,7 +1886,7 @@ const Main = (() => {
     };
     const run = () => { try { check(); } catch (e) { Log.error('main', e.message); } };
     setTimeout(run, 600); setInterval(run, 1500);
-    Log.info('main', 'تخفیف‌سنج 15.2.16 آماده شد');
+    Log.info('main', 'تخفیف‌سنج 15.2.17 آماده شد');
   }
   return { init };
 })();
