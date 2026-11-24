@@ -88,7 +88,7 @@ details.card summary{cursor:pointer;list-style:none}details.card summary::-webki
 .watch-head-copy{display:flex;align-items:center;gap:9px;min-width:0}
 .watch-head-icon{display:grid;place-items:center;flex:0 0 34px;width:34px;height:34px;border-radius:11px;background:var(--warn-soft);color:var(--acc2)}
 .watch-head-copy b{display:block;color:var(--ink);font-size:13px}
-.watch-head-copy span{display:block;color:var(--mut);font-size:10.5px}
+.watch-count{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:22px;padding:0 7px;border:1px solid var(--line);border-radius:999px;background:var(--card);color:var(--mut);font-size:10px;font-variant-numeric:tabular-nums}
 .watch-current{padding:10px 11px;margin-bottom:10px}
 .watch-current-top,.watch-item-top,.watch-item-bottom{display:flex;align-items:center;justify-content:space-between;gap:9px}
 .watch-current-top .switch-row{flex:0 0 auto;min-height:38px;padding:0;border:0}
@@ -115,19 +115,17 @@ details.card summary{cursor:pointer;list-style:none}details.card summary::-webki
 .watch-item-state.good{color:var(--good)}
 .watch-item-state.warn{color:var(--warn)}
 .watch-empty{margin-top:8px}
-.collection-manager{padding:10px 11px;margin:0 0 10px}
+.collection-manager{padding:0;margin:0 2px 10px;background:transparent;border:0}
 .collection-manager-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .collection-manager-title{display:flex;align-items:center;gap:8px;min-width:0}
 .collection-manager-title>.icon{width:18px;height:18px;color:var(--acc2)}
 .collection-manager-title b{display:block;font-size:12px;font-weight:800}
-.collection-manager-title small{display:block;margin-top:1px;color:var(--mut);font-size:9.5px}
-.collection-pills{display:flex;gap:6px;margin-top:9px;padding:1px 0 3px;overflow-x:auto;scrollbar-width:none}
+.collection-pills{display:flex;gap:6px;margin-top:7px;padding:1px 0 3px;overflow-x:auto;scrollbar-width:none}
 .collection-pills::-webkit-scrollbar{display:none}
 .collection-pill{all:unset;box-sizing:border-box;display:inline-flex;align-items:center;gap:5px;flex:0 0 auto;min-height:32px;padding:5px 9px;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--mut);font-size:10.5px;cursor:pointer;transition:color .16s ease,border-color .16s ease,background .16s ease}
 .collection-pill:hover,.collection-pill[aria-pressed="true"]{color:var(--ink);border-color:var(--acc2);background:var(--warn-soft)}
 .collection-pill[aria-pressed="true"]{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--acc2) 30%,transparent)}
 .collection-pill .icon{width:14px;height:14px;color:var(--acc2)}
-.collection-pill small{font-size:9px;color:var(--mut)}
 .collection-create-form{display:grid;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
 .collection-create-form[hidden]{display:none!important}
 .collection-name-row{display:flex;align-items:center;gap:7px}
@@ -150,7 +148,8 @@ details.card summary{cursor:pointer;list-style:none}details.card summary::-webki
 .settings-link{all:unset;box-sizing:border-box;cursor:pointer;display:flex;align-items:center;gap:10px;width:100%;min-height:48px;padding:5px 3px;border-radius:9px;color:var(--ink);text-align:right;transition:background .16s ease}
 .settings-link:hover{background:color-mix(in srgb,var(--acc) 9%,transparent)}
 .settings-link:focus-visible{outline:2px solid var(--acc2);outline-offset:1px}
-.settings-link-icon{display:grid;place-items:center;flex:0 0 34px;width:34px;height:34px;border-radius:10px;background:var(--warn-soft);color:var(--warn)}
+.diagnostics-option{margin:0 0 13px;padding:7px 10px;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+.settings-link-icon{display:grid;place-items:center;flex:0 0 22px;width:22px;height:22px;color:var(--warn)}
 .settings-link-copy{display:grid;gap:2px;min-width:0;flex:1}
 .settings-link-copy small{color:var(--mut);font-size:10.5px}
 .diagnostics-back{margin-bottom:9px}
@@ -332,9 +331,6 @@ svg text{font-family:inherit}
     const collectionList = Object.values(collections);
     const tracked = Object.values(db.products).filter(p => p.watch).sort((a, b) => (b.lastTs || 0) - (a.lastTs || 0));
     const iconChoices = [['heart', 'علاقه'], ['tag', 'مناسبت'], ['layers', 'دسته'], ['wallet', 'خرید'], ['pin', 'برنامه'], ['file', 'فهرست'], ['global', 'عمومی'], ['bell', 'هشدار']];
-    const itemCounts = new Map();
-    for (const product of tracked) if (collections[product.collectionId]) itemCounts.set(product.collectionId, (itemCounts.get(product.collectionId) || 0) + 1);
-    const unassignedCount = tracked.filter(product => !collections[product.collectionId]).length;
     if (watchCollectionFilter !== 'all' && watchCollectionFilter !== 'none' && !collections[watchCollectionFilter]) watchCollectionFilter = 'all';
     const collectionSelect = p => collectionList.length ? `<label class="watch-item-collection"><span>مجموعه</span><select data-sel="collection" data-key="${U.esc(p.key)}" aria-label="مجموعهٔ ${U.esc((p.title || 'محصول').slice(0, 36))}"><option value="">بدون مجموعه</option>${collectionList.map(c => `<option value="${U.esc(c.id)}" ${p.collectionId === c.id ? 'selected' : ''}>${U.esc(c.name)}</option>`).join('')}</select></label>` : '';
     const itemCard = p => {
@@ -346,26 +342,24 @@ svg text{font-family:inherit}
       const targetEditor = current ? `<div class="watch-target-row"><label for="tgt">قیمت هشدار</label><div class="watch-target-controls"><input type="number" id="tgt" aria-label="قیمت هدف به تومان" min="0" value="${p.target || ''}" placeholder="تومان"><button class="btn icon-btn" data-act="setTarget" aria-label="ثبت قیمت هدف" title="ثبت قیمت هدف">${icon('check')}</button></div></div>` : '';
       return `<article class="card watch-item ${current ? 'current' : ''}"><div class="watch-item-top"><div class="watch-item-copy"><b title="${U.esc(p.title || p.key)}">${U.esc((p.title || p.key).slice(0, 90))}</b><span>${U.esc(p.lastSource || 'قیمت ثبت‌شده')} · ${priceLabel}</span>${current ? `<small class="watch-item-current-label">${icon('pin', 12)} محصول این صفحه</small>` : ''}</div><button class="btn sec icon-btn icon-only" data-rm="${U.esc(p.key)}" aria-label="حذف از واچ‌لیست" title="حذف از واچ‌لیست">${icon('trash')}</button></div><div class="watch-item-bottom"><div class="watch-item-metric current"><span>آخرین قیمت</span><b>${currentPrice ? U.fmt(currentPrice) : '—'}</b></div><div class="watch-item-metric"><span>قیمت هدف</span><b>${p.target ? U.fmt(p.target) : '—'}</b></div><a class="btn sec icon-btn icon-only" href="${U.esc(p.url)}" target="_blank" rel="noopener noreferrer" aria-label="بازکردن محصول" title="بازکردن محصول">${icon('global')}</a></div>${targetEditor}${collectionSelect(p)}<span class="watch-item-state ${hit ? 'good' : 'warn'}">${icon(hit ? 'check' : 'clock', 13)}${state}${change == null ? '' : ' · ' + U.fmtPct(change)}</span></article>`;
     };
-    let h = `<div class="watch-head"><div class="watch-head-copy"><span class="watch-head-icon">${icon('heart', 19)}</span><div><b>واچ‌لیست</b><span>${U.toFa(tracked.length)} محصول زیر نظر</span></div></div><button class="btn sec icon-btn" data-act="checkNow" title="بررسی قیمت‌های واچ‌لیست">${iconText('refresh', 'بررسی حالا')}</button></div>`;
+    let h = `<div class="watch-head"><div class="watch-head-copy"><span class="watch-head-icon">${icon('heart', 19)}</span><b>واچ‌لیست</b><span class="watch-count" aria-label="${U.toFa(tracked.length)} محصول">${U.toFa(tracked.length)}</span></div><button class="btn sec icon-btn" data-act="checkNow" title="بررسی قیمت‌های واچ‌لیست">${iconText('refresh', 'بررسی حالا')}</button></div>`;
     if (cur && !cur.watch) {
       const currentTitle = Extract.coreTitle(S.product?.title) || S.product?.title || cur.title || 'محصول فعلی';
       const currentPrice = Number(S.product?.price || cur.lastPrice || 0);
       h += `<section class="card watch-current"><div class="watch-current-top"><b class="card-title">${icon('tag')}<span>افزودن محصول این صفحه</span></b>${switchRow('پیگیری قیمت', 'data-ck="watch"', false, 'bell')}</div><div class="watch-current-name">${U.esc(currentTitle)}</div><div class="watch-current-price"><span>قیمت فعلی</span><b>${currentPrice ? U.fmt(currentPrice) : '—'}</b><span>تومان</span></div><div class="watch-target-row"><label for="tgt">هشدار در قیمت هدف</label><div class="watch-target-controls"><input type="number" id="tgt" aria-label="قیمت هدف به تومان" min="0" value="${cur.target || ''}" placeholder="تومان"><button class="btn icon-btn" data-act="setTarget" aria-label="ثبت قیمت هدف" title="ثبت قیمت هدف">${icon('check')}</button></div></div></section>`;
-    } else if (!cur && !S.product) {
-      h += `<div class="empty-state watch-empty" role="status"><span class="empty-state-icon">${icon('search', 18)}</span><div class="empty-state-copy"><b>محصولی در این صفحه نیست</b><p>صفحهٔ یک محصول را باز کنید تا بتوانید آن را پیگیری کنید.</p></div></div>`;
     }
     const filters = [
-      { id: 'all', name: 'همه', icon: 'layers', count: tracked.length },
-      ...collectionList.map(c => ({ id: c.id, name: c.name, icon: c.icon || 'layers', count: itemCounts.get(c.id) || 0 })),
-      ...(unassignedCount ? [{ id: 'none', name: 'بدون مجموعه', icon: 'tag', count: unassignedCount }] : [])
+      { id: 'all', name: 'همه', icon: 'layers' },
+      ...collectionList.map(c => ({ id: c.id, name: c.name, icon: c.icon || 'layers' })),
+      ...(tracked.some(product => !collections[product.collectionId]) ? [{ id: 'none', name: 'بدون مجموعه', icon: 'tag' }] : [])
     ];
     const selectedCollection = collections[watchCollectionFilter];
-    h += `<section class="card collection-manager"><div class="collection-manager-head"><div class="collection-manager-title">${icon('layers')}<div><b>مجموعه‌ها</b><small>${U.toFa(collectionList.length)} مجموعه · ${U.toFa(tracked.length)} محصول</small></div></div><button type="button" class="btn sec icon-btn icon-only" data-act="toggleCollectionForm" aria-expanded="${collectionFormOpen}" aria-controls="collectionCreateForm" aria-label="${collectionFormOpen ? 'بستن فرم ساخت مجموعه' : 'ساخت مجموعهٔ جدید'}" title="${collectionFormOpen ? 'بستن فرم' : 'ساخت مجموعه'}">${icon(collectionFormOpen ? 'close' : 'tag')}</button></div><div class="collection-pills" aria-label="فیلتر مجموعه‌ها">${filters.map(f => `<button type="button" class="collection-pill" data-act="toggleCollection" data-collection-id="${U.esc(f.id)}" aria-pressed="${watchCollectionFilter === f.id}">${icon(f.icon, 14)}<span>${U.esc(f.name)}</span><small>${U.toFa(f.count)}</small></button>`).join('')}</div>${selectedCollection ? `<div class="collection-selection-actions"><button class="btn sec" data-act="renameCollection" data-collection-id="${U.esc(selectedCollection.id)}">${iconText('pen', 'تغییر نام')}</button><button class="btn sec icon-btn" data-act="deleteCollection" data-collection-id="${U.esc(selectedCollection.id)}">${iconText('trash', 'حذف مجموعه')}</button></div>` : ''}<div class="collection-create-form" id="collectionCreateForm" ${collectionFormOpen ? '' : 'hidden'}><div class="collection-name-row"><input type="text" id="collectionName" maxlength="32" aria-label="نام مجموعهٔ جدید" placeholder="مثلاً تولد یا هدیه"><button type="button" class="btn sec icon-btn collection-create-submit" data-act="createCollection">${iconText('check', 'ساخت')}</button></div><span class="collection-icon-label">آیکون مجموعه</span><div class="collection-icon-picker" role="group" aria-label="انتخاب آیکون مجموعه">${iconChoices.map(([name, label], i) => `<button type="button" class="collection-icon-choice" data-collection-icon="${name}" aria-label="${label}" title="${label}" aria-pressed="${i === 0}">${icon(name, 18)}</button>`).join('')}</div></div></section>`;
+    h += `<section class="collection-manager"><div class="collection-manager-head"><div class="collection-manager-title">${icon('layers')}<b>مجموعه‌ها</b></div><button type="button" class="btn sec icon-btn icon-only" data-act="toggleCollectionForm" aria-expanded="${collectionFormOpen}" aria-controls="collectionCreateForm" aria-label="${collectionFormOpen ? 'بستن فرم ساخت مجموعه' : 'ساخت مجموعهٔ جدید'}" title="${collectionFormOpen ? 'بستن فرم' : 'ساخت مجموعه'}">${icon(collectionFormOpen ? 'close' : 'tag')}</button></div>${collectionList.length ? `<div class="collection-pills" aria-label="فیلتر مجموعه‌ها">${filters.map(f => `<button type="button" class="collection-pill" data-act="toggleCollection" data-collection-id="${U.esc(f.id)}" aria-pressed="${watchCollectionFilter === f.id}">${icon(f.icon, 14)}<span>${U.esc(f.name)}</span></button>`).join('')}</div>` : ''}${selectedCollection ? `<div class="collection-selection-actions"><button class="btn sec" data-act="renameCollection" data-collection-id="${U.esc(selectedCollection.id)}">${iconText('pen', 'تغییر نام')}</button><button class="btn sec icon-btn" data-act="deleteCollection" data-collection-id="${U.esc(selectedCollection.id)}">${iconText('trash', 'حذف مجموعه')}</button></div>` : ''}<div class="collection-create-form" id="collectionCreateForm" ${collectionFormOpen ? '' : 'hidden'}><div class="collection-name-row"><input type="text" id="collectionName" maxlength="32" aria-label="نام مجموعهٔ جدید" placeholder="مثلاً تولد یا هدیه"><button type="button" class="btn sec icon-btn collection-create-submit" data-act="createCollection">${iconText('check', 'ساخت')}</button></div><span class="collection-icon-label">آیکون مجموعه</span><div class="collection-icon-picker" role="group" aria-label="انتخاب آیکون مجموعه">${iconChoices.map(([name, label], i) => `<button type="button" class="collection-icon-choice" data-collection-icon="${name}" aria-label="${label}" title="${label}" aria-pressed="${i === 0}">${icon(name, 18)}</button>`).join('')}</div></div></section>`;
     const visible = tracked.filter(p => watchCollectionFilter === 'all' || (watchCollectionFilter === 'none' ? !collections[p.collectionId] : p.collectionId === watchCollectionFilter));
-    h += `<div class="watch-list-title"><span>${watchCollectionFilter === 'all' ? 'محصول‌های زیرنظر' : U.esc(filters.find(f => f.id === watchCollectionFilter)?.name || 'مجموعه')}</span><span class="muted">${U.toFa(visible.length)}</span></div>`;
+    if (visible.length) h += `<div class="watch-list-title">${watchCollectionFilter === 'all' ? 'محصول‌های زیرنظر' : U.esc(filters.find(f => f.id === watchCollectionFilter)?.name || 'مجموعه')}</div>`;
     if (visible.length) h += `<div class="watch-list">${visible.map(itemCard).join('')}</div>`;
     else if (tracked.length) h += `<div class="collection-empty">در این مجموعه هنوز محصولی نیست.</div>`;
-    else if (!cur?.watch) h += `<div class="empty-state watch-empty" role="status"><span class="empty-state-icon">${icon('heart', 18)}</span><div class="empty-state-copy"><b>واچ‌لیست خالی است</b><p>با روشن‌کردن پیگیری محصول این صفحه، اولین مورد را اضافه کنید.</p></div></div>`;
+    else if (!cur?.watch && !S.product) h += `<div class="empty-state watch-empty" role="status"><span class="empty-state-icon">${icon('heart', 18)}</span><div class="empty-state-copy"><b>هنوز محصولی زیر نظر نیست</b><p>برای افزودن کالا، صفحهٔ محصول را باز کنید.</p></div></div>`;
     return h;
   }
 
@@ -384,7 +378,7 @@ svg text{font-family:inherit}
     const alertSettings = switchRow('فعال‌کردن هشدار قیمت', 'data-set="alertsEnabled"', !!alerts.enabled, 'bell') +
       `<div class="setting-input-row"><label for="ival">${icon('clock')}<span>فاصلهٔ بررسی (دقیقه)</span></label><input type="number" id="ival" aria-label="فاصلهٔ بررسی هشدار به دقیقه، حداقل ۱۵" min="15" value="${alerts.intervalMin || 60}"></div><div class="muted setting-note">حداقل ۱۵ دقیقه</div>`;
     h += settingsSection('هشدار قیمت', 'bell', alertSettings);
-    h += settingsSection('گزارش و عیب‌یابی', 'bug', `<button type="button" class="settings-link" data-tab="log" aria-label="بازکردن گزارش و عیب‌یابی"><span class="settings-link-icon">${icon('bug', 18)}</span><span class="settings-link-copy"><b>گزارش و عیب‌یابی</b><small>رویدادها، خطاها و وضعیت منابع</small></span></button>`);
+    h += `<button type="button" class="settings-link diagnostics-option" data-tab="log" aria-label="بازکردن گزارش و عیب‌یابی"><span class="settings-link-icon">${icon('bug', 18)}</span><span class="settings-link-copy"><b>گزارش و عیب‌یابی</b><small>رویدادها، خطاها و وضعیت منابع</small></span></button>`;
     const dataActions = `<div class="btns"><button class="btn sec icon-btn" data-act="expCsv">${iconText('download', 'خروجی CSV')}</button><button class="btn sec icon-btn" data-act="expJson">${iconText('download', 'خروجی JSON')}</button><button class="btn sec icon-btn" data-act="impCsv">${iconText('upload', 'ورود CSV')}</button><button class="btn bad icon-btn" data-act="clearProd" title="پاک‌کردن تاریخچهٔ محلی این محصول">${iconText('trash', 'حذف محصول')}</button><button class="btn bad icon-btn" data-act="clearAll" title="پاک‌کردن همهٔ داده‌ها و تنظیمات">${iconText('trash', 'حذف همه')}</button></div><input type="file" id="file" accept=".csv" style="display:none">`;
     h += settingsSection('داده‌های ذخیره‌شده', 'file', dataActions);
     return h;
@@ -393,7 +387,7 @@ svg text{font-family:inherit}
     const legacy = ['ghpro12-host', 'ghafel-pc-btn', 'ghafel-pc-panel'].filter(id => document.getElementById(id));
     let h = legacy.length ? `<div class="banner">نسخه‌های قدیمی هم‌زمان فعال‌اند (${legacy.join('، ')}). در Tampermonkey آن‌ها را غیرفعال کنید تا فقط یک پنل بماند.</div>` : '';
     h += `<button type="button" class="btn sec icon-btn diagnostics-back" data-tab="settings">${icon('settings')}<span>بازگشت به تنظیمات</span></button>`;
-    h += `<div class="card muted">نسخه ۱۵.۲.۱۳ · محصول: ${U.esc(S.key)} · منبع قیمت: ${U.esc((S.product || {}).priceSource || '—')}${(S.product || {}).priceNote ? ' · ' + U.esc(S.product.priceNote) : ''}</div>`;
+    h += `<div class="card muted">نسخه ۱۵.۲.۱۴ · محصول: ${U.esc(S.key)} · منبع قیمت: ${U.esc((S.product || {}).priceSource || '—')}${(S.product || {}).priceNote ? ' · ' + U.esc(S.product.priceNote) : ''}</div>`;
     h += `<div class="card log">${Log.all().slice(-60).reverse().map(e => `<div class="${e.level === 'error' ? 'e' : e.level === 'warn' ? 'w' : ''}">${new Date(e.t).toLocaleTimeString('en-GB')} [${U.esc(e.scope)}] ${U.esc(e.msg)}</div>`).join('') || 'بدون رویداد'}</div>`;
     return h;
   }
@@ -470,7 +464,7 @@ svg text{font-family:inherit}
   }
   let countdownTimer = null;
   function scheduleCountdownTick() { if (countdownTimer) return; countdownTimer = setTimeout(() => { countdownTimer = null; if (S.tab === 'history') render(); }, 1000); }
-  function animateTabContent(bodyNode, oldHtml, oldScrollTop = 0, direction = 1) {
+  function animateTabContent(bodyNode, oldHtml, oldScrollTop = 0, originRect = null) {
     if (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const entering = bodyNode.querySelector('.body-content');
     if (!entering || typeof entering.animate !== 'function') return;
@@ -480,13 +474,23 @@ svg text{font-family:inherit}
     exit.querySelectorAll('[id]').forEach(node => node.removeAttribute('id'));
     exit.querySelectorAll('button,input,select,textarea,a').forEach(node => { node.tabIndex = -1; });
     bodyNode.appendChild(exit);
+    const enterRect = entering.getBoundingClientRect();
+    const originX = originRect ? originRect.left + originRect.width / 2 - enterRect.left : enterRect.width / 2;
+    const originY = originRect ? originRect.top + originRect.height / 2 - enterRect.top : 0;
+    const radius = Math.ceil(Math.max(
+      Math.hypot(originX, originY),
+      Math.hypot(enterRect.width - originX, originY),
+      Math.hypot(originX, enterRect.height - originY),
+      Math.hypot(enterRect.width - originX, enterRect.height - originY)
+    ));
+    const origin = `${originX}px ${originY}px`;
     const enteringAnimation = entering.animate([
-      { opacity: 0, transform: `translate3d(${direction * 14}px, 5px, 0) scale(.985)`, borderRadius: '14px' },
-      { opacity: 1, transform: 'translate3d(0,0,0) scale(1)', borderRadius: '0px' }
-    ], { duration: 300, easing: 'cubic-bezier(.22,1,.36,1)' });
+      { opacity: 0.72, clipPath: `circle(0px at ${origin})`, transform: 'scale(.985)' },
+      { opacity: 1, clipPath: `circle(${radius}px at ${origin})`, transform: 'scale(1)' }
+    ], { duration: 360, easing: 'cubic-bezier(.22,1,.36,1)' });
     const leaving = exit.animate([
-      { opacity: 1, transform: 'translate3d(0,0,0) scale(1)' },
-      { opacity: 0, transform: `translate3d(${-direction * 8}px,-2px,0) scale(.995)` }
+      { opacity: 1, transform: 'scale(1)', filter: 'blur(0px)' },
+      { opacity: 0, transform: 'scale(.99)', filter: 'blur(1px)' }
     ], { duration: 190, easing: 'cubic-bezier(.4,0,1,1)' });
     const cleanup = () => { if (exit.isConnected) exit.remove(); };
     leaving.onfinish = cleanup;
@@ -519,7 +523,7 @@ svg text{font-family:inherit}
     bodyNode.innerHTML = `<div class="body-content">${tamper + (S.banner ? `<div class="banner">${U.esc(S.banner)}</div>` : '') + body}</div>`;
     bodyNode.scrollTop = transition.toTab ? (tabScrollPositions[transition.toTab] || 0) : keep;
     if (oldHtml != null && transition.fromTab !== transition.toTab) {
-      animateTabContent(bodyNode, oldHtml, exitScroll, transition.direction);
+      animateTabContent(bodyNode, oldHtml, exitScroll, transition.indicatorRect);
     }
     const th = $('[data-set="theme"]'); if (th) th.checked = st.theme === 'light';
   }
@@ -583,10 +587,8 @@ svg text{font-family:inherit}
         const fromTab = S.tab, bodyNode = $('#body'), oldScrollTop = bodyNode.scrollTop, fromContent = bodyNode.querySelector('.body-content')?.innerHTML ?? bodyNode.innerHTML;
         tabScrollPositions[fromTab] = oldScrollTop;
         const indicatorRect = $('#tabs').querySelector('.tab-indicator')?.getBoundingClientRect();
-        const fromIndex = TABS.findIndex(([key]) => key === fromTab), toIndex = TABS.findIndex(([key]) => key === t.dataset.tab);
-        const direction = toIndex >= fromIndex ? -1 : 1;
         S.tab = t.dataset.tab; db.settings.tab = S.tab; Store.save();
-        const transition = { indicatorRect, oldBodyHtml: fromContent, oldScrollTop, fromTab, toTab: t.dataset.tab, direction };
+        const transition = { indicatorRect, oldBodyHtml: fromContent, oldScrollTop, fromTab, toTab: t.dataset.tab };
         const result = render(transition);
         if (S.tab === 'history' && !S.chart && !S.chartLoading) setTimeout(() => App.loadHistory(), 80);
         return result;
