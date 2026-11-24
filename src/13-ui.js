@@ -554,8 +554,15 @@ svg text{font-family:inherit}
   function renderTabs(fromRect = null) {
     const nav = $('#tabs'); if (!nav) return;
     if (!TABS.some(([key]) => key === S.tab) && S.tab !== 'log') S.tab = 'compare';
-    if (!nav.querySelector('.tab-indicator') || !nav.querySelector('.tab-main') || TABS.some(([key]) => !nav.querySelector('#tab-' + key))) {
+    const existingMain = nav.querySelector('.tab-main');
+    const canonicalTabs = nav.children.length === 2
+      && nav.children[0].classList.contains('tab-indicator')
+      && nav.children[1] === existingMain
+      && existingMain?.children.length === TABS.length
+      && TABS.every(([key], index) => existingMain.children[index]?.id === 'tab-' + key);
+    if (!canonicalTabs) {
       nav.replaceChildren();
+      lastIndicatorTarget = null;
       const indicator = document.createElement('span'); indicator.className = 'tab-indicator'; indicator.setAttribute('aria-hidden', 'true');
       const main = document.createElement('div'); main.className = 'tab-main'; main.setAttribute('role', 'tablist'); main.setAttribute('aria-label', 'بخش‌های اصلی');
       nav.append(indicator, main);

@@ -305,6 +305,9 @@ test('UI: exactly ONE panel host, mount is idempotent, every tab renders, legacy
   for (const t of ['compare', 'history', 'inspect', 'watch', 'settings', 'log']) { api.App.state.tab = t; api.UI.render(); assert.ok(root.querySelector('#body').innerHTML.length > 20, t); }
   api.App.state.tab = 'settings'; api.UI.render();
   assert.equal(root.querySelectorAll('.tab').length, 5); assert.equal(root.querySelector('.tab-main').nextElementSibling, null);
+  const legacyDiagnostic = w.document.createElement('button'); legacyDiagnostic.className = 'tab diagnostics-dock'; legacyDiagnostic.dataset.tab = 'diagnostics';
+  root.querySelector('.tab-main').append(legacyDiagnostic); api.UI.render();
+  assert.deepEqual([...root.querySelectorAll('.tab')].map(tab => tab.dataset.tab), ['compare', 'history', 'inspect', 'watch', 'settings']);
   assert.equal(root.querySelector('#tab-log'), null); assert.ok(root.querySelector('.diagnostics-option')); assert.ok(root.querySelectorAll('.switch-input').length > 0); assert.equal(root.querySelectorAll('.switch-input').length, root.querySelectorAll('.switch-track').length); root.querySelector('.diagnostics-open').click();
   assert.equal(api.App.state.tab, 'log'); assert.equal(root.querySelector('#tab-settings').getAttribute('aria-selected'), 'true'); assert.ok(root.querySelector('.diagnostics-back')); assert.equal(root.querySelector('.body-transition-exit'), null);
   root.querySelector('.diagnostics-back').click(); assert.equal(api.App.state.tab, 'settings'); assert.ok(root.querySelector('#tab-settings').classList.contains('on'));

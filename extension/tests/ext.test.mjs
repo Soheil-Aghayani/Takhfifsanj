@@ -77,9 +77,11 @@ test('CreditGuard: passes with the shipped credits, fails if the string is alter
 });
 
 test('manifests: valid JSON, matching version/name, host_permissions limited to the 2 real APIs, no "<all_urls>" in host_permissions', () => {
+  const packageVersion = JSON.parse(read('../package.json')).version;
   for (const f of ['manifest.chrome.json', 'manifest.firefox.json']) {
     const m = JSON.parse(read(f)); assert.equal(m.manifest_version, 3); assert.equal(m.name, 'تخفیف‌سنج');
     assert.ok(/^\d+\.\d+\.\d+$/.test(m.version));
+    assert.equal(m.version, packageVersion);
     assert.deepEqual(m.host_permissions.sort(), ['https://api.digikala.com/*', 'https://api.torob.com/*', 'https://torob.com/*', 'https://www.digikala.com/*', 'https://emalls.ir/*', 'https://services.basalam.com/*', 'https://apix.snappshop.ir/*'].sort());
     assert.ok(!m.host_permissions.includes('<all_urls>') && !m.host_permissions.includes('*://*/*'));
     assert.ok(m.permissions.includes('storage') && m.permissions.includes('alarms') && m.permissions.includes('notifications'));
@@ -87,6 +89,12 @@ test('manifests: valid JSON, matching version/name, host_permissions limited to 
   const fx = JSON.parse(read('manifest.firefox.json')); assert.ok(fx.browser_specific_settings.gecko.id);
   const ch = JSON.parse(read('manifest.chrome.json')); assert.ok(ch.background.service_worker); assert.ok(!ch.background.scripts);
   assert.ok(fx.background.scripts && !fx.background.service_worker);
+});
+
+test('action popup: toggle remains available and attribution link chips stay out of the UI', () => {
+  const html = read('popup.html');
+  assert.match(html, /id="toggle"/);
+  assert.doesNotMatch(html, /class="links"|class="credit"|aqilistudio\.ir|RealMahdi_a|GHAFEL_com/);
 });
 
 const BUYBOX = `<html><head><title>هدفون بلوتوثی موزیک آپولو مدل YRB/22 | دیجی‌کالا</title></head><body>

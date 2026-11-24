@@ -4,7 +4,7 @@ Check these preferences before making UI changes. The user's latest explicit cor
 
 - In the top tab bar, inactive tabs show only their Solar icon. The active tab shows only its text label; hide its icon.
 - Keep the five tabs in their existing order and evenly distributed. Give the active text enough room to remain readable without crowding the other tabs.
-- Keep the footer credit/link chips removed. Do not restore the website, RealMahdi_a, or GHAFEL_com links unless the user asks.
+- Keep footer credit/link chips out of both the injected panel and the extension toolbar popup. Preserve legal attribution in the license and source metadata; do not restore website, RealMahdi_a, or GHAFEL_com links in the UI unless the user asks.
 - Preserve previously removed UI elements and maintain visible spacing between cards and boxes.
 - Keep diagnostics as a separate option inside Settings. Do not put a diagnostics button or dock in the tab header.
 - Avoid duplicated code and keep icons consistent with the Solar icon family.
