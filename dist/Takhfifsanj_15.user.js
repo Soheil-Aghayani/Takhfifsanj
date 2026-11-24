@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         تخفیف‌سنج
 // @namespace    ghafel-com-pro
-// @version      15.2.17
+// @version      15.2.18
 // @description  مقایسهٔ قیمت فروشندگان، تاریخچهٔ قیمت دیجی‌کالا، بازرس تخفیف، واچ‌لیست و هشدار قیمت
 // @author       GHAFEL_com (Original Creator)
 // @contributor  RealMahdi_a (Upgrade & Development)
@@ -16,14 +16,25 @@
 // @connect      torob.com
 // @connect      api.digikala.com
 // @connect      www.digikala.com
+// @connect      emalls.ir
+// @connect      services.basalam.com
+// @connect      apix.snappshop.ir
 // @noframes
 // @run-at       document-idle
 // ==/UserScript==
-/* تخفیف‌سنج 15.2.17 — Original Creator: GHAFEL_com (https://t.me/GHAFEL_com) · Upgrade & Development: RealMahdi_a (https://t.me/RealMahdi_a) · Website: https://aqilistudio.ir/
+/* تخفیف‌سنج 15.2.18 — Original Creator: GHAFEL_com (https://t.me/GHAFEL_com) · Upgrade & Development: RealMahdi_a (https://t.me/RealMahdi_a) · Website: https://aqilistudio.ir/
    Built from readable modules in /src. The 8.7 engine logic is preserved in src/06-extract.js (extraction),
    src/07-match.js (baseline rule) and src/08-sources.js (Torob flow). */
 (function () {
 'use strict';
+
+// ---- 00-network.js ----
+/* Shared allow-list for every network path in the userscript and extension builds. */
+const NETWORK_ALLOWED_HOSTS = Object.freeze([
+  'api.torob.com', 'torob.com', 'api.digikala.com', 'www.digikala.com', 'digikala.com',
+  'emalls.ir', 'services.basalam.com', 'apix.snappshop.ir'
+]);
+
 
 // ---- 01-util.js ----
 /* ===== U: utilities (digits, normalisation, price parsing, Jalali dates) ===== */
@@ -118,12 +129,12 @@ const Log = (() => {
 const Store = (() => {
   const KEY = 'ghafel13:db';
   const DEFAULT = () => ({
-    v: 1,
+    v: 2,
     settings: {
       theme: 'dark', productPageOnly: true,
-      sources: { torob: true, emalls: false, basalam: false },
+      sources: { torob: true, emalls: true, basalam: true, snappshop: true },
       alerts: { enabled: true, intervalMin: 60 },
-      pos: null, open: false, tab: 'compare', table: false, wide: false, size: null, snap: true
+      snappCity: 'tehran', pos: null, open: false, tab: 'compare', table: false, wide: false, size: null, snap: true
     },
     products: {}, // key -> product record, see Store.touchProduct
     collections: {} // id -> {id, name, icon} for watchlist organization
@@ -150,6 +161,14 @@ const Store = (() => {
     const base = DEFAULT();
     try { const s = rawGet(); if (s) db = merge(base, typeof s === 'string' ? JSON.parse(s) : s); else db = base; }
     catch (e) { Log.error('store', 'corrupt db, starting fresh: ' + e.message); db = base; }
+    if (!db.settings || typeof db.settings !== 'object') db.settings = base.settings;
+    if (!db.settings.sources || typeof db.settings.sources !== 'object') db.settings.sources = { ...base.settings.sources };
+    if (!db.settings.snappCity) db.settings.snappCity = 'tehran';
+    if (Number(db.v) < 2) {
+      Object.assign(db.settings.sources, { emalls: true, basalam: true, snappshop: true });
+      db.v = 2;
+      rawSet(JSON.stringify(db));
+    }
     if (!db.products || typeof db.products !== 'object' || Array.isArray(db.products)) db.products = {};
     if (!db.collections || typeof db.collections !== 'object' || Array.isArray(db.collections)) db.collections = {};
     for (const product of Object.values(db.products)) if (product && typeof product === 'object' && !('collectionId' in product)) product.collectionId = '';
@@ -183,17 +202,18 @@ const Store = (() => {
 // ---- 04-net.js ----
 /* ===== Net: the ONLY place that does network I/O (via GM_xmlhttpRequest), with an allow-list ===== */
 const Net = (() => {
-  const ALLOWED = ['api.torob.com', 'torob.com', 'api.digikala.com', 'www.digikala.com', 'digikala.com'];
+  const ALLOWED = NETWORK_ALLOWED_HOSTS;
   const allowed = url => { try { const h = new URL(url).hostname; return ALLOWED.includes(h); } catch { return false; } };
 
-  function gmRequest(url, { accept = 'application/json', referer, headers = {}, timeout = 15000, anonymous = true } = {}) {
+  function gmRequest(url, { accept = 'application/json', referer, headers = {}, timeout = 15000, anonymous = true, method = 'GET', body } = {}) {
     return new Promise((resolve, reject) => {
       if (!allowed(url)) return reject(new Error('دامنهٔ مجاز نیست: ' + (() => { try { return new URL(url).hostname; } catch { return url; } })()));
       const gm = typeof GM_xmlhttpRequest === 'function' ? GM_xmlhttpRequest : (typeof GM !== 'undefined' && GM.xmlHttpRequest);
       if (!gm) return reject(new Error('GM_xmlhttpRequest در دسترس نیست (مجوز @grant را بررسی کنید)'));
       const t0 = Date.now();
       gm({
-        method: 'GET', url, timeout, anonymous,
+        method: String(method || 'GET').toUpperCase(), url, timeout, anonymous,
+        ...(body == null ? {} : { data: body }),
         headers: { Accept: accept, 'Accept-Language': 'fa-IR,fa;q=0.9,en;q=0.8', ...(referer ? { Referer: referer } : {}), ...headers },
         onload: r => {
           const ms = Date.now() - t0, u = new URL(url);
@@ -211,10 +231,10 @@ const Net = (() => {
     });
   }
   // Page-context fetch: only useful when the page itself is on the target's site (CORS allows www.digikala.com -> api.digikala.com).
-  async function pageFetch(url, { accept = 'application/json', timeout = 15000 } = {}) {
+  async function pageFetch(url, { accept = 'application/json', timeout = 15000, method = 'GET', body, headers = {}, referer } = {}) {
     const ctl = typeof AbortController === 'function' ? new AbortController() : null; const tm = ctl && setTimeout(() => ctl.abort(), timeout);
     try {
-      const r = await fetch(url, { credentials: 'include', headers: { Accept: accept }, signal: ctl && ctl.signal });
+      const r = await fetch(url, { method: String(method || 'GET').toUpperCase(), ...(body == null ? {} : { body }), credentials: 'include', headers: { Accept: accept, ...headers }, ...(referer ? { referrer: referer, referrerPolicy: 'unsafe-url' } : {}), signal: ctl && ctl.signal });
       if (!r.ok) { const e = new Error('HTTP ' + r.status); e.status = r.status; throw e; }
       return await r.text();
     } finally { if (tm) clearTimeout(tm); }
@@ -711,10 +731,142 @@ const Sources = (() => {
     }
   };
 
-  // Placeholders: modules are specified but intentionally NOT active: no endpoint has been verified, and guessing prices is forbidden.
-  const unverified = (id, label, hosts) => ({ id, label, kind: 'offers', implemented: false, hosts, note: 'پیاده‌سازی نشده: اندپوینت رسمی/قابل‌اتکا هنوز تأیید نشده؛ هیچ قیمت حدسی نمایش داده نمی‌شود', async fetch() { return { status: 'unavailable', offers: [], note: this.note }; } });
-  const emalls = unverified('emalls', 'ایمالز', ['emalls.ir']);
-  const basalam = unverified('basalam', 'باسلام', ['basalam.com']);
+  // Search the same product at each marketplace, but only accept explicit model/brand matches.
+  // These public search endpoints are not contractual APIs and can change without notice.
+  const EMALLS_REF = 'https://emalls.ir/';
+  const BASALAM_API = 'https://services.basalam.com/web/v1/search/product/search';
+  const SNAPP_API = 'https://apix.snappshop.ir/';
+  const SNAPP_CITIES = {
+    tehran: { label: 'تهران', lat: 35.6892, lng: 51.3890 },
+    mashhad: { label: 'مشهد', lat: 36.2972, lng: 59.6067 },
+    isfahan: { label: 'اصفهان', lat: 32.6546, lng: 51.6680 },
+    shiraz: { label: 'شیراز', lat: 29.5918, lng: 52.5837 }
+  };
+  const searchTerms = (prod, override) => override ? [String(override).trim()].filter(Boolean) : torob.queries(prod).slice(0, 2);
+  const parsePrice = value => {
+    const price = Number(U.digits(String(value ?? '')).replace(/\D/g, ''));
+    return Number.isFinite(price) && price > 0 ? price : 0;
+  };
+  function safeMarketplaceUrl(raw, allowedHosts = []) {
+    try {
+      const url = new URL(String(raw || ''));
+      const host = url.hostname.toLowerCase().replace(/^www\./, '');
+      return url.protocol === 'https:' && allowedHosts.includes(host) ? url.href : '';
+    } catch { return ''; }
+  }
+  function strictMatch(prod, title) {
+    const titles = [...new Set([prod.title, ...(prod.altTitles || [])].filter(Boolean))];
+    const aliases = [...new Set([
+      ...(Array.isArray(prod.brandAliases) ? prod.brandAliases : [prod.brandAliases]),
+      prod.brand, prod.brandEn, ...titles.flatMap(Match.brandFamilies)
+    ].filter(Boolean))];
+    const matches = titles.map(source => Match.evaluate(source, title, { strict: true, brandAliases: aliases }));
+    return matches.sort((a, b) => Number(b.ok) - Number(a.ok) || b.score - a.score)[0] || Match.evaluate(prod.title || '', title, { strict: true, brandAliases: aliases });
+  }
+  function mapMarketOffer(prod, row, { sourceId, title, price, seller, sellerUrl, allowedHosts, priceFactor = 1, dataSource, exclude } = {}) {
+    const name = String(title || '').trim(), url = safeMarketplaceUrl(sellerUrl, allowedHosts);
+    if (!name || !url || (exclude && exclude(row, url))) return null;
+    const amount = parsePrice(price) * priceFactor, ev = strictMatch(prod, name);
+    if (!(amount > 0) || !ev.ok || ev.score < 0.65) return null;
+    const storeName = String(seller || '').trim();
+    const sellerKey = Extract.matchKnownSite(url) || Extract.matchKnownSite(storeName);
+    return Model.offer({ sourceId, productId: prod.id, seller: storeName || sourceId, sellerKey: sellerKey || '', sellerUrl: url, price: amount,
+      ts: Date.now(), dataSource, matchConfidence: ev.score, matchLevel: ev.level, matchTitle: name, flags: ev.flags });
+  }
+  function marketResult(offers, tried, rejected, nearMiss = [], note = '') {
+    const unique = new Map();
+    for (const offer of offers) {
+      const key = `${offer.sellerKey || offer.seller}|${offer.price}|${offer.sellerUrl}`;
+      if (!unique.has(key)) unique.set(key, offer);
+    }
+    const list = [...unique.values()];
+    return { status: list.length ? 'ok' : 'no-match', offers: list, note: note || (list.length ? `${list.length} نتیجهٔ همسان` : 'نتیجهٔ همسان با برند و کد مدل پیدا نشد'), tried, rejected, nearMiss: nearMiss.slice(0, 3) };
+  }
+  function reverseEmallsLink(value) {
+    try {
+      const url = new URL(String(value || '').split('').reverse().join(''));
+      return url.protocol === 'https:' && url.hostname === 'click.emalls.ir' ? url.href : '';
+    } catch { return ''; }
+  }
+  function excludedBasalamProduct(row, url) {
+    const id = String(row?.id || '');
+    return id === '25406964' || isExcludedTorobSellerPage(url);
+  }
+  const emalls = {
+    id: 'emalls', label: 'ایمالز', icon: 'shop', kind: 'offers', implemented: true, hosts: ['emalls.ir'],
+    note: 'جست‌وجوی زندهٔ ایمالز؛ تطبیق برند و مدل پیش از نمایش قیمت',
+    async search(q) {
+      const body = new URLSearchParams({ findstr: q, entekhab: 'listitemv2', pagenum: '1' });
+      return Net.json('https://emalls.ir/swservice/site_search', { method: 'POST', body: body.toString(), referer: EMALLS_REF, timeout: 18000,
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8', 'X-Requested-With': 'XMLHttpRequest' } });
+    },
+    async fetch(prod, { query } = {}) {
+      const tried = [], offers = [], nearMiss = []; let rejected = 0;
+      for (const q of searchTerms(prod, query)) {
+        tried.push(q);
+        const result = await emalls.search(q), rows = Array.isArray(result?.lstsearchresualt) ? result.lstsearchresualt : [];
+        for (const row of rows) {
+          const name = row?.title || '', link = reverseEmallsLink(row?.buyLink);
+          const seller = String(row?.buyTitle || '').replace(/^خرید[\u200c\u200e\s]*از[\u200c\u200e\s]*/u, '').trim();
+          const offer = mapMarketOffer(prod, row, { sourceId: 'emalls', title: name, price: row?.price, seller, sellerUrl: link, allowedHosts: ['click.emalls.ir'], dataSource: 'emalls:site_search/listitemv2', exclude: item => item?.agahi || item?.used === true });
+          if (offer) offers.push(offer); else { rejected++; if (name && nearMiss.length < 3) nearMiss.push({ title: name, reason: 'تطبیق برند، مدل یا لینک خرید کافی نبود' }); }
+        }
+      }
+      return marketResult(offers, tried, rejected, nearMiss);
+    }
+  };
+  const basalam = {
+    id: 'basalam', label: 'باسلام', icon: 'bag', kind: 'offers', implemented: true, hosts: ['services.basalam.com'],
+    note: 'جست‌وجوی زندهٔ باسلام؛ مبلغ ریالی به تومان تبدیل می‌شود',
+    async search(q) {
+      const url = new URL(BASALAM_API); url.search = new URLSearchParams({ q, sort: 'rank', from: '0', size: '30' }).toString();
+      return Net.json(url.href, { referer: 'https://basalam.com/', timeout: 18000 });
+    },
+    async fetch(prod, { query } = {}) {
+      const tried = [], offers = [], nearMiss = []; let rejected = 0;
+      for (const q of searchTerms(prod, query)) {
+        tried.push(q);
+        const result = await basalam.search(q), rows = Array.isArray(result?.products) ? result.products : [];
+        for (const row of rows) {
+          const slug = String(row?.vendor?.identifier || '').trim(), id = String(row?.id || '').trim();
+          const url = slug && id ? `https://basalam.com/${encodeURIComponent(slug)}/product/${encodeURIComponent(id)}` : '';
+          const offer = mapMarketOffer(prod, row, { sourceId: 'basalam', title: row?.name, price: row?.price, priceFactor: 0.1,
+            seller: row?.vendor?.name, sellerUrl: url, allowedHosts: ['basalam.com'], dataSource: 'basalam:guest-product-search', exclude: excludedBasalamProduct });
+          if (offer && row?.IsSaleable !== false && row?.status?.title !== 'ناموجود') offers.push(offer);
+          else { rejected++; if (row?.name && nearMiss.length < 3) nearMiss.push({ title: row.name, reason: 'تطبیق برند/مدل، موجودی یا لینک کافی نبود' }); }
+        }
+      }
+      return marketResult(offers, tried, rejected, nearMiss);
+    }
+  };
+  const snappshop = {
+    id: 'snappshop', label: 'اسنپ‌شاپ', icon: 'cart', kind: 'offers', implemented: true, hosts: ['apix.snappshop.ir'], cities: SNAPP_CITIES,
+    note: 'قیمت اسنپ‌شاپ بر اساس شهر انتخابی محاسبه می‌شود',
+    async fetch(prod, { query } = {}) {
+      const city = SNAPP_CITIES[Store.get().settings.snappCity] || SNAPP_CITIES.tehran;
+      const coordinates = `lat=${encodeURIComponent(city.lat)}&lng=${encodeURIComponent(city.lng)}`;
+      const tokenData = await Net.json(`${SNAPP_API}guest/v2/token?${coordinates}`, { timeout: 15000 });
+      const token = tokenData?.data?.token || tokenData?.token;
+      if (!token) throw new Error('توکن مهمان اسنپ‌شاپ در پاسخ پیدا نشد');
+      const tried = [], offers = [], nearMiss = []; let rejected = 0;
+      for (const q of searchTerms(prod, query)) {
+        tried.push(q);
+        const result = await Net.json(`${SNAPP_API}search/v1?${coordinates}`, { method: 'POST', timeout: 18000,
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ render: 4, query: q }) });
+        const rows = (result?.data?.structure || []).flatMap(section => Array.isArray(section?.items) ? section.items : []);
+        for (const row of rows) {
+          const url = row?.href ? new URL(row.href, 'https://snappshop.ir/').href : '';
+          const rawPrice = row?.price?.discounted_price || row?.price?.price;
+          const offer = mapMarketOffer(prod, row, { sourceId: 'snappshop', title: row?.title, price: rawPrice,
+            seller: 'اسنپ‌شاپ', sellerUrl: url, allowedHosts: ['snappshop.ir'], dataSource: 'snappshop:search/v1',
+            exclude: item => item?.is_ads || item?.is_fake });
+          if (offer) offers.push(offer);
+          else { rejected++; if (row?.title && nearMiss.length < 3) nearMiss.push({ title: row.title, reason: 'آگهی یا تطبیق برند/مدل کافی نبود' }); }
+        }
+      }
+      return marketResult(offers, tried, rejected, nearMiss, offers.length ? `قیمت اسنپ‌شاپ · ${city.label}` : `برای این شهر (${city.label}) نتیجهٔ همسان با برند و کد مدل پیدا نشد`);
+    }
+  };
 
   // ---------- Digikala official data ----------
   const dk = {
@@ -773,8 +925,8 @@ const Sources = (() => {
     }
   };
 
-  const registry = { torob, emalls, basalam };
-  return { registry, torob, emalls, basalam, dk };
+  const registry = { torob, emalls, basalam, snappshop };
+  return { registry, torob, emalls, basalam, snappshop, dk };
 })();
 
 
@@ -1112,7 +1264,7 @@ const Exporter = (() => {
     for (const x of (p?.local || [])) rows.push([key, p?.title || '', new Date(x.t).toISOString(), x.p, 'local', x.src || 'local']);
     return rows.map(r => r.map(q).join(',')).join('\n');
   }
-  const jsonAll = extra => JSON.stringify({ app: 'تخفیف‌سنج 15.2.17', exportedAt: new Date().toISOString(), db: Store.get(), ...extra }, null, 2);
+  const jsonAll = extra => JSON.stringify({ app: 'تخفیف‌سنج 15.2.18', exportedAt: new Date().toISOString(), db: Store.get(), ...extra }, null, 2);
   function parseCsv(text) {
     const out = []; const lines = String(text || '').replace(/^\uFEFF/, '').split(/\r?\n/).filter(Boolean); if (!lines.length) return out;
     const head = lines[0].toLowerCase().split(',').map(s => s.trim().replace(/"/g, ''));
@@ -1168,6 +1320,9 @@ const SolarIcons = {
   expand: "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\"><path stroke-linejoin=\"round\" d=\"M12 12L17 7M17 10.75V7H13.25\"/><path stroke-linejoin=\"round\" d=\"M12 12L7 17M7 13.25V17H10.75\"/><path d=\"M12 22C7.28595 22 4.92893 22 3.46447 20.5355C2 19.0711 2 16.714 2 12C2 7.28595 2 4.92893 3.46447 3.46447C4.92893 2 7.28595 2 12 2C16.714 2 19.0711 2 20.5355 3.46447C22 4.92893 22 7.28595 22 12C22 16.714 22 19.0711 20.5355 20.5355C19.0711 22 16.714 22 12 22Z\"/></g>",
   sun: "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\"><circle cx=\"12\" cy=\"12\" r=\"6\"/><path d=\"M12 2V3\"/><path d=\"M12 21V22\"/><path d=\"M22 12L21 12\"/><path d=\"M3 12L2 12\"/><path d=\"M19.0703 4.9292L18.6775 5.32204\"/><path d=\"M5.32227 18.6782L4.92943 19.0711\"/><path d=\"M19.0703 19.0708L18.6775 18.678\"/><path d=\"M5.32227 5.32178L4.92943 4.92894\"/></g>",
   pin: "<path fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\" d=\"M2 22L6.65323 17.342M19.0716 8.03562L15.9894 4.9502C13.8823 2.84101 12.8288 1.78641 11.6973 2.03606C10.5657 2.28571 10.0527 3.68593 9.02665 6.48636L8.3322 8.38177C8.05866 9.12835 7.92189 9.50164 7.67582 9.79038C7.56541 9.91994 7.43978 10.0357 7.30167 10.1351C6.99386 10.3567 6.61092 10.4623 5.84504 10.6735C4.11881 11.1494 3.2557 11.3873 2.93045 11.9521C2.78985 12.1962 2.71668 12.4734 2.71846 12.7552C2.72258 13.4071 3.35561 14.0408 4.62169 15.3081L8.73837 19.429C10.0125 20.7044 10.6496 21.3421 11.3052 21.3431C11.5816 21.3435 11.8532 21.2717 12.0933 21.1347C12.6629 20.8096 12.9021 19.9401 13.3806 18.2012C13.5909 17.4366 13.6961 17.0543 13.9169 16.7466C14.0136 16.6119 14.1257 16.489 14.251 16.3805C14.5372 16.1326 14.9081 15.9933 15.6498 15.7146L17.5669 14.9943C20.3364 13.9537 21.7211 13.4335 21.9652 12.3049C22.2092 11.1764 21.1633 10.1295 19.0716 8.03562Z\"/>",
+  shop: "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\"><path d=\"M21 22H3\"/><path d=\"M19 22V15\"/><path d=\"M5 22V15\"/><path stroke-linejoin=\"round\" d=\"M7.47214 2H16.5278C17.7306 2 18.332 2 18.8153 2.2987C19.2986 2.5974 19.5676 3.13531 20.1055 4.21114L21.5091 7.75929C21.8334 8.57905 22.1171 9.54525 21.5712 10.2375C21.205 10.7019 20.6373 11 19.9999 11C18.8953 11 17.9999 10.1046 17.9999 9C17.9999 10.1046 17.1045 11 15.9999 11C14.8953 11 13.9999 10.1046 13.9999 9C13.9999 10.1046 13.1045 11 11.9999 11C10.8953 11 9.99991 10.1046 9.99991 9C9.99991 10.1046 9.10448 11 7.99991 11C6.89534 11 5.99991 10.1046 5.99991 9C5.99991 10.1046 5.10448 11 3.99991 11C3.36257 11 2.79489 10.7019 2.42867 10.2375C1.88279 9.54525 2.16652 8.57905 2.49081 7.75929L3.89443 4.21114C4.43234 3.13531 4.7013 2.5974 5.18461 2.2987C5.66791 2 6.26932 2 7.47214 2Z\"/></g>",
+  bag: "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\"><path d=\"M3.74132 20.5545C4.94094 22 7.17365 22 11.6391 22H12.3602C16.8257 22 19.0584 22 20.258 20.5545C21.4576 19.1091 21.0461 16.9146 20.2232 12.5257C19.638 9.40452 19.3454 7.84393 18.2345 6.92196C17.1236 6 15.5358 6 12.3602 6H11.6391C8.4635 6 6.87571 6 5.76481 6.92196C4.65392 7.84393 4.3613 9.40452 3.77608 12.5257C2.95316 16.9146 2.5417 19.1091 3.74132 20.5545Z\"/><path d=\"M15 11L16 17M9 6V5C9 3.34315 10.3431 2 12 2C13.6569 2 15 3.34315 15 5V6M9 11L8 17\"/></g>",
+  cart: "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\"><path d=\"M9.6851 21H14.3158C16.5656 21 17.6906 21 18.5044 20.3646C19.3181 19.7292 19.591 18.6379 20.1366 16.4552C20.9946 13.0234 21.4236 11.3075 20.5227 10.1538C19.6219 9 17.8532 9 14.3158 9H9.6851C6.14769 9 4.37899 9 3.47816 10.1538C2.57733 11.3075 3.0063 13.0234 3.86425 16.4552C4.40992 18.6379 4.68275 19.7292 5.49654 20.3646C6.31032 21 7.43525 21 9.6851 21Z\"/><path d=\"M10 5H14C14.5523 5 15 4.55228 15 4C15 3.44772 14.5523 3 14 3H10C9.44772 3 9 3.44772 9 4C9 4.55228 9.44772 5 10 5Z\"/><path stroke-linejoin=\"round\" d=\"M4.5 18L7.5 14.4L12 9M7.5 14.4L4.5 10M7.5 14.4L12 21L16.516 14.3766L19.5 18M16.516 14.3766L12.5 9.5M16.516 14.3766L19.5 10\"/><path d=\"M19.4601 9.39865L18.7892 6.89465C18.5152 5.89005 18.3783 5.38775 18.0974 5.00946C17.8176 4.63273 17.4374 4.34234 17.0003 4.17152C16.5615 4 16.0408 4 14.9996 4M4.53897 9.39861L5.20996 6.89465C5.48389 5.89005 5.62085 5.38775 5.90178 5.00946C6.18156 4.63273 6.56172 4.34234 6.99879 4.17152C7.43765 4 7.95829 4 8.99957 4\"/></g>",
 };
 
 
@@ -1241,6 +1396,7 @@ details.card summary{cursor:pointer;list-style:none}details.card summary::-webki
 .source-row{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
 .source-chip{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:999px;border:1px solid var(--line);color:var(--mut);font-size:10.5px;line-height:1.4}
 .source-chip .icon{width:13px;height:13px}
+.source-chip-icon{display:grid;place-items:center;flex:0 0 16px;width:16px;height:16px;color:var(--acc2)}
 .source-chip.good{color:var(--good)}.source-chip.warn{color:var(--warn)}.source-chip.bad{color:var(--bad)}
 .empty-state{display:grid;grid-template-columns:36px minmax(0,1fr);align-items:start;gap:10px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--card)}
 .empty-state-icon{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;color:var(--warn);background:var(--warn-soft)}
@@ -1413,12 +1569,11 @@ svg text{font-family:inherit}
   function tabCompare() {
     const p = S.product || {}, srcs = S.sources; let h = '';
     h += `<div class="compare-actions"><button class="btn primary-action" data-act="compare" ${S.running ? 'disabled' : ''}>${icon('search')}<span>${S.running ? 'در حال جست‌وجو…' : 'مقایسهٔ قیمت‌ها'}</span></button><button class="btn sec icon-btn icon-only" data-act="reread" title="بازخوانی محصول" aria-label="بازخوانی محصول">${icon('refresh')}</button><button class="btn sec icon-btn icon-only" data-act="manual" title="ثبت قیمت دستی" aria-label="ثبت قیمت دستی">${icon('wallet')}</button></div>`;
-    h += `<div class="manual-search"><input type="text" id="q" aria-label="جست‌وجوی دستی در ترب" placeholder="نام یا مدل محصول را در ترب جست‌وجو کنید" value="${U.esc(S.manualQuery || '')}"><button class="btn sec icon-btn" data-act="manualSearch" title="جست‌وجو در ترب" aria-label="جست‌وجو در ترب">${icon('search')}</button></div>`;
+    h += `<div class="manual-search"><input type="text" id="q" aria-label="جست‌وجوی دستی در منابع فعال" placeholder="نام یا مدل محصول را در منابع فعال جست‌وجو کنید" value="${U.esc(S.manualQuery || '')}"><button class="btn sec icon-btn" data-act="manualSearch" title="جست‌وجو در منابع فعال" aria-label="جست‌وجو در منابع فعال">${icon('search')}</button></div>`;
     const chips = Object.keys(Sources.registry).map(id => {
       const r = Sources.registry[id], st = srcs[id] || { status: Store.get().settings.sources[id] && r.implemented ? 'idle' : (r.implemented ? 'off' : 'unavailable') };
       const [lbl, cl] = STATUS[st.status] || ['آماده', ''];
-      const stateIcon = st.status === 'error' ? 'shield' : st.status === 'ok' ? 'check' : st.status === 'loading' ? 'refresh' : 'global';
-      return `<span class="source-chip ${cl}" title="${U.esc(st.error || st.note || r.note)}">${icon(stateIcon)}<b>${U.esc(r.label)}</b><span>${lbl}${st.count ? ' · ' + U.toFa(st.count) : ''}</span></span>`;
+      return `<span class="source-chip ${cl} source-${U.esc(id)}" title="${U.esc(st.error || st.note || r.note)}"><span class="source-chip-icon">${icon(r.icon || 'global')}</span><b>${U.esc(r.label)}</b><span>${lbl}${st.count ? ' · ' + U.toFa(st.count) : ''}</span></span>`;
     }).join('');
     h += `<div class="source-row" aria-label="وضعیت منابع">${chips}</div>`;
     const tr = srcs.torob; if (tr && tr.candidates && tr.candidates.length > 1) h += `<div class="card"><div class="muted" style="margin-bottom:4px">محصول تطبیق‌یافته در ترب — اگر رنگ/مدل دیگری مدنظر است تغییر دهید</div><select data-sel="cand" style="width:100%">${tr.candidates.map(c => `<option value="${U.esc(c.key)}" ${c.key === tr.chosenKey ? 'selected' : ''}>${U.esc(c.title.slice(0, 60))} · ${U.fmt(c.price)}</option>`).join('')}</select></div>`;
@@ -1506,7 +1661,7 @@ svg text{font-family:inherit}
     const collections = db.collections || (db.collections = {});
     const collectionList = Object.values(collections);
     const tracked = Object.values(db.products).filter(p => p.watch).sort((a, b) => (b.lastTs || 0) - (a.lastTs || 0));
-    const iconChoices = [['heart', 'علاقه'], ['tag', 'مناسبت'], ['layers', 'دسته'], ['wallet', 'خرید'], ['pin', 'برنامه'], ['file', 'فهرست'], ['global', 'عمومی'], ['bell', 'هشدار']];
+    const iconChoices = [['heart', 'علاقه'], ['tag', 'مناسبت'], ['layers', 'دسته'], ['wallet', 'خرید'], ['pin', 'برنامه'], ['file', 'فهرست'], ['shop', 'فروشگاه'], ['bag', 'کیف خرید'], ['cart', 'سبد خرید'], ['global', 'عمومی'], ['bell', 'هشدار']];
     if (watchCollectionFilter !== 'all' && watchCollectionFilter !== 'none' && !collections[watchCollectionFilter]) watchCollectionFilter = 'all';
     const collectionSelect = p => collectionList.length ? `<label class="watch-item-collection"><span>مجموعه</span><select data-sel="collection" data-key="${U.esc(p.key)}" aria-label="مجموعهٔ ${U.esc((p.title || 'محصول').slice(0, 36))}"><option value="">بدون مجموعه</option>${collectionList.map(c => `<option value="${U.esc(c.id)}" ${p.collectionId === c.id ? 'selected' : ''}>${U.esc(c.name)}</option>`).join('')}</select></label>` : '';
     const itemCard = p => {
@@ -1552,8 +1707,10 @@ svg text{font-family:inherit}
       switchRow('تم روشن', 'data-set="theme"', st.theme === 'light', 'sun') +
       switchRow('چسبیدن پنل به لبه‌ها', 'data-set="snap"', !!st.snap, 'pin') +
       switchRow('نمایش فقط در صفحهٔ محصول', 'data-set="productPageOnly"', !!st.productPageOnly, 'search'));
-    const sources = Object.values(Sources.registry).map(r => switchRow(r.label, `data-src="${r.id}"`, !!st.sources[r.id], '', !r.implemented)).join('');
-    h += settingsSection('منابع قیمت', 'global', sources + `<div class="setting-hint" title="مجوزهای شبکه فقط: ${U.esc(Net.ALLOWED.join('، '))}"><kbd>Alt+Shift+G</kbd><span>باز/بستن پنل</span></div>`);
+    const sources = Object.values(Sources.registry).map(r => switchRow(r.label, `data-src="${r.id}"`, !!st.sources[r.id], r.icon || 'global', !r.implemented)).join('');
+    const city = Sources.snappshop.cities[st.snappCity] ? st.snappCity : 'tehran';
+    const citySelector = `<div class="setting-input-row"><label for="snappCity">${icon('cart')}<span>شهر قیمت‌گذاری اسنپ‌شاپ</span></label><select id="snappCity" data-sel="snappCity" aria-label="شهر قیمت‌گذاری اسنپ‌شاپ">${Object.entries(Sources.snappshop.cities).map(([id, value]) => `<option value="${id}" ${id === city ? 'selected' : ''}>${U.esc(value.label)}</option>`).join('')}</select></div><div class="muted setting-note">قیمت اسنپ‌شاپ با توجه به شهر انتخابی محاسبه می‌شود.</div>`;
+    h += settingsSection('منابع قیمت', 'global', sources + citySelector + `<div class="setting-hint" title="مجوزهای شبکه فقط: ${U.esc(Net.ALLOWED.join('، '))}"><kbd>Alt+Shift+G</kbd><span>باز/بستن پنل</span></div>`);
     const alertSettings = switchRow('فعال‌کردن هشدار قیمت', 'data-set="alertsEnabled"', !!alerts.enabled, 'bell') +
       `<div class="setting-input-row"><label for="ival">${icon('clock')}<span>فاصلهٔ بررسی (دقیقه)</span></label><input type="number" id="ival" aria-label="فاصلهٔ بررسی هشدار به دقیقه، حداقل ۱۵" min="15" value="${alerts.intervalMin || 60}"></div><div class="muted setting-note">حداقل ۱۵ دقیقه</div>`;
     h += settingsSection('هشدار قیمت', 'bell', alertSettings);
@@ -1830,6 +1987,12 @@ svg text{font-family:inherit}
       const t = e.target, st = Store.get().settings;
       if (t.dataset.sel === 'cand') { App.pickCandidate(t.value); return; }
       else if (t.dataset.sel === 'collection') { const product = Store.get().products[t.dataset.key]; if (product) product.collectionId = t.value || ''; Store.save(); return render(); }
+      else if (t.dataset.sel === 'snappCity') {
+        st.snappCity = Sources.snappshop.cities[t.value] ? t.value : 'tehran'; Store.save();
+        S.offers = S.offers.filter(offer => offer.sourceId !== 'snappshop');
+        S.sources.snappshop = { status: st.sources.snappshop ? 'idle' : 'off', count: 0, note: 'برای به‌روزرسانی قیمت، دوباره مقایسه کنید' };
+        S.banner = 'شهر اسنپ‌شاپ تغییر کرد؛ برای دریافت قیمت شهر جدید دوباره مقایسه را اجرا کنید.';
+      }
       else if (t.dataset.sel === 'sort') S.sort = t.value; else if (t.dataset.sel === 'variant') { S.variantIdx = +t.value; S.variantManual = true; }
       else if (t.dataset.ck === 'trusted') S.trustedOnly = t.checked;
       else if (t.dataset.ck === 'watch') { Store.touchProduct(S.key).watch = t.checked; Store.save(); }
@@ -1886,7 +2049,7 @@ const Main = (() => {
     };
     const run = () => { try { check(); } catch (e) { Log.error('main', e.message); } };
     setTimeout(run, 600); setInterval(run, 1500);
-    Log.info('main', 'تخفیف‌سنج 15.2.17 آماده شد');
+    Log.info('main', 'تخفیف‌سنج 15.2.18 آماده شد');
   }
   return { init };
 })();

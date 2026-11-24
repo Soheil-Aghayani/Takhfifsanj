@@ -17,7 +17,7 @@ const Main = (() => {
     };
     const run = () => { try { check(); } catch (e) { Log.error('main', e.message); } };
     setTimeout(run, 600); setInterval(run, 1500);
-    Log.info('main', 'تخفیف‌سنج 15.2.17 آماده شد');
+    Log.info('main', 'تخفیف‌سنج 15.2.18 آماده شد');
   }
   return { init };
 })();

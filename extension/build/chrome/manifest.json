@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "تخفیف‌سنج",
-  "version": "15.2.17",
+  "version": "15.2.18",
   "description": "مقایسهٔ قیمت فروشندگان، تاریخچهٔ دیجی‌کالا، بازرس تخفیف، واچ‌لیست و هشدار قیمت.",
   "homepage_url": "https://aqilistudio.ir/",
   "icons": { "16": "icons/icon16.png", "32": "icons/icon32.png", "48": "icons/icon48.png", "128": "icons/icon128.png" },
@@ -9,5 +9,5 @@
   "background": { "service_worker": "background.js" },
   "content_scripts": [ { "matches": ["https://*/*"], "js": ["content.js"], "run_at": "document_idle", "all_frames": false } ],
   "permissions": ["storage", "alarms", "notifications", "tabs"],
-  "host_permissions": ["https://api.torob.com/*", "https://torob.com/*", "https://api.digikala.com/*", "https://www.digikala.com/*"]
+  "host_permissions": ["https://api.torob.com/*", "https://torob.com/*", "https://api.digikala.com/*", "https://www.digikala.com/*", "https://emalls.ir/*", "https://services.basalam.com/*", "https://apix.snappshop.ir/*"]
 }

@@ -2,12 +2,12 @@
 const Store = (() => {
   const KEY = 'ghafel13:db';
   const DEFAULT = () => ({
-    v: 1,
+    v: 2,
     settings: {
       theme: 'dark', productPageOnly: true,
-      sources: { torob: true, emalls: false, basalam: false },
+      sources: { torob: true, emalls: true, basalam: true, snappshop: true },
       alerts: { enabled: true, intervalMin: 60 },
-      pos: null, open: false, tab: 'compare', table: false, wide: false, size: null, snap: true
+      snappCity: 'tehran', pos: null, open: false, tab: 'compare', table: false, wide: false, size: null, snap: true
     },
     products: {}, // key -> product record, see Store.touchProduct
     collections: {} // id -> {id, name, icon} for watchlist organization
@@ -34,6 +34,14 @@ const Store = (() => {
     const base = DEFAULT();
     try { const s = rawGet(); if (s) db = merge(base, typeof s === 'string' ? JSON.parse(s) : s); else db = base; }
     catch (e) { Log.error('store', 'corrupt db, starting fresh: ' + e.message); db = base; }
+    if (!db.settings || typeof db.settings !== 'object') db.settings = base.settings;
+    if (!db.settings.sources || typeof db.settings.sources !== 'object') db.settings.sources = { ...base.settings.sources };
+    if (!db.settings.snappCity) db.settings.snappCity = 'tehran';
+    if (Number(db.v) < 2) {
+      Object.assign(db.settings.sources, { emalls: true, basalam: true, snappshop: true });
+      db.v = 2;
+      rawSet(JSON.stringify(db));
+    }
     if (!db.products || typeof db.products !== 'object' || Array.isArray(db.products)) db.products = {};
     if (!db.collections || typeof db.collections !== 'object' || Array.isArray(db.collections)) db.collections = {};
     for (const product of Object.values(db.products)) if (product && typeof product === 'object' && !('collectionId' in product)) product.collectionId = '';

@@ -12,6 +12,7 @@ const HEADER = `/* تخفیف‌سنج — Chrome/Firefox extension build.
    attribution is not permitted. */\n`;
 
 const CONTENT = [
+  [SRC, '00-network.js'],
   [EXT, '00-shim.js'], [EXT, '01-credit-guard.js'],
   [SRC, '01-util.js'], [SRC, '02-log.js'], [SRC, '05-model.js'], [SRC, '06-extract.js'], [SRC, '07-match.js'],
   [EXT, '02-store-content.js'], [EXT, '03-net-content.js'],
@@ -19,6 +20,7 @@ const CONTENT = [
   [SRC, '12-export.js'], [SRC, '12-icons.js'], [SRC, '13-ui.js'], [EXT, '05-main-ext.js']
 ];
 const BACKGROUND = [
+  [SRC, '00-network.js'],
   [EXT, '00-shim.js'], [SRC, '01-util.js'], [SRC, '02-log.js'], [SRC, '05-model.js'],
   [EXT, '11-net-bg.js'], [EXT, '10-store-bg.js'], [SRC, '08-sources.js'], [EXT, '12-alerts-bg.js'], [EXT, '99-background.js']
 ];

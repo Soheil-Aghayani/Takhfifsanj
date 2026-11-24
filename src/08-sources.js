@@ -105,10 +105,142 @@ const Sources = (() => {
     }
   };
 
-  // Placeholders: modules are specified but intentionally NOT active: no endpoint has been verified, and guessing prices is forbidden.
-  const unverified = (id, label, hosts) => ({ id, label, kind: 'offers', implemented: false, hosts, note: 'پیاده‌سازی نشده: اندپوینت رسمی/قابل‌اتکا هنوز تأیید نشده؛ هیچ قیمت حدسی نمایش داده نمی‌شود', async fetch() { return { status: 'unavailable', offers: [], note: this.note }; } });
-  const emalls = unverified('emalls', 'ایمالز', ['emalls.ir']);
-  const basalam = unverified('basalam', 'باسلام', ['basalam.com']);
+  // Search the same product at each marketplace, but only accept explicit model/brand matches.
+  // These public search endpoints are not contractual APIs and can change without notice.
+  const EMALLS_REF = 'https://emalls.ir/';
+  const BASALAM_API = 'https://services.basalam.com/web/v1/search/product/search';
+  const SNAPP_API = 'https://apix.snappshop.ir/';
+  const SNAPP_CITIES = {
+    tehran: { label: 'تهران', lat: 35.6892, lng: 51.3890 },
+    mashhad: { label: 'مشهد', lat: 36.2972, lng: 59.6067 },
+    isfahan: { label: 'اصفهان', lat: 32.6546, lng: 51.6680 },
+    shiraz: { label: 'شیراز', lat: 29.5918, lng: 52.5837 }
+  };
+  const searchTerms = (prod, override) => override ? [String(override).trim()].filter(Boolean) : torob.queries(prod).slice(0, 2);
+  const parsePrice = value => {
+    const price = Number(U.digits(String(value ?? '')).replace(/\D/g, ''));
+    return Number.isFinite(price) && price > 0 ? price : 0;
+  };
+  function safeMarketplaceUrl(raw, allowedHosts = []) {
+    try {
+      const url = new URL(String(raw || ''));
+      const host = url.hostname.toLowerCase().replace(/^www\./, '');
+      return url.protocol === 'https:' && allowedHosts.includes(host) ? url.href : '';
+    } catch { return ''; }
+  }
+  function strictMatch(prod, title) {
+    const titles = [...new Set([prod.title, ...(prod.altTitles || [])].filter(Boolean))];
+    const aliases = [...new Set([
+      ...(Array.isArray(prod.brandAliases) ? prod.brandAliases : [prod.brandAliases]),
+      prod.brand, prod.brandEn, ...titles.flatMap(Match.brandFamilies)
+    ].filter(Boolean))];
+    const matches = titles.map(source => Match.evaluate(source, title, { strict: true, brandAliases: aliases }));
+    return matches.sort((a, b) => Number(b.ok) - Number(a.ok) || b.score - a.score)[0] || Match.evaluate(prod.title || '', title, { strict: true, brandAliases: aliases });
+  }
+  function mapMarketOffer(prod, row, { sourceId, title, price, seller, sellerUrl, allowedHosts, priceFactor = 1, dataSource, exclude } = {}) {
+    const name = String(title || '').trim(), url = safeMarketplaceUrl(sellerUrl, allowedHosts);
+    if (!name || !url || (exclude && exclude(row, url))) return null;
+    const amount = parsePrice(price) * priceFactor, ev = strictMatch(prod, name);
+    if (!(amount > 0) || !ev.ok || ev.score < 0.65) return null;
+    const storeName = String(seller || '').trim();
+    const sellerKey = Extract.matchKnownSite(url) || Extract.matchKnownSite(storeName);
+    return Model.offer({ sourceId, productId: prod.id, seller: storeName || sourceId, sellerKey: sellerKey || '', sellerUrl: url, price: amount,
+      ts: Date.now(), dataSource, matchConfidence: ev.score, matchLevel: ev.level, matchTitle: name, flags: ev.flags });
+  }
+  function marketResult(offers, tried, rejected, nearMiss = [], note = '') {
+    const unique = new Map();
+    for (const offer of offers) {
+      const key = `${offer.sellerKey || offer.seller}|${offer.price}|${offer.sellerUrl}`;
+      if (!unique.has(key)) unique.set(key, offer);
+    }
+    const list = [...unique.values()];
+    return { status: list.length ? 'ok' : 'no-match', offers: list, note: note || (list.length ? `${list.length} نتیجهٔ همسان` : 'نتیجهٔ همسان با برند و کد مدل پیدا نشد'), tried, rejected, nearMiss: nearMiss.slice(0, 3) };
+  }
+  function reverseEmallsLink(value) {
+    try {
+      const url = new URL(String(value || '').split('').reverse().join(''));
+      return url.protocol === 'https:' && url.hostname === 'click.emalls.ir' ? url.href : '';
+    } catch { return ''; }
+  }
+  function excludedBasalamProduct(row, url) {
+    const id = String(row?.id || '');
+    return id === '25406964' || isExcludedTorobSellerPage(url);
+  }
+  const emalls = {
+    id: 'emalls', label: 'ایمالز', icon: 'shop', kind: 'offers', implemented: true, hosts: ['emalls.ir'],
+    note: 'جست‌وجوی زندهٔ ایمالز؛ تطبیق برند و مدل پیش از نمایش قیمت',
+    async search(q) {
+      const body = new URLSearchParams({ findstr: q, entekhab: 'listitemv2', pagenum: '1' });
+      return Net.json('https://emalls.ir/swservice/site_search', { method: 'POST', body: body.toString(), referer: EMALLS_REF, timeout: 18000,
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8', 'X-Requested-With': 'XMLHttpRequest' } });
+    },
+    async fetch(prod, { query } = {}) {
+      const tried = [], offers = [], nearMiss = []; let rejected = 0;
+      for (const q of searchTerms(prod, query)) {
+        tried.push(q);
+        const result = await emalls.search(q), rows = Array.isArray(result?.lstsearchresualt) ? result.lstsearchresualt : [];
+        for (const row of rows) {
+          const name = row?.title || '', link = reverseEmallsLink(row?.buyLink);
+          const seller = String(row?.buyTitle || '').replace(/^خرید[\u200c\u200e\s]*از[\u200c\u200e\s]*/u, '').trim();
+          const offer = mapMarketOffer(prod, row, { sourceId: 'emalls', title: name, price: row?.price, seller, sellerUrl: link, allowedHosts: ['click.emalls.ir'], dataSource: 'emalls:site_search/listitemv2', exclude: item => item?.agahi || item?.used === true });
+          if (offer) offers.push(offer); else { rejected++; if (name && nearMiss.length < 3) nearMiss.push({ title: name, reason: 'تطبیق برند، مدل یا لینک خرید کافی نبود' }); }
+        }
+      }
+      return marketResult(offers, tried, rejected, nearMiss);
+    }
+  };
+  const basalam = {
+    id: 'basalam', label: 'باسلام', icon: 'bag', kind: 'offers', implemented: true, hosts: ['services.basalam.com'],
+    note: 'جست‌وجوی زندهٔ باسلام؛ مبلغ ریالی به تومان تبدیل می‌شود',
+    async search(q) {
+      const url = new URL(BASALAM_API); url.search = new URLSearchParams({ q, sort: 'rank', from: '0', size: '30' }).toString();
+      return Net.json(url.href, { referer: 'https://basalam.com/', timeout: 18000 });
+    },
+    async fetch(prod, { query } = {}) {
+      const tried = [], offers = [], nearMiss = []; let rejected = 0;
+      for (const q of searchTerms(prod, query)) {
+        tried.push(q);
+        const result = await basalam.search(q), rows = Array.isArray(result?.products) ? result.products : [];
+        for (const row of rows) {
+          const slug = String(row?.vendor?.identifier || '').trim(), id = String(row?.id || '').trim();
+          const url = slug && id ? `https://basalam.com/${encodeURIComponent(slug)}/product/${encodeURIComponent(id)}` : '';
+          const offer = mapMarketOffer(prod, row, { sourceId: 'basalam', title: row?.name, price: row?.price, priceFactor: 0.1,
+            seller: row?.vendor?.name, sellerUrl: url, allowedHosts: ['basalam.com'], dataSource: 'basalam:guest-product-search', exclude: excludedBasalamProduct });
+          if (offer && row?.IsSaleable !== false && row?.status?.title !== 'ناموجود') offers.push(offer);
+          else { rejected++; if (row?.name && nearMiss.length < 3) nearMiss.push({ title: row.name, reason: 'تطبیق برند/مدل، موجودی یا لینک کافی نبود' }); }
+        }
+      }
+      return marketResult(offers, tried, rejected, nearMiss);
+    }
+  };
+  const snappshop = {
+    id: 'snappshop', label: 'اسنپ‌شاپ', icon: 'cart', kind: 'offers', implemented: true, hosts: ['apix.snappshop.ir'], cities: SNAPP_CITIES,
+    note: 'قیمت اسنپ‌شاپ بر اساس شهر انتخابی محاسبه می‌شود',
+    async fetch(prod, { query } = {}) {
+      const city = SNAPP_CITIES[Store.get().settings.snappCity] || SNAPP_CITIES.tehran;
+      const coordinates = `lat=${encodeURIComponent(city.lat)}&lng=${encodeURIComponent(city.lng)}`;
+      const tokenData = await Net.json(`${SNAPP_API}guest/v2/token?${coordinates}`, { timeout: 15000 });
+      const token = tokenData?.data?.token || tokenData?.token;
+      if (!token) throw new Error('توکن مهمان اسنپ‌شاپ در پاسخ پیدا نشد');
+      const tried = [], offers = [], nearMiss = []; let rejected = 0;
+      for (const q of searchTerms(prod, query)) {
+        tried.push(q);
+        const result = await Net.json(`${SNAPP_API}search/v1?${coordinates}`, { method: 'POST', timeout: 18000,
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ render: 4, query: q }) });
+        const rows = (result?.data?.structure || []).flatMap(section => Array.isArray(section?.items) ? section.items : []);
+        for (const row of rows) {
+          const url = row?.href ? new URL(row.href, 'https://snappshop.ir/').href : '';
+          const rawPrice = row?.price?.discounted_price || row?.price?.price;
+          const offer = mapMarketOffer(prod, row, { sourceId: 'snappshop', title: row?.title, price: rawPrice,
+            seller: 'اسنپ‌شاپ', sellerUrl: url, allowedHosts: ['snappshop.ir'], dataSource: 'snappshop:search/v1',
+            exclude: item => item?.is_ads || item?.is_fake });
+          if (offer) offers.push(offer);
+          else { rejected++; if (row?.title && nearMiss.length < 3) nearMiss.push({ title: row.title, reason: 'آگهی یا تطبیق برند/مدل کافی نبود' }); }
+        }
+      }
+      return marketResult(offers, tried, rejected, nearMiss, offers.length ? `قیمت اسنپ‌شاپ · ${city.label}` : `برای این شهر (${city.label}) نتیجهٔ همسان با برند و کد مدل پیدا نشد`);
+    }
+  };
 
   // ---------- Digikala official data ----------
   const dk = {
@@ -167,6 +299,6 @@ const Sources = (() => {
     }
   };
 
-  const registry = { torob, emalls, basalam };
-  return { registry, torob, emalls, basalam, dk };
+  const registry = { torob, emalls, basalam, snappshop };
+  return { registry, torob, emalls, basalam, snappshop, dk };
 })();

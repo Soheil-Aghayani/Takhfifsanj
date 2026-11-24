@@ -1,12 +1,12 @@
 /* ===== Net (background): direct fetch, exempt from any page's CSP; still enforces the same host allow-list. ===== */
 const Net = (() => {
-  const ALLOWED = ['api.torob.com', 'torob.com', 'api.digikala.com', 'www.digikala.com', 'digikala.com'];
+  const ALLOWED = NETWORK_ALLOWED_HOSTS;
   const allowed = url => { try { return ALLOWED.includes(new URL(url).hostname); } catch { return false; } };
-  async function request(url, { accept = 'application/json', referer, timeout = 15000 } = {}) {
+  async function request(url, { accept = 'application/json', referer, timeout = 15000, method = 'GET', body, headers = {} } = {}) {
     if (!allowed(url)) { const e = new Error('دامنهٔ مجاز نیست'); throw e; }
     const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), timeout);
     try {
-      const r = await fetch(url, { credentials: 'include', headers: { Accept: accept, 'Accept-Language': 'fa-IR,fa;q=0.9,en;q=0.8', ...(referer ? { Referer: referer } : {}) }, signal: ctl.signal });
+      const r = await fetch(url, { method: String(method || 'GET').toUpperCase(), ...(body == null ? {} : { body }), credentials: 'include', referrer: referer, referrerPolicy: referer ? 'unsafe-url' : 'strict-origin-when-cross-origin', headers: { Accept: accept, 'Accept-Language': 'fa-IR,fa;q=0.9,en;q=0.8', ...headers, ...(referer ? { Referer: referer } : {}) }, signal: ctl.signal });
       if (!r.ok) {
         const e = new Error('HTTP ' + r.status); e.status = r.status;
         const ra = r.headers.get('Retry-After'); if (ra) { const n = Number(ra); e.retryAfterMs = Number.isFinite(n) ? Math.min(600000, Math.max(1000, n * 1000)) : (Date.parse(ra) ? Math.max(1000, Date.parse(ra) - Date.now()) : undefined); }

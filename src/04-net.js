@@ -1,16 +1,17 @@
 /* ===== Net: the ONLY place that does network I/O (via GM_xmlhttpRequest), with an allow-list ===== */
 const Net = (() => {
-  const ALLOWED = ['api.torob.com', 'torob.com', 'api.digikala.com', 'www.digikala.com', 'digikala.com'];
+  const ALLOWED = NETWORK_ALLOWED_HOSTS;
   const allowed = url => { try { const h = new URL(url).hostname; return ALLOWED.includes(h); } catch { return false; } };
 
-  function gmRequest(url, { accept = 'application/json', referer, headers = {}, timeout = 15000, anonymous = true } = {}) {
+  function gmRequest(url, { accept = 'application/json', referer, headers = {}, timeout = 15000, anonymous = true, method = 'GET', body } = {}) {
     return new Promise((resolve, reject) => {
       if (!allowed(url)) return reject(new Error('دامنهٔ مجاز نیست: ' + (() => { try { return new URL(url).hostname; } catch { return url; } })()));
       const gm = typeof GM_xmlhttpRequest === 'function' ? GM_xmlhttpRequest : (typeof GM !== 'undefined' && GM.xmlHttpRequest);
       if (!gm) return reject(new Error('GM_xmlhttpRequest در دسترس نیست (مجوز @grant را بررسی کنید)'));
       const t0 = Date.now();
       gm({
-        method: 'GET', url, timeout, anonymous,
+        method: String(method || 'GET').toUpperCase(), url, timeout, anonymous,
+        ...(body == null ? {} : { data: body }),
         headers: { Accept: accept, 'Accept-Language': 'fa-IR,fa;q=0.9,en;q=0.8', ...(referer ? { Referer: referer } : {}), ...headers },
         onload: r => {
           const ms = Date.now() - t0, u = new URL(url);
@@ -28,10 +29,10 @@ const Net = (() => {
     });
   }
   // Page-context fetch: only useful when the page itself is on the target's site (CORS allows www.digikala.com -> api.digikala.com).
-  async function pageFetch(url, { accept = 'application/json', timeout = 15000 } = {}) {
+  async function pageFetch(url, { accept = 'application/json', timeout = 15000, method = 'GET', body, headers = {}, referer } = {}) {
     const ctl = typeof AbortController === 'function' ? new AbortController() : null; const tm = ctl && setTimeout(() => ctl.abort(), timeout);
     try {
-      const r = await fetch(url, { credentials: 'include', headers: { Accept: accept }, signal: ctl && ctl.signal });
+      const r = await fetch(url, { method: String(method || 'GET').toUpperCase(), ...(body == null ? {} : { body }), credentials: 'include', headers: { Accept: accept, ...headers }, ...(referer ? { referrer: referer, referrerPolicy: 'unsafe-url' } : {}), signal: ctl && ctl.signal });
       if (!r.ok) { const e = new Error('HTTP ' + r.status); e.status = r.status; throw e; }
       return await r.text();
     } finally { if (tm) clearTimeout(tm); }

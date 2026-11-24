@@ -67,6 +67,7 @@ details.card summary{cursor:pointer;list-style:none}details.card summary::-webki
 .source-row{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
 .source-chip{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:999px;border:1px solid var(--line);color:var(--mut);font-size:10.5px;line-height:1.4}
 .source-chip .icon{width:13px;height:13px}
+.source-chip-icon{display:grid;place-items:center;flex:0 0 16px;width:16px;height:16px;color:var(--acc2)}
 .source-chip.good{color:var(--good)}.source-chip.warn{color:var(--warn)}.source-chip.bad{color:var(--bad)}
 .empty-state{display:grid;grid-template-columns:36px minmax(0,1fr);align-items:start;gap:10px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--card)}
 .empty-state-icon{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;color:var(--warn);background:var(--warn-soft)}
@@ -239,12 +240,11 @@ svg text{font-family:inherit}
   function tabCompare() {
     const p = S.product || {}, srcs = S.sources; let h = '';
     h += `<div class="compare-actions"><button class="btn primary-action" data-act="compare" ${S.running ? 'disabled' : ''}>${icon('search')}<span>${S.running ? 'در حال جست‌وجو…' : 'مقایسهٔ قیمت‌ها'}</span></button><button class="btn sec icon-btn icon-only" data-act="reread" title="بازخوانی محصول" aria-label="بازخوانی محصول">${icon('refresh')}</button><button class="btn sec icon-btn icon-only" data-act="manual" title="ثبت قیمت دستی" aria-label="ثبت قیمت دستی">${icon('wallet')}</button></div>`;
-    h += `<div class="manual-search"><input type="text" id="q" aria-label="جست‌وجوی دستی در ترب" placeholder="نام یا مدل محصول را در ترب جست‌وجو کنید" value="${U.esc(S.manualQuery || '')}"><button class="btn sec icon-btn" data-act="manualSearch" title="جست‌وجو در ترب" aria-label="جست‌وجو در ترب">${icon('search')}</button></div>`;
+    h += `<div class="manual-search"><input type="text" id="q" aria-label="جست‌وجوی دستی در منابع فعال" placeholder="نام یا مدل محصول را در منابع فعال جست‌وجو کنید" value="${U.esc(S.manualQuery || '')}"><button class="btn sec icon-btn" data-act="manualSearch" title="جست‌وجو در منابع فعال" aria-label="جست‌وجو در منابع فعال">${icon('search')}</button></div>`;
     const chips = Object.keys(Sources.registry).map(id => {
       const r = Sources.registry[id], st = srcs[id] || { status: Store.get().settings.sources[id] && r.implemented ? 'idle' : (r.implemented ? 'off' : 'unavailable') };
       const [lbl, cl] = STATUS[st.status] || ['آماده', ''];
-      const stateIcon = st.status === 'error' ? 'shield' : st.status === 'ok' ? 'check' : st.status === 'loading' ? 'refresh' : 'global';
-      return `<span class="source-chip ${cl}" title="${U.esc(st.error || st.note || r.note)}">${icon(stateIcon)}<b>${U.esc(r.label)}</b><span>${lbl}${st.count ? ' · ' + U.toFa(st.count) : ''}</span></span>`;
+      return `<span class="source-chip ${cl} source-${U.esc(id)}" title="${U.esc(st.error || st.note || r.note)}"><span class="source-chip-icon">${icon(r.icon || 'global')}</span><b>${U.esc(r.label)}</b><span>${lbl}${st.count ? ' · ' + U.toFa(st.count) : ''}</span></span>`;
     }).join('');
     h += `<div class="source-row" aria-label="وضعیت منابع">${chips}</div>`;
     const tr = srcs.torob; if (tr && tr.candidates && tr.candidates.length > 1) h += `<div class="card"><div class="muted" style="margin-bottom:4px">محصول تطبیق‌یافته در ترب — اگر رنگ/مدل دیگری مدنظر است تغییر دهید</div><select data-sel="cand" style="width:100%">${tr.candidates.map(c => `<option value="${U.esc(c.key)}" ${c.key === tr.chosenKey ? 'selected' : ''}>${U.esc(c.title.slice(0, 60))} · ${U.fmt(c.price)}</option>`).join('')}</select></div>`;
@@ -332,7 +332,7 @@ svg text{font-family:inherit}
     const collections = db.collections || (db.collections = {});
     const collectionList = Object.values(collections);
     const tracked = Object.values(db.products).filter(p => p.watch).sort((a, b) => (b.lastTs || 0) - (a.lastTs || 0));
-    const iconChoices = [['heart', 'علاقه'], ['tag', 'مناسبت'], ['layers', 'دسته'], ['wallet', 'خرید'], ['pin', 'برنامه'], ['file', 'فهرست'], ['global', 'عمومی'], ['bell', 'هشدار']];
+    const iconChoices = [['heart', 'علاقه'], ['tag', 'مناسبت'], ['layers', 'دسته'], ['wallet', 'خرید'], ['pin', 'برنامه'], ['file', 'فهرست'], ['shop', 'فروشگاه'], ['bag', 'کیف خرید'], ['cart', 'سبد خرید'], ['global', 'عمومی'], ['bell', 'هشدار']];
     if (watchCollectionFilter !== 'all' && watchCollectionFilter !== 'none' && !collections[watchCollectionFilter]) watchCollectionFilter = 'all';
     const collectionSelect = p => collectionList.length ? `<label class="watch-item-collection"><span>مجموعه</span><select data-sel="collection" data-key="${U.esc(p.key)}" aria-label="مجموعهٔ ${U.esc((p.title || 'محصول').slice(0, 36))}"><option value="">بدون مجموعه</option>${collectionList.map(c => `<option value="${U.esc(c.id)}" ${p.collectionId === c.id ? 'selected' : ''}>${U.esc(c.name)}</option>`).join('')}</select></label>` : '';
     const itemCard = p => {
@@ -378,8 +378,10 @@ svg text{font-family:inherit}
       switchRow('تم روشن', 'data-set="theme"', st.theme === 'light', 'sun') +
       switchRow('چسبیدن پنل به لبه‌ها', 'data-set="snap"', !!st.snap, 'pin') +
       switchRow('نمایش فقط در صفحهٔ محصول', 'data-set="productPageOnly"', !!st.productPageOnly, 'search'));
-    const sources = Object.values(Sources.registry).map(r => switchRow(r.label, `data-src="${r.id}"`, !!st.sources[r.id], '', !r.implemented)).join('');
-    h += settingsSection('منابع قیمت', 'global', sources + `<div class="setting-hint" title="مجوزهای شبکه فقط: ${U.esc(Net.ALLOWED.join('، '))}"><kbd>Alt+Shift+G</kbd><span>باز/بستن پنل</span></div>`);
+    const sources = Object.values(Sources.registry).map(r => switchRow(r.label, `data-src="${r.id}"`, !!st.sources[r.id], r.icon || 'global', !r.implemented)).join('');
+    const city = Sources.snappshop.cities[st.snappCity] ? st.snappCity : 'tehran';
+    const citySelector = `<div class="setting-input-row"><label for="snappCity">${icon('cart')}<span>شهر قیمت‌گذاری اسنپ‌شاپ</span></label><select id="snappCity" data-sel="snappCity" aria-label="شهر قیمت‌گذاری اسنپ‌شاپ">${Object.entries(Sources.snappshop.cities).map(([id, value]) => `<option value="${id}" ${id === city ? 'selected' : ''}>${U.esc(value.label)}</option>`).join('')}</select></div><div class="muted setting-note">قیمت اسنپ‌شاپ با توجه به شهر انتخابی محاسبه می‌شود.</div>`;
+    h += settingsSection('منابع قیمت', 'global', sources + citySelector + `<div class="setting-hint" title="مجوزهای شبکه فقط: ${U.esc(Net.ALLOWED.join('، '))}"><kbd>Alt+Shift+G</kbd><span>باز/بستن پنل</span></div>`);
     const alertSettings = switchRow('فعال‌کردن هشدار قیمت', 'data-set="alertsEnabled"', !!alerts.enabled, 'bell') +
       `<div class="setting-input-row"><label for="ival">${icon('clock')}<span>فاصلهٔ بررسی (دقیقه)</span></label><input type="number" id="ival" aria-label="فاصلهٔ بررسی هشدار به دقیقه، حداقل ۱۵" min="15" value="${alerts.intervalMin || 60}"></div><div class="muted setting-note">حداقل ۱۵ دقیقه</div>`;
     h += settingsSection('هشدار قیمت', 'bell', alertSettings);
@@ -656,6 +658,12 @@ svg text{font-family:inherit}
       const t = e.target, st = Store.get().settings;
       if (t.dataset.sel === 'cand') { App.pickCandidate(t.value); return; }
       else if (t.dataset.sel === 'collection') { const product = Store.get().products[t.dataset.key]; if (product) product.collectionId = t.value || ''; Store.save(); return render(); }
+      else if (t.dataset.sel === 'snappCity') {
+        st.snappCity = Sources.snappshop.cities[t.value] ? t.value : 'tehran'; Store.save();
+        S.offers = S.offers.filter(offer => offer.sourceId !== 'snappshop');
+        S.sources.snappshop = { status: st.sources.snappshop ? 'idle' : 'off', count: 0, note: 'برای به‌روزرسانی قیمت، دوباره مقایسه کنید' };
+        S.banner = 'شهر اسنپ‌شاپ تغییر کرد؛ برای دریافت قیمت شهر جدید دوباره مقایسه را اجرا کنید.';
+      }
       else if (t.dataset.sel === 'sort') S.sort = t.value; else if (t.dataset.sel === 'variant') { S.variantIdx = +t.value; S.variantManual = true; }
       else if (t.dataset.ck === 'trusted') S.trustedOnly = t.checked;
       else if (t.dataset.ck === 'watch') { Store.touchProduct(S.key).watch = t.checked; Store.save(); }
