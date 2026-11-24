@@ -29,6 +29,7 @@ const Match = (() => {
   const UNITS = [['gb', /گیگابایت|گیگ|gb/], ['tb', /ترابایت|tb/], ['ml', /میلی ?لیتر|ml/], ['l', /لیتر/], ['kg', /کیلوگرم|کیلو|kg/], ['g', /گرم|gr|(?<![a-z])g(?![a-z])/], ['mah', /mah|میلی ?آمپر/], ['w', /وات|(?<![a-z])w(?![a-z])/], ['inch', /اینچ|inch/], ['cm', /سانتی ?متر|cm/], ['mm', /میلی ?متر|mm/]];
   const BRAND_FAMILIES = [
     ['romoss', ['romoss', 'روموس', 'رومس']], ['baseus', ['baseus', 'باسئوس', 'بیسوس']],
+    ['hiska', ['hiska', 'هیسکا']], ['onikuma', ['onikuma', 'اونیکوما', 'آنیکوما']],
     ['mcdodo', ['mcdodo', 'مک دودو', 'مک‌دودو']], ['anker', ['anker', 'انکر']],
     ['xiaomi', ['xiaomi', 'شیائومی', 'شیاومی']], ['samsung', ['samsung', 'سامسونگ']],
     ['apple', ['apple', 'اپل']], ['huawei', ['huawei', 'هواوی']],
@@ -37,7 +38,10 @@ const Match = (() => {
   ];
   const PRODUCT_TYPES = [
     ['headphones', ['هدفون', 'هدست', 'هندزفری', 'ایرفون', 'headphone', 'headphones', 'headset', 'earphone', 'earphones', 'earbud', 'earbuds']],
-    ['speakers', ['اسپیکر', 'بلندگو', 'speaker', 'speakers', 'soundbar', 'ساندبار']]
+    ['speakers', ['اسپیکر', 'بلندگو', 'speaker', 'speakers', 'soundbar', 'ساندبار']],
+    ['cables', ['کابل', 'cable', 'کابل شارژ', 'کابل تایپ سی', 'usb cable', 'charging cable']],
+    ['chargers', ['شارژر', 'charger', 'آداپتور', 'adapter', 'power adapter']],
+    ['power-banks', ['پاوربانک', 'پاور بانک', 'power bank', 'powerbank']]
   ];
   const hasPhrase = (raw, phrase) => {
     const text = ' ' + U.normalize(raw) + ' ', normalized = U.normalize(phrase);

@@ -6,7 +6,7 @@ const App = (() => {
     offers: [],               // Model.offer[] from all sources
     sources: {},              // id -> {status, count, note, error, ts, nearMiss}
     dk: null,                 // parsed Digikala product record
-    chart: null, chartError: '', chartLoading: false, variantIdx: 0, variantExact: false, variantManual: false,
+    chart: null, chartError: '', chartLoading: false, chartFromCache: false, chartFetchedAt: 0, chartStale: false, historyNotice: '', variantIdx: 0, variantExact: false, variantManual: false,
     range: 90, tab: 'compare', running: false, sort: 'price', trustedOnly: false, banner: '',
     dkFetching: false, dkTs: 0, historyCooldownUntil: 0, historyCooldownNote: ''
   };
@@ -23,7 +23,7 @@ const App = (() => {
     p.key = keyFor(p);
     // keep a manual price if extraction failed
     if (!p.price && prev && prev.key === p.key && prev.priceSource === 'دستی') { p.price = prev.price; p.priceSource = 'دستی'; }
-    if (state.key && state.key !== p.key) { state.offers = []; state.sources = {}; state.chart = null; state.chartError = ''; state.dk = null; state.dkTs = 0; state.dkFetching = false; state.historyCooldownUntil = 0; state.historyCooldownNote = ''; state.variantIdx = 0; state.variantExact = false; state.variantManual = false; }
+    if (state.key && state.key !== p.key) { state.offers = []; state.sources = {}; state.chart = null; state.chartError = ''; state.chartFromCache = false; state.chartFetchedAt = 0; state.chartStale = false; state.historyNotice = ''; state.dk = null; state.dkTs = 0; state.dkFetching = false; state.variantIdx = 0; state.variantExact = false; state.variantManual = false; }
     state.product = p; state.key = p.key;
     const rec = Store.touchProduct(p.key, { host: p.host, pid: p.id, title: p.title || '', url: p.url, variantTitle: x.color || '', variantId: p.variantId });
     // Only trustworthy readings enter local history (page still loading / weak heuristics would pollute it).
@@ -58,26 +58,52 @@ const App = (() => {
       } else if (d && !p.price && d.variants.length) { p.price = d.variants[0].price; p.priceSource = 'API دیجی‌کالا (ارزان‌ترین واریانت؛ واریانت دقیق نامشخص)'; }
       emit();
     } catch (e) { Log.warn('dk-product', e.message); }
-    if (!state.chart && Date.now() >= state.historyCooldownUntil) loadHistory(color); // cooldown also guards the automatic retry after loadDigikala
+    if (!state.chart) loadHistory(color); // loadHistory checks the persisted cache and shared cooldown before making a request
   }
 
-  async function loadHistory(color, { force = false } = {}) {
+  const HISTORY_CACHE_TTL = 6 * 60 * 60 * 1000;
+  function historyCacheFor(p) {
+    const cached = Store.get().products[p.key]?.officialHistory;
+    return cached && String(cached.productId) === String(p.id) && Number.isFinite(cached.fetchedAt) && Array.isArray(cached.chart?.variants) ? cached : null;
+  }
+  function selectHistoryVariant(p, color) {
+    const preferred = [state.dk?.chosen?.title, p.variantTitle, color, Extract.selectedColor()].filter(Boolean);
+    const pick = Sources.dk.pickVariant(state.chart, preferred);
+    state.variantIdx = pick ? Math.max(0, state.chart.variants.indexOf(pick.variant)) : 0;
+    state.variantExact = !!(pick && pick.exact); state.variantManual = false;
+  }
+  async function loadHistory(color, { refresh = false } = {}) {
     const p = state.product; if (!p || !p.id || state.chartLoading) return;
-    if (!force && Date.now() < state.historyCooldownUntil) return; // never hammer a rate-limited endpoint, even on manual retry
-    state.chartLoading = true; state.chartError = ''; emit();
+    const cached = historyCacheFor(p), age = cached ? Date.now() - cached.fetchedAt : Infinity;
+    if (cached && !state.chart) {
+      state.chart = cached.chart; state.chartFromCache = true; state.chartFetchedAt = cached.fetchedAt;
+      state.chartStale = age > HISTORY_CACHE_TTL; selectHistoryVariant(p, color);
+    }
+    if (!refresh && cached && age <= HISTORY_CACHE_TTL) {
+      state.chartError = ''; state.historyNotice = ''; state.chartLoading = false; emit(); return;
+    }
+    if (Date.now() < state.historyCooldownUntil) {
+      state.chartLoading = false; state.historyNotice = 'rate-limit'; state.chartError = '';
+      if (cached) { state.chart = cached.chart; state.chartFromCache = true; state.chartFetchedAt = cached.fetchedAt; state.chartStale = true; selectHistoryVariant(p, color); }
+      emit(); return; // the rate limit is shared across products; a tab change cannot reset it
+    }
+    state.chartLoading = true; state.chartError = ''; state.historyNotice = ''; emit();
     try {
       state.chart = await Sources.dk.chart(p.id);
-      state.historyCooldownUntil = 0; state.historyCooldownNote = '';
-      const preferred = [state.dk?.chosen?.title, p.variantTitle, color, Extract.selectedColor()].filter(Boolean);
-      const pick = Sources.dk.pickVariant(state.chart, preferred);
-      state.variantIdx = pick ? Math.max(0, state.chart.variants.indexOf(pick.variant)) : 0; state.variantExact = !!(pick && pick.exact);
-      state.variantManual = false;
+      state.historyCooldownUntil = 0; state.historyCooldownNote = ''; state.chartFromCache = false;
+      state.chartFetchedAt = Date.now(); state.chartStale = false; state.historyNotice = '';
+      selectHistoryVariant(p, color);
+      Store.touchProduct(p.key).officialHistory = { productId: String(p.id), fetchedAt: state.chartFetchedAt, chart: state.chart };
+      Store.save();
       Log.info('history', `بازهٔ داده: ${state.chart.range ? state.chart.range.days + ' روز' : '—'}, واریانت‌ها: ${state.chart.variants.length}`);
     } catch (e) {
-      state.chart = null;
       const retryMs = e.retryAfterMs > 0 ? e.retryAfterMs : (e.status === 429 ? 90000 : 20000);
       state.historyCooldownUntil = Date.now() + retryMs; state.historyCooldownNote = e.status === 429 ? 'rate-limit' : 'error';
-      state.chartError = e.status === 429 ? 'HTTP 429' : e.message;
+      state.historyNotice = e.status === 429 ? 'rate-limit' : 'error';
+      if (cached) {
+        state.chart = cached.chart; state.chartFromCache = true; state.chartFetchedAt = cached.fetchedAt; state.chartStale = true;
+        selectHistoryVariant(p, color); state.chartError = '';
+      } else { state.chart = null; state.chartFromCache = false; state.chartFetchedAt = 0; state.chartStale = false; state.chartError = e.status === 429 ? '' : e.message; }
       const message = e.status === 429
         ? `HTTP 429؛ تلاش بعدی پس از ${Math.ceil(retryMs / 1000)} ثانیه`
         : e.message;
@@ -97,7 +123,7 @@ const App = (() => {
     await Promise.all(Object.keys(reg).filter(id => reg[id].implemented && cfg[id]).map(async id => {
       try {
         const r = await reg[id].fetch(p, opts);
-        state.sources[id] = { status: r.status, count: r.offers.length, note: r.note || '', nearMiss: r.nearMiss || [], candidates: r.candidates || [], chosenKey: r.chosenKey || '', query: r.query || '', tried: r.tried || [], ts: Date.now() };
+        state.sources[id] = { status: r.status, count: r.offers.length, note: r.note || '', error: r.error || '', nearMiss: r.nearMiss || [], candidates: r.candidates || [], chosenKey: r.chosenKey || '', query: r.query || '', tried: r.tried || [], ts: Date.now() };
         state.offers.push(...r.offers);
       } catch (e) { state.sources[id] = { status: 'error', count: 0, error: e.message, ts: Date.now() }; Log.error(id, e.message); }
       emit();

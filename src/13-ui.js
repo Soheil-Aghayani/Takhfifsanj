@@ -31,16 +31,16 @@ header{cursor:move;padding:12px 14px 10px;background:linear-gradient(135deg,rgba
 .price{font-size:24px;font-weight:800;color:var(--acc2);margin:2px 0}.price small{font-size:12px;color:var(--mut);font-weight:400}
 .meta{font-size:11px;color:var(--mut)}.meta s{opacity:.8}
 .workspace{display:flex;flex:1 1 auto;min-height:0;flex-direction:column;overflow:hidden}
-.tabs{position:relative;z-index:2;display:flex;flex:0 0 60px;flex-direction:row;width:100%;min-height:60px;align-items:center;gap:8px;padding:8px 10px;overflow:hidden;border-bottom:1px solid var(--line);background:var(--panel);isolation:isolate}
-.tab-main{direction:rtl;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));flex:1 1 auto;align-items:center;gap:6px;min-width:0;height:44px}
+.tabs{position:relative;z-index:2;display:flex;flex:0 0 60px;flex-direction:row;width:100%;min-height:60px;align-items:center;padding:8px 10px;overflow:hidden;border-bottom:1px solid var(--line);background:var(--panel);isolation:isolate}
+.tab-main{direction:rtl;display:flex;flex:1 1 100%;align-items:center;gap:6px;min-width:0;height:44px}
 .tab-indicator{position:absolute;z-index:1;left:0;top:10px;width:0;height:40px;border-radius:999px;background:linear-gradient(145deg,var(--acc2),var(--acc));box-shadow:0 4px 12px color-mix(in srgb,var(--acc) 20%,transparent);pointer-events:none;transform:translateZ(0);transform-origin:0 0;will-change:transform}
-.tab{all:unset;box-sizing:border-box;position:relative;z-index:2;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:100%;min-width:0;height:44px;padding:4px 5px;overflow:hidden;border-radius:12px;color:var(--mut);font-size:11px;font-family:inherit;transition:color .18s ease}
+.tab{all:unset;box-sizing:border-box;position:relative;z-index:2;cursor:pointer;display:inline-flex;flex:1 1 0;align-items:center;justify-content:center;width:auto;min-width:0;height:44px;padding:4px 5px;overflow:hidden;border-radius:12px;color:var(--mut);font-size:11px;font-family:inherit;transition:color .18s ease,flex-grow .28s cubic-bezier(.22,1,.36,1)}
 .tab:focus-visible{outline:2px solid var(--acc2);outline-offset:1px}
-.tab-icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 22px;width:22px;height:22px;line-height:0;transition:opacity .16s ease,transform .28s cubic-bezier(.2,.8,.2,1)}
+.tab-icon{position:absolute;left:50%;top:50%;display:inline-flex;align-items:center;justify-content:center;flex:0 0 22px;width:22px;height:22px;line-height:0;transform:translate(-50%,-50%);transition:opacity .18s ease,transform .28s cubic-bezier(.22,1,.36,1);}
 .tab-icon .icon{display:block;width:18px;height:18px}
 .tab-label{position:absolute;top:50%;left:50%;width:calc(100% - 6px);overflow:hidden;text-align:center;text-overflow:ellipsis;white-space:nowrap;opacity:0;transform:translate(-50%,-50%) scale(.96);pointer-events:none;transition:opacity .16s ease,transform .24s cubic-bezier(.22,1,.36,1)}
-.tab.on{padding-inline:6px;background:transparent;color:var(--on-acc);font-weight:800}
-.tab.on .tab-icon{display:none;opacity:0;transform:scale(.8)}
+.tab.on{flex:1 1 0;min-width:0;padding-inline:5px;background:transparent;color:var(--on-acc);font-weight:800}
+.tab.on .tab-icon{visibility:hidden;opacity:0;transform:translate(-50%,-50%) scale(.72)}
 .tab.on .tab-label{position:static;top:auto;left:auto;width:auto;max-width:100%;flex:0 1 auto;opacity:1;transform:none}
 .tab-indicator{transition:none}
 .body{direction:rtl;min-width:0;padding:12px 14px;overflow-y:auto;flex:1 1 auto;scrollbar-width:thin;scrollbar-color:var(--scroll-thumb) var(--panel);scrollbar-gutter:stable;overscroll-behavior:contain}
@@ -72,7 +72,7 @@ details.card summary{cursor:pointer;list-style:none}details.card summary::-webki
 .source-chip-icon{display:grid;place-items:center;flex:0 0 16px;width:16px;height:16px;color:var(--acc2)}
 .source-chip.good{color:var(--good)}.source-chip.warn{color:var(--warn)}.source-chip.bad{color:var(--bad)}
 .empty-state{display:grid;grid-template-columns:36px minmax(0,1fr);align-items:start;gap:10px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--card);margin-block-end:10px}
-.body-content > .card + .card,.body-content > .card + .empty-state,.body-content > .empty-state + .card,.body-content > .empty-state + .empty-state{margin-block-start:10px}
+.body-content > .card + .card,.body-content > .card + .empty-state,.body-content > .empty-state + .card,.body-content > .empty-state + .empty-state{margin-block-start:12px}
 .empty-state-icon{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;color:var(--warn);background:var(--warn-soft)}
 .empty-state-copy{min-width:0}
 .empty-state-copy b{display:block;margin:0 0 3px;color:var(--ink);font-size:12px}
@@ -88,6 +88,7 @@ details.card summary{cursor:pointer;list-style:none}details.card summary::-webki
 .history-status-copy p{margin:3px 0 0;color:var(--mut);font-size:11px;line-height:1.5}
 .history-countdown{flex:0 0 auto;text-align:center;color:var(--warn);font-size:16px;font-variant-numeric:tabular-nums}
 .history-countdown small{display:block;color:var(--mut);font-size:9px;font-weight:500}
+.history-cache-label{margin-top:4px}
 .watch-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 2px 10px;padding-bottom:9px;border-bottom:1px solid var(--line)}
 .watch-head-copy{display:flex;align-items:center;gap:9px;min-width:0}
 .watch-head-icon{display:grid;place-items:center;flex:0 0 32px;width:32px;height:32px;border-radius:10px;background:var(--warn-soft);color:var(--acc2)}
@@ -105,7 +106,7 @@ details.card summary{cursor:pointer;list-style:none}details.card summary::-webki
 .watch-target-controls{display:flex;align-items:center;gap:6px}
 .watch-target-controls input{width:122px!important;height:34px}
 .watch-list-title{display:flex;align-items:center;justify-content:space-between;margin:12px 2px 7px;font-size:12px;font-weight:700}
-.watch-list{display:grid;gap:6px;margin-top:9px}
+.watch-list{display:grid;gap:11px;margin-top:12px}
 .watch-item{margin:0;padding:10px 11px;border-radius:12px}
 .watch-item.current{border-color:color-mix(in srgb,var(--acc2) 72%,var(--line))}
 .watch-item-copy{min-width:0;flex:1}
@@ -122,7 +123,7 @@ details.card summary{cursor:pointer;list-style:none}details.card summary::-webki
 .watch-item-state.good{color:var(--good)}
 .watch-item-state.warn{color:var(--warn)}
 .watch-empty{margin-top:8px}
-.collection-manager{padding:0;margin:0 2px 10px;background:transparent;border:0}
+.collection-manager{padding:11px 12px;margin:0 0 12px;background:var(--card);border:1px solid var(--line);border-radius:12px}
 .collection-manager-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .collection-manager-title{display:flex;align-items:center;gap:8px;min-width:0}
 .collection-manager-title>.icon{width:18px;height:18px;color:var(--acc2)}
@@ -154,16 +155,16 @@ details.card summary{cursor:pointer;list-style:none}details.card summary::-webki
 .watch-item-collection{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid var(--line);color:var(--mut);font-size:9.5px}
 .watch-item-collection select{width:min(180px,62%);height:30px;padding:4px 7px;font-size:10px}
 .settings-section{margin-bottom:13px}
+.diagnostics-option{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:10px;width:100%;min-height:48px;padding:9px 10px;border:1px solid var(--line);border-radius:11px;background:var(--card);color:var(--ink);text-align:right;cursor:pointer;transition:border-color .16s ease,background-color .16s ease,transform .16s ease}
+.diagnostics-option:hover{border-color:var(--acc2);background:var(--warn-soft)}
+.diagnostics-option:active{transform:scale(.99)}
+.diagnostics-option:focus-visible{outline:2px solid var(--acc2);outline-offset:2px}
+.diagnostics-option>.icon{flex:0 0 19px;width:19px;height:19px;color:var(--acc2)}
+.diagnostics-option-copy{flex:1;min-width:0}
+.diagnostics-option-copy b{display:block;font-size:11.5px}
+.diagnostics-option-copy small{display:block;margin-top:1px;color:var(--mut);font-size:10px}
 .settings-heading{display:flex;align-items:center;gap:7px;margin:2px 3px 6px;font-size:12px;font-weight:800;color:var(--ink)}
 .settings-card{padding:4px 10px}
-.settings-link{all:unset;box-sizing:border-box;cursor:pointer;display:flex;align-items:center;gap:10px;width:100%;min-height:48px;padding:5px 3px;border-radius:9px;color:var(--ink);text-align:right;transition:background .16s ease}
-.settings-link:hover{background:color-mix(in srgb,var(--acc) 9%,transparent)}
-.settings-link:focus-visible{outline:2px solid var(--acc2);outline-offset:1px}
-.diagnostics-option{margin:0 0 13px;padding:7px 10px;border:1px solid var(--line);border-radius:12px;background:var(--card)}
-.settings-link-icon{display:grid;place-items:center;flex:0 0 22px;width:22px;height:22px;color:var(--warn)}
-.settings-link-copy{display:grid;gap:2px;min-width:0;flex:1}
-.settings-link-copy small{color:var(--mut);font-size:10.5px}
-.diagnostics-back{margin-bottom:9px}
 .setting-input-row{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:42px;padding:6px 2px;border-top:1px solid var(--line)}
 .setting-input-row label{display:flex;align-items:center;gap:7px;color:var(--ink);font-size:11.5px}
 .setting-input-row input{width:84px;height:34px}
@@ -210,7 +211,7 @@ svg text{font-family:inherit}
 .dark .v-confirmed{background:var(--good-soft);border-color:var(--good);color:var(--good)}
 .dark .v-rise-signal{background:var(--warn-soft);border-color:var(--warn);color:var(--warn)}
 .dark .v-insufficient{background:rgba(167,171,180,.08);border-color:var(--line);color:var(--mut)}
-@media(max-width:380px){.tabs{gap:4px;padding-inline:6px}.tab-main{gap:2px}.tab{font-size:10px;padding-inline:2px}.tab.on{padding-inline:3px}.body{padding:10px}.history-toolbar{align-items:flex-start;flex-direction:column}.watch-target-controls input{width:108px!important}.collection-icon-choice{width:34px;height:34px}}
+@media(max-width:380px){.tabs{padding-inline:6px}.tab-main{gap:2px}.tab{font-size:10px;padding-inline:2px}.tab.on{padding-inline:2px}.body{padding:10px}.history-toolbar{align-items:flex-start;flex-direction:column}.watch-target-controls input{width:108px!important}.collection-icon-choice{width:34px;height:34px}}
 @media(prefers-reduced-motion:reduce){.tab,.tab-icon,.tab-label,.switch-track,.switch-track:after,.collection-pill,.collection-icon-choice{transition:none}}
 `;
   let host, root, S;
@@ -238,7 +239,7 @@ svg text{font-family:inherit}
     let d = '', prev = null; for (const p of sp) { d += (prev && p.t - prev.t <= 2.5 * U.DAY ? 'L' : 'M') + x(p.t).toFixed(1) + ' ' + y(p.price).toFixed(1) + ' '; prev = p; }
     const dots = lp.map(p => `<circle cx="${x(p.t).toFixed(1)}" cy="${y(p.p).toFixed(1)}" r="2.8" fill="var(--chart-local)"/>`).join('');
     const minP = sp.length ? sp.reduce((a, b) => b.price < a.price ? b : a) : null;
-    return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="direction:ltr"><path d="${d}" fill="none" stroke="var(--chart-official)" stroke-width="2.2" stroke-linejoin="round"/>${dots}
+    return `<svg role="img" aria-label="نمودار تغییر قیمت در بازهٔ انتخابی" viewBox="0 0 ${W} ${H}" width="100%" style="direction:ltr"><title>نمودار تغییر قیمت در بازهٔ انتخابی</title><path d="${d}" fill="none" stroke="var(--chart-official)" stroke-width="2.2" stroke-linejoin="round"/>${dots}
       ${minP ? `<circle cx="${x(minP.t).toFixed(1)}" cy="${y(minP.price).toFixed(1)}" r="4" fill="var(--chart-min)"/>` : ''}
       <text x="${pl}" y="${H - 6}" font-size="9.5" fill="var(--chart-label)">${U.faDate(from)}</text><text x="${W - pr}" y="${H - 6}" font-size="9.5" fill="var(--chart-label)" text-anchor="end">${U.faDate(end)}</text>
       <text x="${W - pr}" y="${pt + 2}" font-size="9.5" fill="var(--chart-label)" text-anchor="end">${U.fmt(mx)}</text><text x="${W - pr}" y="${H - pb - 3}" font-size="9.5" fill="var(--chart-label)" text-anchor="end">${U.fmt(mn)}</text></svg>`;
@@ -298,22 +299,24 @@ svg text{font-family:inherit}
     const combined = App.combinedHistoryPoints();
     const rangeEnd = combined.length ? Math.max(...combined.map(p => p.t)) : Date.now();
     const stats = Analysis.stats(combined.filter(p => p.t >= rangeEnd - S.range * U.DAY));
-    const rateLimited = S.historyCooldownNote === 'rate-limit' && !!S.chartError;
+    const rateLimited = S.historyNotice === 'rate-limit';
     h += `<div class="history-toolbar"><button class="btn sec icon-btn" data-act="reloadHistory" title="دریافت دوبارهٔ تاریخچه" ${S.chartLoading || cooldown > 0 ? 'disabled' : ''}>${icon('refresh')}<span>${S.chartLoading ? 'در حال دریافت…' : cooldown > 0 ? 'منتظر بمانید' : 'تلاش دوباره'}</span></button><div class="history-ranges" aria-label="بازهٔ تاریخچه">${[7, 30, 90].map(d => `<button class="btn ${S.range === d ? '' : 'sec'}" data-range="${d}" aria-pressed="${S.range === d}">${U.toFa(d)} روز</button>`).join('')}</div></div>`;
     if (S.chartLoading) h += `<div class="history-status" role="status"><span class="history-status-icon">${icon('refresh', 18)}</span><div class="history-status-copy"><b>در حال دریافت تاریخچه</b><p>درخواست به دیجی‌کالا فرستاده شد.</p></div></div>`;
-    else if (rateLimited) h += `<div class="history-status" role="status"><span class="history-status-icon">${icon('clock', 18)}</span><div class="history-status-copy"><b>محدودیت موقت دیجی‌کالا</b><p>تا پایان شمارش، تلاش دوباره غیرفعال است.</p></div><strong class="history-countdown" data-history-countdown>${cooldown ? U.toFa(cooldown) : icon('check', 16)}<small>${cooldown ? 'ثانیه' : 'آماده'}</small></strong></div>`;
-    else if (S.chartError) h += `<div class="history-status" role="status"><span class="history-status-icon">${icon('shield', 18)}</span><div class="history-status-copy"><b>دریافت تاریخچه ناموفق بود</b><p>${U.esc(S.chartError)}. برای تلاش مجدد از دکمهٔ بالای صفحه استفاده کنید.</p></div></div>`;
+    else if (rateLimited) h += `<div class="history-status" role="status"><span class="history-status-icon">${icon('clock', 18)}</span><div class="history-status-copy"><b>دیجی‌کالا موقتاً دریافت تاریخچه را محدود کرده</b><p>${S.chart ? 'نمودار ذخیره‌شده نمایش داده می‌شود؛ پس از پایان شمارش دوباره تازه‌سازی کنید.' : 'تاریخچهٔ تازه فعلاً در دسترس نیست. تلاش دوباره تا پایان شمارش متوقف است.'}</p></div><strong class="history-countdown" data-history-countdown>${cooldown ? U.toFa(cooldown) : icon('check', 16)}<small>${cooldown ? 'ثانیه' : 'آماده'}</small></strong></div>`;
+    else if (S.historyNotice === 'error' && S.chartError) h += `<div class="history-status" role="status"><span class="history-status-icon">${icon('shield', 18)}</span><div class="history-status-copy"><b>${S.chart ? 'تازه‌سازی ناموفق بود' : 'تاریخچه دریافت نشد'}</b><p>${S.chart ? 'دادهٔ ذخیره‌شده حفظ شده است.' : 'برای تلاش مجدد از دکمهٔ بالای صفحه استفاده کنید.'}</p></div></div>`;
     if (cooldown > 0 && !S.chartLoading) scheduleCountdownTick();
     if (S.chart) {
       const c = S.chart, v = App.selectedVariant();
       if (c.variants.length > 1) h += `<div style="margin-bottom:6px"><select data-sel="variant">${c.variants.map((x, i) => `<option value="${i}" ${i === S.variantIdx ? 'selected' : ''}>${U.esc(x.title || 'واریانت ' + (i + 1))}</option>`).join('')}</select> <span class="chip ${S.variantManual ? 'warn' : S.variantExact ? 'good' : 'warn'}">${S.variantManual ? 'انتخاب دستی؛ با رنگ صفحه تطبیق دهید' : S.variantExact ? 'مطابق رنگ صفحه' : 'رنگ دقیق مشخص نشد'}</span></div>`;
-      h += `<div class="card">${chart(officialValid, loc, S.range)}<div class="muted">خط بنفش: تاریخچهٔ رسمی · نقطه‌های طلایی: ثبت محلی همین محصول و رنگ · نقطهٔ سبز: کمینه</div></div>`;
+      const updated = S.chartFetchedAt ? new Date(S.chartFetchedAt).toLocaleString('fa-IR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+      const cacheLabel = S.chartFromCache && updated ? `<div class="muted history-cache-label">${S.chartStale ? 'ذخیره‌شده · ' : 'آخرین دریافت · '}${updated}</div>` : '';
+      h += `<div class="card history-chart-card">${chart(officialValid, loc, S.range)}<div class="muted">خط بنفش: تاریخچهٔ رسمی · نقطه‌های طلایی: قیمت‌های محلی · نقطهٔ سبز: کمینه</div>${cacheLabel}</div>`;
       if (stats) h += `<div class="grid2"><div class="m"><span>کمترین قیمت در بازهٔ انتخابی</span><b>${U.fmt(stats.min)}</b></div><div class="m"><span>بیشترین قیمت</span><b>${U.fmt(stats.max)}</b></div><div class="m"><span>میانه</span><b>${U.fmt(stats.median)}</b></div><div class="m"><span>بازهٔ دارای داده</span><b>${U.toFa(stats.span)} روز · ${U.toFa(stats.count)} روز</b></div></div><div class="muted" style="margin-top:6px">نقطه‌های رسمی: ${U.toFa(officialValid.length)} · ثبت‌های محلی: ${U.toFa(loc.length)} · دادهٔ رسمی ممکن است فقط حدود یک ماه را پوشش دهد؛ سابقهٔ محلی از این پس به‌مرور کامل‌تر می‌شود. روزهای خالی درون‌یابی نمی‌شوند.</div>`;
       else h += '<div class="card muted">این واریانت نقطهٔ قابل‌فروش ندارد.</div>';
     } else {
       if (loc.length) h += `<div class="card">${chart([], loc, S.range)}<div class="muted">این‌ها قیمت‌هایی هستند که افزونه برای همین محصول/واریانت ثبت کرده است.</div></div>`;
-      if (!loc.length && !S.chartError && !S.chartLoading) h += '<div class="empty-state" role="status"><span class="empty-state-icon">' + icon('history', 18) + '</span><div class="empty-state-copy"><b>تاریخچه‌ای برای نمایش نیست</b><p>برای این محصول هنوز دادهٔ رسمی یا ثبت محلی وجود ندارد.</p></div></div>';
-      else if (!loc.length && S.chartError && !S.chartLoading && !rateLimited) h += '<div class="empty-state" role="status"><span class="empty-state-icon">' + icon('history', 18) + '</span><div class="empty-state-copy"><b>نمودار فعلاً خالی است</b><p>دادهٔ رسمی در دسترس نیست و هنوز قیمت محلی برای این محصول ثبت نشده. بعداً دوباره تلاش کنید یا محصول را در واچ‌لیست بگذارید.</p></div></div>';
+      if (!loc.length && !S.chartError && !S.historyNotice && !S.chartLoading) h += '<div class="empty-state" role="status"><span class="empty-state-icon">' + icon('history', 18) + '</span><div class="empty-state-copy"><b>تاریخچه‌ای برای نمایش نیست</b><p>برای این محصول هنوز دادهٔ رسمی یا ثبت محلی وجود ندارد.</p></div></div>';
+      else if (!loc.length && S.historyNotice === 'error' && !S.chartLoading) h += '<div class="empty-state" role="status"><span class="empty-state-icon">' + icon('history', 18) + '</span><div class="empty-state-copy"><b>نمودار فعلاً خالی است</b><p>دادهٔ رسمی در دسترس نیست و هنوز قیمت محلی برای این محصول ثبت نشده. بعداً دوباره تلاش کنید یا محصول را در واچ‌لیست بگذارید.</p></div></div>';
     }
     if (S.dk && S.dk.lowest30dOfficial) h += `<div class="card"><span class="muted">کمترین قیمت اعلامی دیجی‌کالا در ۳۰ روز اخیر</span><div class="pv">${U.fmt(S.dk.lowest30dOfficial)} تومان</div></div>`;
     return h;
@@ -411,15 +414,15 @@ svg text{font-family:inherit}
     const alertSettings = switchRow('فعال‌کردن هشدار قیمت', 'data-set="alertsEnabled"', !!alerts.enabled, 'bell') +
       `<div class="setting-input-row"><label for="ival">${icon('clock')}<span>فاصلهٔ بررسی (دقیقه)</span></label><input type="number" id="ival" aria-label="فاصلهٔ بررسی هشدار به دقیقه، حداقل ۱۵" min="15" value="${alerts.intervalMin || 60}"></div><div class="muted setting-note">حداقل ۱۵ دقیقه</div>`;
     h += settingsSection('هشدار قیمت', 'bell', alertSettings);
-    h += `<button type="button" class="settings-link diagnostics-option" data-tab="log" aria-label="بازکردن گزارش و عیب‌یابی"><span class="settings-link-icon">${icon('bug', 18)}</span><span class="settings-link-copy"><b>گزارش و عیب‌یابی</b><small>رویدادها، خطاها و وضعیت منابع</small></span></button>`;
     const dataActions = `<div class="btns"><button class="btn sec icon-btn" data-act="expCsv">${iconText('download', 'خروجی CSV')}</button><button class="btn sec icon-btn" data-act="expJson">${iconText('download', 'خروجی JSON')}</button><button class="btn sec icon-btn" data-act="impCsv">${iconText('upload', 'ورود CSV')}</button><button class="btn bad icon-btn" data-act="clearProd" title="پاک‌کردن تاریخچهٔ محلی این محصول">${iconText('trash', 'حذف محصول')}</button><button class="btn bad icon-btn" data-act="clearAll" title="پاک‌کردن همهٔ داده‌ها و تنظیمات">${iconText('trash', 'حذف همه')}</button></div><input type="file" id="file" accept=".csv" style="display:none">`;
     h += settingsSection('داده‌های ذخیره‌شده', 'file', dataActions);
+    h += `<button type="button" class="diagnostics-option" data-tab="log" aria-label="بازکردن گزارش و عیب‌یابی">${icon('bug', 19)}<span class="diagnostics-option-copy"><b>گزارش و عیب‌یابی</b><small>رویدادها، خطاها و وضعیت منابع قیمت</small></span></button>`;
     return h;
   }
   function tabLog() {
     const legacy = ['ghpro12-host', 'ghafel-pc-btn', 'ghafel-pc-panel'].filter(id => document.getElementById(id));
     let h = legacy.length ? `<div class="banner">نسخه‌های قدیمی هم‌زمان فعال‌اند (${legacy.join('، ')}). در Tampermonkey آن‌ها را غیرفعال کنید تا فقط یک پنل بماند.</div>` : '';
-    h += `<button type="button" class="btn sec icon-btn diagnostics-back" data-tab="settings">${icon('settings')}<span>بازگشت به تنظیمات</span></button>`;
+    h += `<button type="button" class="btn sec icon-btn diagnostics-back" data-tab="settings">${iconText('settings', 'بازگشت به تنظیمات')}</button>`;
     const version = (() => {
       try {
         const runtime = typeof browser !== 'undefined' && browser.runtime?.getManifest
@@ -489,12 +492,12 @@ svg text{font-family:inherit}
       const sx = fromRect.width / Math.max(destinationRect.width, 1), sy = fromRect.height / Math.max(destinationRect.height, 1);
       const start = `translate3d(${dx}px, ${dy}px, 0) scale(${sx}, ${sy})`;
       const settle = `translate3d(${dx * 0.08}px, ${dy * 0.08}px, 0) scale(${1 + (sx - 1) * 0.08}, ${1 + (sy - 1) * 0.08})`;
-      const duration = Math.max(280, Math.min(420, 300 + Math.abs(dx) * 0.28));
+      const duration = Math.max(300, Math.min(420, 320 + Math.abs(dx) * 0.22));
       const animation = indicator.animate([
         { transform: start, borderRadius: '999px' },
         { offset: 0.72, transform: settle, borderRadius: '999px' },
         { transform: 'translate3d(0,0,0) scale(1,1)', borderRadius: '999px' }
-      ], { duration, easing: 'cubic-bezier(.2,.8,.2,1)' });
+      ], { duration, easing: 'cubic-bezier(.22,1,.36,1)' });
       animation.onfinish = () => { indicator.style.transform = 'none'; };
       return destinationRect;
     }
@@ -707,7 +710,7 @@ svg text{font-family:inherit}
       else if (a === 'toggleAll') { S.showAll = !S.showAll; render(); }
       else if (a === 'reread') App.refreshProduct();
       else if (a === 'manual') { const v = Number(U.digits(prompt('قیمت فعلی محصول (تومان):', '') || '').replace(/\D/g, '')); if (v > 0) App.setManualPrice(v); }
-      else if (a === 'reloadHistory') App.loadHistory();
+      else if (a === 'reloadHistory') App.loadHistory(undefined, { refresh: true });
       else if (a === 'setTarget') { const v = Number(U.digits($('#tgt').value).replace(/\D/g, '')); const p = Store.touchProduct(S.key); p.target = v > 0 ? v : null; if (v > 0) p.watch = true; Store.save(); render(); }
       else if (a === 'toggleCollectionForm') {
         collectionFormOpen = !collectionFormOpen;

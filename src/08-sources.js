@@ -2,6 +2,7 @@
 const Sources = (() => {
   const TOROB_REF = 'https://torob.com/';
   const DK_REF = 'https://www.digikala.com/';
+  const SEARCH_QUERY_NOISE = new Set(['مخصوص', 'مدل', 'قیمت', 'خرید', 'ارزان', 'ارزانترین', 'اورجینال', 'اصل', 'مناسب', 'و', 'با', 'از', 'برای', 'در', 'به']);
   // Origin is a forbidden header for GM requests; cookies are sent (anonymous:false) so Digikala's CDN accepts the call; page fetch is the fallback.
   const DK_OPTS = { referer: DK_REF, headers: { 'x-web-client': 'desktop', 'x-web-client-id': 'web' }, anonymous: false, pageFetchFallback: true };
   // Torob can attach an unrelated marketplace page to an otherwise relevant base product.
@@ -35,7 +36,7 @@ const Sources = (() => {
       const en = (prod.altTitles || []).find(x => /^[\x00-\x7F\s]+$/.test(x));
       const core = Extract.coreTitle(prod.title) || prod.title || '';
       const codeQuery = codes.slice().sort((a, b) => b.length - a.length)[0] || '';
-      const prefix = U.tokens(core).filter(x => !codes.includes(x)).slice(0, 4).join(' ');
+      const prefix = U.tokens(core).filter(x => !codes.includes(x) && !SEARCH_QUERY_NOISE.has(x)).slice(0, 5).join(' ');
       const focused = [prefix, codes.join(' ')].filter(Boolean).join(' ');
       const shortEnglish = en ? Extract.coreTitle(en) : '';
       const aliases = Array.isArray(prod.brandAliases) ? prod.brandAliases : [prod.brandAliases];
@@ -48,7 +49,7 @@ const Sources = (() => {
     },
     async search(q) {
       const e = encodeURIComponent(q);
-      const r = await Net.json(`https://api.torob.com/v4/base-product/search/?page=0&sort=popularity&size=24&query=${e}&q=${e}&source=next_desktop`, { referer: TOROB_REF, timeout: 15000 });
+      const r = await Net.json(`https://api.torob.com/v4/base-product/search/?page=0&sort=popularity&size=24&query=${e}&q=${e}&source=next_desktop`, { referer: TOROB_REF, timeout: 15000, anonymous: true });
       return { results: Array.isArray(r.results) ? r.results : [], searchId: r.search_id || r.searchId || '' };
     },
     // Evaluate against every known title of the product (page title + Digikala official titles) and keep the best verdict.
@@ -65,7 +66,7 @@ const Sources = (() => {
       const baseTitle = base.name1 + ' ' + (base.name2 || '');
       const params = new URLSearchParams({ source: 'next_mobile', discover_method: 'direct', prk: base.random_key, list_type: 'products_info' });
       if (searchId) params.set('search_id', searchId);
-      const res = await Net.json('https://api.torob.com/v4/base-product/sellers/?' + params, { referer: TOROB_REF, timeout: 15000 });
+      const res = await Net.json('https://api.torob.com/v4/base-product/sellers/?' + params, { referer: TOROB_REF, timeout: 15000, anonymous: true });
       const list = res?.results || res?.products_info?.result || [], ts = Date.now();
       const excludedOffer = s => [s.page_url, s.redirect_url, s.product_url, s.url].filter(Boolean).some(isExcludedTorobSellerPage);
       const eligible = list.filter(s => !excludedOffer(s)), excluded = list.length - eligible.length;
@@ -116,7 +117,13 @@ const Sources = (() => {
     isfahan: { label: 'اصفهان', lat: 32.6546, lng: 51.6680 },
     shiraz: { label: 'شیراز', lat: 29.5918, lng: 52.5837 }
   };
-  const searchTerms = (prod, override) => override ? [String(override).trim()].filter(Boolean) : torob.queries(prod).slice(0, 2);
+  const searchTerms = (prod, override) => {
+    if (override) return [String(override).trim()].filter(Boolean);
+    const codes = [...new Set(torob.titles(prod).flatMap(Match.modelCodes))];
+    // A model-only query such as "B60" pollutes marketplace results. Prefer the focused
+    // brand/type + model query, then the complete product title as a second pass.
+    return torob.queries(prod).filter(q => U.tokens(q).some(token => !codes.includes(token))).slice(0, 2);
+  };
   const parsePrice = value => {
     const price = Number(U.digits(String(value ?? '')).replace(/\D/g, ''));
     return Number.isFinite(price) && price > 0 ? price : 0;
@@ -137,6 +144,10 @@ const Sources = (() => {
     const matches = titles.map(source => Match.evaluate(source, title, { strict: true, brandAliases: aliases }));
     return matches.sort((a, b) => Number(b.ok) - Number(a.ok) || b.score - a.score)[0] || Match.evaluate(prod.title || '', title, { strict: true, brandAliases: aliases });
   }
+  function marketMatchReason(prod, title) {
+    const ev = strictMatch(prod, title);
+    return ev.reasons[0] || (ev.ok ? 'اطمینان تطبیق برای نمایش کافی نبود' : 'تطبیق دقیق مدل یا برند تأیید نشد');
+  }
   function mapMarketOffer(prod, row, { sourceId, title, price, seller, sellerUrl, allowedHosts, priceFactor = 1, dataSource, exclude } = {}) {
     const name = String(title || '').trim(), url = safeMarketplaceUrl(sellerUrl, allowedHosts);
     if (!name || !url || (exclude && exclude(row, url))) return null;
@@ -147,14 +158,14 @@ const Sources = (() => {
     return Model.offer({ sourceId, productId: prod.id, seller: storeName || sourceId, sellerKey: sellerKey || '', sellerUrl: url, price: amount,
       ts: Date.now(), dataSource, matchConfidence: ev.score, matchLevel: ev.level, matchTitle: name, flags: ev.flags });
   }
-  function marketResult(offers, tried, rejected, nearMiss = [], note = '') {
+  function marketResult(offers, tried, rejected, nearMiss = [], note = '', error = '') {
     const unique = new Map();
     for (const offer of offers) {
       const key = `${offer.sellerKey || offer.seller}|${offer.price}|${offer.sellerUrl}`;
       if (!unique.has(key)) unique.set(key, offer);
     }
     const list = [...unique.values()];
-    return { status: list.length ? 'ok' : 'no-match', offers: list, note: note || (list.length ? `${list.length} نتیجهٔ همسان` : 'نتیجهٔ همسان با برند و کد مدل پیدا نشد'), tried, rejected, nearMiss: nearMiss.slice(0, 3) };
+    return { status: list.length ? 'ok' : (error ? 'error' : 'no-match'), offers: list, note: note || (list.length ? `${list.length} نتیجهٔ همسان` : 'نتیجهٔ همسان با برند و کد مدل پیدا نشد'), error, tried, rejected, nearMiss: nearMiss.slice(0, 3) };
   }
   function reverseEmallsLink(value) {
     try {
@@ -171,22 +182,33 @@ const Sources = (() => {
     note: 'جست‌وجوی زندهٔ ایمالز؛ تطبیق برند و مدل پیش از نمایش قیمت',
     async search(q) {
       const body = new URLSearchParams({ findstr: q, entekhab: 'listitemv2', pagenum: '1' });
-      return Net.json('https://emalls.ir/swservice/site_search', { method: 'POST', body: body.toString(), referer: EMALLS_REF, timeout: 18000,
+      return Net.json('https://emalls.ir/swservice/site_search', { method: 'POST', body: body.toString(), referer: EMALLS_REF, timeout: 18000, anonymous: true,
         headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8', 'X-Requested-With': 'XMLHttpRequest' } });
     },
     async fetch(prod, { query } = {}) {
-      const tried = [], offers = [], nearMiss = []; let rejected = 0;
+      const tried = [], offers = [], nearMiss = [], failures = []; let rejected = 0;
       for (const q of searchTerms(prod, query)) {
         tried.push(q);
-        const result = await emalls.search(q), rows = Array.isArray(result?.lstsearchresualt) ? result.lstsearchresualt : [];
+        let result;
+        try { result = await emalls.search(q); }
+        catch (e) {
+          failures.push(e.message);
+          Log.warn('emalls', `عبارت «${q}» ناموفق بود: ${e.message}`);
+          continue;
+        }
+        const rows = Array.isArray(result?.lstsearchresualt) ? result.lstsearchresualt : [];
         for (const row of rows) {
           const name = row?.title || '', link = reverseEmallsLink(row?.buyLink);
           const seller = String(row?.buyTitle || '').replace(/^خرید[\u200c\u200e\s]*از[\u200c\u200e\s]*/u, '').trim();
           const offer = mapMarketOffer(prod, row, { sourceId: 'emalls', title: name, price: row?.price, seller, sellerUrl: link, allowedHosts: ['click.emalls.ir'], dataSource: 'emalls:site_search/listitemv2', exclude: item => item?.agahi || item?.used === true });
-          if (offer) offers.push(offer); else { rejected++; if (name && nearMiss.length < 3) nearMiss.push({ title: name, reason: 'تطبیق برند، مدل یا لینک خرید کافی نبود' }); }
+          if (offer) offers.push(offer); else { rejected++; if (name && nearMiss.length < 3) nearMiss.push({ title: name, reason: marketMatchReason(prod, name) }); }
         }
       }
-      return marketResult(offers, tried, rejected, nearMiss);
+      const error = tried.length && failures.length === tried.length ? failures.join('؛ ') : '';
+      const note = failures.length
+        ? (error ? `تمام جست‌وجوهای ایمالز ناموفق بود: ${error}` : `یک یا چند عبارت ایمالز پاسخ نداد؛ ${offers.length ? `${offers.length} نتیجه از پاسخ‌های موفق` : 'در پاسخ‌های موفق نتیجهٔ همسانی پیدا نشد'}`)
+        : '';
+      return marketResult(offers, tried, rejected, nearMiss, note, error);
     }
   };
   const basalam = {
@@ -194,7 +216,7 @@ const Sources = (() => {
     note: 'جست‌وجوی زندهٔ باسلام؛ مبلغ ریالی به تومان تبدیل می‌شود',
     async search(q) {
       const url = new URL(BASALAM_API); url.search = new URLSearchParams({ q, sort: 'rank', from: '0', size: '30' }).toString();
-      return Net.json(url.href, { referer: 'https://basalam.com/', timeout: 18000 });
+      return Net.json(url.href, { referer: 'https://basalam.com/', timeout: 18000, anonymous: true });
     },
     async fetch(prod, { query } = {}) {
       const tried = [], offers = [], nearMiss = []; let rejected = 0;
@@ -207,7 +229,7 @@ const Sources = (() => {
           const offer = mapMarketOffer(prod, row, { sourceId: 'basalam', title: row?.name, price: row?.price, priceFactor: 0.1,
             seller: row?.vendor?.name, sellerUrl: url, allowedHosts: ['basalam.com'], dataSource: 'basalam:guest-product-search', exclude: excludedBasalamProduct });
           if (offer && row?.IsSaleable !== false && row?.status?.title !== 'ناموجود') offers.push(offer);
-          else { rejected++; if (row?.name && nearMiss.length < 3) nearMiss.push({ title: row.name, reason: 'تطبیق برند/مدل، موجودی یا لینک کافی نبود' }); }
+          else { rejected++; if (row?.name && nearMiss.length < 3) nearMiss.push({ title: row.name, reason: marketMatchReason(prod, row.name) }); }
         }
       }
       return marketResult(offers, tried, rejected, nearMiss);
@@ -219,13 +241,13 @@ const Sources = (() => {
     async fetch(prod, { query } = {}) {
       const city = SNAPP_CITIES[Store.get().settings.snappCity] || SNAPP_CITIES.tehran;
       const coordinates = `lat=${encodeURIComponent(city.lat)}&lng=${encodeURIComponent(city.lng)}`;
-      const tokenData = await Net.json(`${SNAPP_API}guest/v2/token?${coordinates}`, { timeout: 15000 });
+      const tokenData = await Net.json(`${SNAPP_API}guest/v2/token?${coordinates}`, { timeout: 15000, anonymous: true });
       const token = tokenData?.data?.token || tokenData?.token;
       if (!token) throw new Error('توکن مهمان اسنپ‌شاپ در پاسخ پیدا نشد');
       const tried = [], offers = [], nearMiss = []; let rejected = 0;
       for (const q of searchTerms(prod, query)) {
         tried.push(q);
-        const result = await Net.json(`${SNAPP_API}search/v1?${coordinates}`, { method: 'POST', timeout: 18000,
+        const result = await Net.json(`${SNAPP_API}search/v1?${coordinates}`, { method: 'POST', timeout: 18000, anonymous: true,
           headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ render: 4, query: q }) });
         const rows = (result?.data?.structure || []).flatMap(section => Array.isArray(section?.items) ? section.items : []);
         for (const row of rows) {
@@ -235,7 +257,7 @@ const Sources = (() => {
             seller: 'اسنپ‌شاپ', sellerUrl: url, allowedHosts: ['snappshop.ir'], dataSource: 'snappshop:search/v1',
             exclude: item => item?.is_ads || item?.is_fake });
           if (offer) offers.push(offer);
-          else { rejected++; if (row?.title && nearMiss.length < 3) nearMiss.push({ title: row.title, reason: 'آگهی یا تطبیق برند/مدل کافی نبود' }); }
+          else { rejected++; if (row?.title && nearMiss.length < 3) nearMiss.push({ title: row.title, reason: marketMatchReason(prod, row.title) }); }
         }
       }
       return marketResult(offers, tried, rejected, nearMiss, offers.length ? `قیمت اسنپ‌شاپ · ${city.label}` : `برای این شهر (${city.label}) نتیجهٔ همسان با برند و کد مدل پیدا نشد`);

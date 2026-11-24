@@ -48,7 +48,12 @@ const Net = (() => {
   }
   async function json(url, opts) {
     const txt = await request(url, opts);
-    try { return JSON.parse(txt); } catch { throw new Error('پاسخ JSON معتبر نیست'); }
+    try { return JSON.parse(txt); } catch {
+      const raw = String(txt || '').replace(/^\uFEFF/, '').trimStart();
+      const host = new URL(url).hostname;
+      const reason = !raw ? 'پاسخ خالی بود' : /^</.test(raw) ? 'پاسخ HTML به‌جای JSON بود؛ احتمالاً صفحهٔ ضدربات یا خطای سرویس' : 'پاسخ ساختار JSON نداشت';
+      throw new Error(`${host}: ${reason}`);
+    }
   }
   return { request, json, allowed, ALLOWED };
 })();
