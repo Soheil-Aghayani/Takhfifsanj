@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         تخفیف‌سنج
 // @namespace    ghafel-com-pro
-// @version      15.2.26
+// @version      15.2.27
 // @description  مقایسهٔ قیمت فروشندگان، تاریخچهٔ قیمت دیجی‌کالا، بازرس تخفیف، واچ‌لیست و هشدار قیمت
 // @author       GHAFEL_com (Original Creator)
 // @contributor  RealMahdi_a (Upgrade & Development)
@@ -22,7 +22,7 @@
 // @noframes
 // @run-at       document-idle
 // ==/UserScript==
-/* تخفیف‌سنج 15.2.26 — Original Creator: GHAFEL_com (https://t.me/GHAFEL_com) · Upgrade & Development: RealMahdi_a (https://t.me/RealMahdi_a) · Website: https://aqilistudio.ir/
+/* تخفیف‌سنج 15.2.27 — Original Creator: GHAFEL_com (https://t.me/GHAFEL_com) · Upgrade & Development: RealMahdi_a (https://t.me/RealMahdi_a) · Website: https://aqilistudio.ir/
    Built from readable modules in /src. The 8.7 engine logic is preserved in src/06-extract.js (extraction),
    src/07-match.js (baseline rule) and src/08-sources.js (Torob flow). */
 (function () {
@@ -1380,7 +1380,7 @@ const Exporter = (() => {
     for (const x of (p?.local || [])) rows.push([key, p?.title || '', new Date(x.t).toISOString(), x.p, 'local', x.src || 'local']);
     return rows.map(r => r.map(q).join(',')).join('\n');
   }
-  const jsonAll = extra => JSON.stringify({ app: 'تخفیف‌سنج 15.2.26', exportedAt: new Date().toISOString(), db: Store.get(), ...extra }, null, 2);
+  const jsonAll = extra => JSON.stringify({ app: 'تخفیف‌سنج 15.2.27', exportedAt: new Date().toISOString(), db: Store.get(), ...extra }, null, 2);
   function parseCsv(text) {
     const out = []; const lines = String(text || '').replace(/^\uFEFF/, '').split(/\r?\n/).filter(Boolean); if (!lines.length) return out;
     const head = lines[0].toLowerCase().split(',').map(s => s.trim().replace(/"/g, ''));
@@ -1491,24 +1491,21 @@ header{cursor:move;padding:12px 14px 10px;background:linear-gradient(135deg,rgba
 .tab:focus-visible{outline:2px solid var(--acc2);outline-offset:1px}
 .tab-icon{position:absolute;left:50%;top:50%;display:inline-flex;align-items:center;justify-content:center;flex:0 0 22px;width:22px;height:22px;line-height:0;transform:translate(-50%,-50%);transition:opacity .18s ease,transform .28s cubic-bezier(.22,1,.36,1),visibility 0s linear 0s;}
 .tab-icon .icon{display:block;width:18px;height:18px}
-.tab-label{position:absolute;top:50%;left:50%;width:calc(100% - 6px);overflow:hidden;text-align:center;text-overflow:ellipsis;white-space:nowrap;opacity:0;transform:translate(-50%,-50%) scale(.96);pointer-events:none;transition:opacity .16s ease,transform .24s cubic-bezier(.22,1,.36,1)}
+.tab-label{position:absolute;top:50%;left:50%;width:calc(100% - 6px);overflow:hidden;text-align:center;white-space:normal;overflow-wrap:anywhere;line-height:1.2;opacity:0;transform:translate(-50%,-50%) scale(.96);pointer-events:none;transition:opacity .16s ease,transform .24s cubic-bezier(.22,1,.36,1)}
 .tab.on{flex:1 1 0;min-width:0;padding-inline:5px;background:transparent;color:var(--on-acc);font-weight:800}
 .tab.on .tab-icon{visibility:hidden;opacity:0;transform:translate(-50%,-50%) scale(.72);transition-delay:0s,0s,.18s}
-.tab.on .tab-label{position:static;top:auto;left:auto;width:auto;max-width:100%;flex:0 1 auto;overflow:visible;text-overflow:clip;opacity:1;transform:none}
+.tab.on .tab-label{position:static;top:auto;left:auto;width:100%;max-width:100%;flex:0 1 auto;overflow:visible;text-overflow:clip;opacity:1;transform:none}
 .tab-indicator{transition:none}
-.diagnostics-dock{position:relative;z-index:2;display:flex;flex:0 0 54px;align-items:center;justify-content:center;width:54px;height:44px;margin-inline-start:2px;padding-inline-start:8px;border-inline-start:1px solid var(--line)}
-.diagnostics-dock-button{all:unset;box-sizing:border-box;display:grid;place-items:center;flex:0 0 42px;width:42px;height:42px;border-radius:12px;color:var(--mut);cursor:pointer;transition:color .18s ease,background-color .18s ease,transform .18s ease,box-shadow .18s ease}
-.diagnostics-dock-button:hover{background:var(--card);color:var(--ink)}
-.diagnostics-dock-button:active{transform:scale(.94)}
-.diagnostics-dock-button:focus-visible{outline:2px solid var(--acc2);outline-offset:1px}
-.diagnostics-dock-button.on{background:var(--acc2);color:var(--on-acc);box-shadow:0 4px 12px color-mix(in srgb,var(--acc) 25%,transparent)}
-.diagnostics-dock-button .icon{width:19px;height:19px}
-.tabs.diagnostics-on .tab-indicator{opacity:0}
+.diagnostics-option{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0}
+.diagnostics-option-copy{display:flex;align-items:center;gap:10px;min-width:0}
+.diagnostics-option-copy>.icon{flex:0 0 20px;width:20px;height:20px;color:var(--acc2)}
+.diagnostics-option-copy b,.diagnostics-option-copy small{display:block}
+.diagnostics-option-copy b{font-size:11.5px}
+.diagnostics-option-copy small{margin-top:3px;color:var(--mut);font-size:10px;line-height:1.5}
+.diagnostics-option .btn{flex:0 0 auto}
 .body{direction:rtl;min-width:0;padding:12px 14px;overflow-y:auto;flex:1 1 auto;scrollbar-width:thin;scrollbar-color:var(--scroll-thumb) var(--panel);scrollbar-gutter:stable;overscroll-behavior:contain}
 .body-content{position:relative;z-index:1;min-height:100%;transform-origin:center;will-change:opacity,transform}
-.body-transition-exit{position:absolute;inset:0;z-index:2;overflow:hidden;padding:12px 14px;background:var(--panel);pointer-events:none;transform-origin:center;will-change:opacity,transform}
-.tab-morph-overlay{position:absolute;z-index:4;top:0;left:0;width:1px;height:1px;border:1px solid color-mix(in srgb,var(--acc2) 70%,var(--line));background:var(--acc2);box-shadow:0 8px 28px color-mix(in srgb,var(--acc) 24%,transparent);pointer-events:none;will-change:left,top,width,height,border-radius,background-color,opacity}
-.body-exit-content{position:relative;min-height:100%}
+.tab-morph-overlay{position:absolute;z-index:4;pointer-events:none;transform-origin:0 0;border:1px solid color-mix(in srgb,var(--acc2) 70%,var(--line));background:var(--acc2);box-shadow:0 8px 28px color-mix(in srgb,var(--acc) 24%,transparent);will-change:transform,border-radius,background-color,opacity}
 .body::-webkit-scrollbar{width:7px}
 .body::-webkit-scrollbar-track{background:var(--panel);border-radius:999px}
 .body::-webkit-scrollbar-thumb{background:var(--scroll-thumb);border:2px solid var(--panel);border-radius:999px;min-height:32px}
@@ -1679,7 +1676,7 @@ svg text{font-family:inherit}
 .dark .v-confirmed{background:var(--good-soft);border-color:var(--good);color:var(--good)}
 .dark .v-rise-signal{background:var(--warn-soft);border-color:var(--warn);color:var(--warn)}
 .dark .v-insufficient{background:rgba(167,171,180,.08);border-color:var(--line);color:var(--mut)}
-@media(max-width:380px){.tabs{gap:4px;padding-inline:6px}.diagnostics-dock{flex-basis:46px;width:46px;margin-inline-start:0;padding-inline-start:4px}.diagnostics-dock-button{flex-basis:40px;width:40px;height:40px}.tab-main{gap:2px}.tab{font-size:9.5px;padding-inline:1px}.tab.on{padding-inline:1px}.body{padding:10px}.history-toolbar{align-items:flex-start;flex-direction:column}.watch-target-controls input{width:108px!important}.collection-icon-choice{width:34px;height:34px}}
+@media(max-width:380px){.tabs{gap:4px;padding-inline:6px}.tab-main{gap:2px}.tab{font-size:9.5px;padding-inline:1px}.tab.on{padding-inline:1px}.body{padding:10px}.history-toolbar{align-items:flex-start;flex-direction:column}.watch-target-controls input{width:108px!important}.collection-icon-choice{width:34px;height:34px}}
 @media(prefers-reduced-motion:reduce){.tab,.tab-icon,.tab-label,.switch-track,.switch-track:after,.collection-pill,.collection-icon-choice{transition:none}}
 `;
   let host, root, S;
@@ -1886,6 +1883,8 @@ svg text{font-family:inherit}
     const alertSettings = switchRow('فعال‌کردن هشدار قیمت', 'data-set="alertsEnabled"', !!alerts.enabled, 'bell') +
       `<div class="setting-input-row"><label for="ival">${icon('clock')}<span>فاصلهٔ بررسی (دقیقه)</span></label><input type="number" id="ival" aria-label="فاصلهٔ بررسی هشدار به دقیقه، حداقل ۱۵" min="15" value="${alerts.intervalMin || 60}"></div><div class="muted setting-note">حداقل ۱۵ دقیقه</div>`;
     h += settingsSection('هشدار قیمت', 'bell', alertSettings);
+    const diagnostics = `<div class="diagnostics-option"><div class="diagnostics-option-copy">${icon('bug')}<div><b>گزارش و عیب‌یابی</b><small>نسخهٔ افزونه، رویدادها و خطاهای اخیر</small></div></div><button type="button" class="btn sec icon-btn diagnostics-open" data-tab="log" aria-controls="body" title="بازکردن گزارش و عیب‌یابی">${iconText('bug', 'بازکردن')}</button></div>`;
+    h += settingsSection('عیب‌یابی', 'bug', diagnostics);
     const dataActions = `<div class="btns"><button class="btn sec icon-btn" data-act="expCsv">${iconText('download', 'خروجی CSV')}</button><button class="btn sec icon-btn" data-act="expJson">${iconText('download', 'خروجی JSON')}</button><button class="btn sec icon-btn" data-act="impCsv">${iconText('upload', 'ورود CSV')}</button><button class="btn bad icon-btn" data-act="clearProd" title="پاک‌کردن تاریخچهٔ محلی این محصول">${iconText('trash', 'حذف محصول')}</button><button class="btn bad icon-btn" data-act="clearAll" title="پاک‌کردن همهٔ داده‌ها و تنظیمات">${iconText('trash', 'حذف همه')}</button></div><input type="file" id="file" accept=".csv" style="display:none">`;
     h += settingsSection('داده‌های ذخیره‌شده', 'file', dataActions);
     return h;
@@ -1934,7 +1933,7 @@ svg text{font-family:inherit}
     tabMorphSequence += 1;
     tabMorphAnimations.forEach(animation => { try { animation.cancel(); } catch {} });
     tabMorphAnimations = []; tabMorphActive = false;
-    $('#panel')?.querySelectorAll('.body-transition-exit,.tab-morph-overlay').forEach(node => node.remove());
+    $('#panel')?.querySelectorAll('.tab-morph-overlay').forEach(node => node.remove());
   }
   function positionTabIndicator(fromRect = null) {
     const nav = $('#tabs'), indicator = nav?.querySelector('.tab-indicator'), active = nav?.querySelector('.tab.on');
@@ -1983,14 +1982,11 @@ svg text{font-family:inherit}
   function renderTabs(fromRect = null) {
     const nav = $('#tabs'); if (!nav) return;
     if (!TABS.some(([key]) => key === S.tab) && S.tab !== 'log') S.tab = 'compare';
-    if (!nav.querySelector('.tab-indicator')) {
+    if (!nav.querySelector('.tab-indicator') || !nav.querySelector('.tab-main') || TABS.some(([key]) => !nav.querySelector('#tab-' + key))) {
+      nav.replaceChildren();
       const indicator = document.createElement('span'); indicator.className = 'tab-indicator'; indicator.setAttribute('aria-hidden', 'true');
       const main = document.createElement('div'); main.className = 'tab-main'; main.setAttribute('role', 'tablist'); main.setAttribute('aria-label', 'بخش‌های اصلی');
-      const dock = document.createElement('div'); dock.className = 'diagnostics-dock';
-      const diagnostics = document.createElement('button'); diagnostics.type = 'button'; diagnostics.className = 'diagnostics-dock-button'; diagnostics.id = 'tab-log'; diagnostics.dataset.tab = 'log';
-      diagnostics.setAttribute('aria-label', 'گزارش و عیب‌یابی'); diagnostics.setAttribute('aria-controls', 'body'); diagnostics.setAttribute('title', 'گزارش و عیب‌یابی');
-      diagnostics.innerHTML = icon('bug', 19); dock.appendChild(diagnostics);
-      nav.append(indicator, main, dock);
+      nav.append(indicator, main);
       const appendTab = (parent, [key, ico, labelText, title]) => {
         const button = document.createElement('button'); button.type = 'button'; button.id = 'tab-' + key; button.className = 'tab'; button.dataset.tab = key;
         button.setAttribute('role', 'tab'); button.setAttribute('aria-label', title); button.setAttribute('aria-controls', 'body'); button.setAttribute('title', title);
@@ -2000,11 +1996,13 @@ svg text{font-family:inherit}
         parent.appendChild(button);
       };
       TABS.forEach(item => appendTab(main, item));
-      nav.addEventListener('scroll', () => positionTabIndicator(), { passive: true });
+      if (nav.dataset.indicatorListener !== 'true') {
+        nav.addEventListener('scroll', () => positionTabIndicator(), { passive: true });
+        nav.dataset.indicatorListener = 'true';
+      }
     }
-    nav.classList.toggle('diagnostics-on', S.tab === 'log');
-    const diagnostics = nav.querySelector('#tab-log');
-    diagnostics?.classList.toggle('on', S.tab === 'log'); diagnostics?.setAttribute('aria-pressed', String(S.tab === 'log'));
+    nav.classList.remove('diagnostics-on');
+    nav.querySelectorAll('.diagnostics-dock,#tab-log').forEach(node => node.remove());
     for (const [key] of TABS) {
       const button = nav.querySelector('#tab-' + key), active = key === S.tab || (key === 'settings' && S.tab === 'log');
       button.classList.toggle('on', active); button.setAttribute('aria-selected', String(active));
@@ -2033,56 +2031,47 @@ svg text{font-family:inherit}
       }
     }, 1000);
   }
-  function animateTabContent(bodyNode, oldHtml, oldScrollTop = 0, originRect = null) {
+  function animateTabContent(bodyNode, originRect = null) {
     if (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
     const entering = bodyNode.querySelector('.body-content');
     if (!entering || typeof entering.animate !== 'function') return false;
     const panel = $('#panel'), panelRect = panel?.getBoundingClientRect(), bodyRect = bodyNode.getBoundingClientRect();
-    if (!panel || !panelRect || !bodyRect.width || !bodyRect.height) return false;
+    if (!panel || !panelRect || !bodyRect.width || !bodyRect.height || typeof panelRect.left !== 'number') return false;
     const source = originRect || { left: bodyRect.left + bodyRect.width / 2 - 28, top: bodyRect.top + 6, width: 56, height: 38 };
-    const exit = document.createElement('div'); exit.className = 'body-transition-exit';
-    exit.setAttribute('aria-hidden', 'true'); exit.inert = true; exit.innerHTML = `<div class="body-exit-content">${oldHtml}</div>`;
-    exit.firstElementChild.style.transform = `translateY(-${Math.max(0, oldScrollTop)}px)`;
-    exit.querySelectorAll('[id]').forEach(node => node.removeAttribute('id'));
-    exit.querySelectorAll('button,input,select,textarea,a').forEach(node => { node.tabIndex = -1; });
-    bodyNode.appendChild(exit);
     const overlay = document.createElement('div'); overlay.className = 'tab-morph-overlay'; overlay.setAttribute('aria-hidden', 'true');
-    const start = { left: source.left - panelRect.left, top: source.top - panelRect.top, width: source.width, height: source.height };
     const end = { left: bodyRect.left - panelRect.left, top: bodyRect.top - panelRect.top, width: bodyRect.width, height: bodyRect.height };
-    const boxFrame = box => ({ left: box.left + 'px', top: box.top + 'px', width: box.width + 'px', height: box.height + 'px' });
+    const dx = source.left - bodyRect.left, dy = source.top - bodyRect.top;
+    const sx = Math.max(.01, source.width / bodyRect.width), sy = Math.max(.01, source.height / bodyRect.height);
+    const startTransform = `translate3d(${dx}px,${dy}px,0) scale(${sx},${sy})`;
     const color = getComputedStyle(bodyNode), accent = color.getPropertyValue('--acc2').trim() || '#f0c65a', panelColor = color.getPropertyValue('--panel').trim() || '#15181e';
-    Object.assign(overlay.style, { left: start.left + 'px', top: start.top + 'px', width: start.width + 'px', height: start.height + 'px', borderRadius: Math.min(22, start.height / 2) + 'px' });
+    Object.assign(overlay.style, { left: end.left + 'px', top: end.top + 'px', width: end.width + 'px', height: end.height + 'px', borderRadius: '18px' });
     panel.appendChild(overlay);
-    const cleanup = () => { if (exit.isConnected) exit.remove(); if (overlay.isConnected) overlay.remove(); };
-    let enteringAnimation, leaving, morphAnimation;
+    const cleanup = () => { if (overlay.isConnected) overlay.remove(); };
+    let enteringAnimation, morphAnimation;
     try {
       enteringAnimation = entering.animate([
-        { opacity: 0, transform: 'translateY(10px) scale(.985)' },
-        { offset: .26, opacity: .05, transform: 'translateY(7px) scale(.99)' },
-        { opacity: 1, transform: 'translateY(0) scale(1)' }
-      ], { duration: 520, easing: 'cubic-bezier(.2,.8,.2,1)' });
-      leaving = exit.animate([
-        { opacity: 1, transform: 'translateY(0) scale(1)' },
-        { opacity: 0, transform: 'translateY(-5px) scale(.985)' }
-      ], { duration: 220, easing: 'cubic-bezier(.4,0,.2,1)' });
+        { opacity: 0, transform: 'translateY(6px)' },
+        { opacity: 1, transform: 'translateY(0)' }
+      ], { duration: 340, delay: 90, easing: 'cubic-bezier(.2,.8,.2,1)' });
       morphAnimation = overlay.animate([
-        { ...boxFrame(start), borderRadius: '999px', backgroundColor: accent, opacity: .98 },
-        { offset: .58, ...boxFrame(end), borderRadius: '16px', backgroundColor: panelColor, opacity: .96 },
-        { ...boxFrame(end), borderRadius: '0px', backgroundColor: panelColor, opacity: 0 }
-      ], { duration: 500, easing: 'cubic-bezier(.22,1,.36,1)' });
+        { transform: startTransform, borderRadius: '18px', backgroundColor: accent, opacity: .96 },
+        { offset: .72, transform: 'translate3d(0,0,0) scale(1.015,1.015)', borderRadius: '12px', backgroundColor: panelColor, opacity: .92 },
+        { transform: 'translate3d(0,0,0) scale(1,1)', borderRadius: '0px', backgroundColor: panelColor, opacity: 0 }
+      ], { duration: 430, easing: 'cubic-bezier(.22,1,.36,1)' });
     } catch {
+      try { enteringAnimation?.cancel(); morphAnimation?.cancel(); } catch {}
       cleanup();
       return false;
     }
     const sequence = ++tabMorphSequence;
-    tabMorphActive = true; tabMorphAnimations = [enteringAnimation, leaving, morphAnimation];
+    tabMorphActive = true; tabMorphAnimations = [enteringAnimation, morphAnimation];
     const release = () => {
       if (sequence !== tabMorphSequence) return;
       cleanup(); tabMorphAnimations = []; tabMorphActive = false;
       if (queuedAppRender) queueAppRender();
     };
-    const fallback = setTimeout(release, 580);
-    Promise.allSettled([enteringAnimation.finished, leaving.finished, morphAnimation.finished]).then(() => { clearTimeout(fallback); release(); });
+    const fallback = setTimeout(release, 500);
+    Promise.allSettled([enteringAnimation.finished, morphAnimation.finished]).then(() => { clearTimeout(fallback); release(); });
     return true;
   }
 
@@ -2108,15 +2097,12 @@ svg text{font-family:inherit}
     const bodyNode = $('#body');
     bodyNode.setAttribute('aria-labelledby', `tab-${S.tab === 'log' ? 'settings' : S.tab}`);
     const keep = bodyNode.scrollTop;
-    const exitScroll = Number.isFinite(transition.oldScrollTop) ? transition.oldScrollTop : keep;
     const tamper = (typeof CreditGuard !== 'undefined' && CreditGuard.isOk() === false)
       ? '<div class="banner" style="background:rgba(248,113,113,.15);border-color:var(--bad);color:var(--bad)"><b>این نسخه تغییر داده شده و اعتبار سازندگان حذف/تغییر کرده است.</b> نسخهٔ اصلی: <a style="color:inherit" href="https://t.me/RealMahdi_a" target="_blank" rel="noopener noreferrer">t.me/RealMahdi_a</a></div>' : '';
-    bodyNode.querySelectorAll('.body-transition-exit').forEach(node => node.remove());
-    const oldHtml = transition.oldBodyHtml;
     bodyNode.innerHTML = `<div class="body-content">${tamper + (S.banner ? `<div class="banner">${U.esc(S.banner)}</div>` : '') + body}</div>`;
     bodyNode.scrollTop = transition.toTab ? (tabScrollPositions[transition.toTab] || 0) : keep;
-    if (oldHtml != null && transition.fromTab !== transition.toTab) {
-      animateTabContent(bodyNode, oldHtml, exitScroll, morphOriginRect);
+    if (transition.toTab && transition.fromTab !== transition.toTab) {
+      animateTabContent(bodyNode, morphOriginRect);
     }
     const th = $('[data-set="theme"]'); if (th) { th.checked = st.theme === 'light'; th.setAttribute('aria-checked', String(th.checked)); }
   }
@@ -2177,14 +2163,13 @@ svg text{font-family:inherit}
       const db = Store.get();
       if (t.dataset.tab) {
         if (t.dataset.tab === S.tab) return;
-        const fromTab = S.tab, bodyNode = $('#body'), oldScrollTop = bodyNode.scrollTop, fromContent = bodyNode.querySelector('.body-content')?.innerHTML ?? bodyNode.innerHTML;
+        const fromTab = S.tab, bodyNode = $('#body'), oldScrollTop = bodyNode.scrollTop;
         tabScrollPositions[fromTab] = oldScrollTop;
         const indicator = $('#tabs').querySelector('.tab-indicator');
-        const activeSource = S.tab === 'log' ? $('#tab-log') : indicator;
-        const indicatorRect = activeSource?.getBoundingClientRect();
+        const indicatorRect = indicator?.getBoundingClientRect();
         const originRect = t.getBoundingClientRect();
         S.tab = t.dataset.tab; db.settings.tab = S.tab; Store.save();
-        const transition = { indicatorRect, originRect, oldBodyHtml: fromContent, oldScrollTop, fromTab, toTab: t.dataset.tab };
+        const transition = { indicatorRect, originRect, fromTab, toTab: t.dataset.tab };
         const result = render(transition);
         if (S.tab === 'history' && !S.chart && !S.chartLoading) setTimeout(() => App.loadHistory(), 80);
         return result;
@@ -2324,7 +2309,7 @@ const Main = (() => {
     };
     const run = () => { try { check(); } catch (e) { Log.error('main', e.message); } };
     setTimeout(run, 600); setInterval(run, 1500);
-    Log.info('main', 'تخفیف‌سنج 15.2.26 آماده شد');
+    Log.info('main', 'تخفیف‌سنج 15.2.27 آماده شد');
   }
   return { init };
 })();

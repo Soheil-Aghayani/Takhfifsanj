@@ -289,9 +289,9 @@ test('UI: exactly ONE panel host, mount is idempotent, every tab renders, legacy
   assert.ok(root.querySelector('#price').textContent.includes('نوار خرید'));
   for (const t of ['compare', 'history', 'inspect', 'watch', 'settings', 'log']) { api.App.state.tab = t; api.UI.render(); assert.ok(root.querySelector('#body').innerHTML.length > 20, t); }
   api.App.state.tab = 'settings'; api.UI.render();
-  assert.equal(root.querySelectorAll('.tab').length, 5); assert.equal(root.querySelector('.tab-main').nextElementSibling.className, 'diagnostics-dock');
-  assert.equal(root.querySelector('.diagnostics-option'), null); assert.ok(root.querySelectorAll('.switch-input').length > 0); assert.equal(root.querySelectorAll('.switch-input').length, root.querySelectorAll('.switch-track').length); root.querySelector('.diagnostics-dock-button').click();
-  assert.equal(api.App.state.tab, 'log'); assert.ok(root.querySelector('.diagnostics-dock-button').classList.contains('on')); assert.ok(root.querySelector('.diagnostics-back'));
+  assert.equal(root.querySelectorAll('.tab').length, 5); assert.equal(root.querySelector('.tab-main').nextElementSibling, null);
+  assert.equal(root.querySelector('#tab-log'), null); assert.ok(root.querySelector('.diagnostics-option')); assert.ok(root.querySelectorAll('.switch-input').length > 0); assert.equal(root.querySelectorAll('.switch-input').length, root.querySelectorAll('.switch-track').length); root.querySelector('.diagnostics-open').click();
+  assert.equal(api.App.state.tab, 'log'); assert.equal(root.querySelector('#tab-settings').getAttribute('aria-selected'), 'true'); assert.ok(root.querySelector('.diagnostics-back')); assert.equal(root.querySelector('.body-transition-exit'), null);
   root.querySelector('.diagnostics-back').click(); assert.equal(api.App.state.tab, 'settings'); assert.ok(root.querySelector('#tab-settings').classList.contains('on'));
   api.App.state.tab = 'log'; api.UI.render(); assert.ok(root.querySelector('.banner').textContent.includes('ghpro12-host'));
   api.App.state.tab = 'compare'; api.UI.render(); assert.ok(root.querySelectorAll('.offer').length === 3);
@@ -331,7 +331,7 @@ test('UI: pill is draggable (drag moves + saves, tap opens); wide toggle; show-a
   root.querySelector('[data-act="toggleAll"]').click(); assert.equal(root.querySelectorAll('.offer').length, 9);
   const adv = root.innerHTML.indexOf('مشاور خرید'), first = root.innerHTML.indexOf('class="card offer'); assert.ok(adv > 0 && adv < first);
   root.querySelector('#wide').click(); assert.ok(root.querySelector('#panel').classList.contains('wide'));
-  const css = root.querySelector('style').textContent; assert.match(css, /\.tabs\{[^}]*flex-direction:row/); assert.match(css, /\.tab-main\{[^}]*display:grid[^}]*grid-template-columns:repeat\(5,minmax\(0,1fr\)\)/); assert.match(css, /\.tab\.on \.tab-icon\{visibility:hidden/); assert.match(css, /\.tab\.on \.tab-label\{position:static/); assert.match(css, /\.diagnostics-dock\{[^}]*flex:0 0 54px/); assert.match(css, /\.tabs\.diagnostics-on \.tab-indicator\{opacity:0/); assert.match(css, /\.body\{min-height:0/);
+  const css = root.querySelector('style').textContent; assert.match(css, /\.tabs\{[^}]*flex-direction:row/); assert.match(css, /\.tab-main\{[^}]*display:grid[^}]*grid-template-columns:repeat\(5,minmax\(0,1fr\)\)/); assert.match(css, /\.tab\.on \.tab-icon\{visibility:hidden/); assert.match(css, /\.tab\.on \.tab-label\{position:static/); assert.match(css, /\.tab-label\{[^}]*white-space:normal/); assert.doesNotMatch(css, /diagnostics-dock|diagnostics-on/); assert.match(css, /\.diagnostics-option\{/); assert.doesNotMatch(css, /body-transition-exit|body-exit-content/); assert.match(css, /\.tab-morph-overlay\{[^}]*will-change:transform/); assert.match(css, /\.body\{min-height:0/);
 });
 
 // ---- v14 ----
