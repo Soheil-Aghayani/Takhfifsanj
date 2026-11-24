@@ -191,6 +191,14 @@ const TOROB_SELLERS = { results: [
   { shop_name: 'ایمالز', domain: 'emalls.ir', price: 2050000, page_url: 'https://torob.com/r/2' },
   { shop_name: 'ایمالز', domain: 'emalls.ir', price: 2150000, page_url: 'https://torob.com/r/3' },
   { shop_name: 'shop.example.ir', price: 1990000, page_url: 'https://torob.com/r/4' }] };
+const headphoneProduct = () => {
+  const result = J('fx_product.json'), product = result.data.product;
+  product.id = 23083919; product.title_fa = 'هدفون بلوتوثی موزیک آپولو مدل YRB/22';
+  product.title_en = 'Apollo YRB/22 Bluetooth Headphone';
+  product.brand.title_fa = 'آپولو'; product.brand.title_en = 'Apollo';
+  return result;
+};
+const torobOnly = api => { for (const id of ['emalls', 'basalam', 'snappshop']) api.Store.get().settings.sources[id] = false; api.Store.save(); };
 
 test('torob: keeps the user-provided product redirect and still excludes the named Basalam page', async () => {
   const productRedirect = 'https://api.torob.com/v4/product-page/redirect/?uid=4688671&prk=2db1d0a1-c8f0-455b-82fc-9d64497dfed4';
@@ -206,28 +214,28 @@ test('torob: keeps the user-provided product redirect and still excludes the nam
 });
 
 test('E2E (mock net): Torob picks the right base product, dedups sellers, DOES NOT use the wrong model', async () => {
-  const routes = [{ m: 'base-product/search', body: TOROB_SEARCH }, { m: 'base-product/sellers', body: TOROB_SELLERS }, { m: '/price-chart/', body: J('fx_price_chart.json') }, { m: '/product/v1/products/', body: J('fx_product.json') }];
+  const routes = [{ m: 'base-product/search', body: TOROB_SEARCH }, { m: 'base-product/sellers', body: TOROB_SELLERS }, { m: '/price-chart/', body: J('fx_price_chart.json') }, { m: '/product/v1/products/', body: headphoneProduct() }];
   const { api, w } = makeEnv(BUYBOX, undefined, { GM_xmlhttpRequest: mockGM(routes) });
-  api.Store.load(); await api.App.refreshProduct(); await api.App.runCompare();
+  api.Store.load(); torobOnly(api); await api.App.refreshProduct(); await api.App.runCompare();
   const s = api.App.state; assert.equal(s.sources.torob.status, 'ok'); assert.equal(s.offers.length, 3);
   assert.ok(!s.offers.some(o => o.price === 2590000)); const em = s.offers.find(o => o.sellerKey === 'emalls.ir'); assert.equal(em.price, 2050000); assert.ok(em.flags.includes('dedup:2'));
   assert.equal(em.shippingCost, null); assert.ok(em.ts > 0 && em.dataSource.startsWith('torob:'));
-  assert.equal(s.sources.emalls.status, 'unavailable'); assert.equal(s.sources.basalam.status, 'unavailable');
+  assert.equal(s.sources.emalls.status, 'off'); assert.equal(s.sources.basalam.status, 'off'); assert.equal(s.sources.snappshop.status, 'off');
 });
 
 test('E2E (mock net): Torob failure is isolated; history still loads; price source reported', async () => {
-  const routes = [{ m: 'base-product/search', status: 500, body: {} }, { m: '/price-chart/', body: J('fx_price_chart.json') }, { m: '/product/v1/products/', body: J('fx_product.json') }];
+  const routes = [{ m: 'base-product/search', status: 500, body: {} }, { m: '/price-chart/', body: J('fx_price_chart.json') }, { m: '/product/v1/products/', body: headphoneProduct() }];
   const { api } = makeEnv(BUYBOX, undefined, { GM_xmlhttpRequest: mockGM(routes) });
-  api.Store.load(); await api.App.refreshProduct(); await api.App.runCompare(); await new Promise(r => setTimeout(r, 50));
+  api.Store.load(); torobOnly(api); await api.App.refreshProduct(); await api.App.runCompare(); await new Promise(r => setTimeout(r, 50));
   const s = api.App.state; assert.equal(s.sources.torob.status, 'error'); assert.match(s.sources.torob.error, /HTTP 500/);
   assert.ok(s.chart && s.chart.variants.length === 2); assert.equal(s.product.price, 2200000);
   assert.ok(api.Log.all().some(e => e.level === 'error' && e.scope === 'torob'));
 });
 
 test('UI: exactly ONE panel host, mount is idempotent, every tab renders, legacy panels are reported', async () => {
-  const routes = [{ m: 'base-product/search', body: TOROB_SEARCH }, { m: 'base-product/sellers', body: TOROB_SELLERS }, { m: '/price-chart/', body: J('fx_price_chart.json') }, { m: '/product/v1/products/', body: J('fx_product.json') }];
+  const routes = [{ m: 'base-product/search', body: TOROB_SEARCH }, { m: 'base-product/sellers', body: TOROB_SELLERS }, { m: '/price-chart/', body: J('fx_price_chart.json') }, { m: '/product/v1/products/', body: headphoneProduct() }];
   const { api, w } = makeEnv(BUYBOX + '<div id="ghpro12-host"></div>', undefined, { GM_xmlhttpRequest: mockGM(routes) });
-  api.Store.load(); api.UI.mount(); api.UI.mount(); api.UI.mount();
+  api.Store.load(); torobOnly(api); api.UI.mount(); api.UI.mount(); api.UI.mount();
   assert.equal(w.document.querySelectorAll('#ghafel-pro-host').length, 1);
   await api.App.refreshProduct(); await api.App.runCompare(); await new Promise(r => setTimeout(r, 50));
   const root = w.document.getElementById('ghafel-pro-host').shadowRoot;
@@ -258,21 +266,21 @@ test('local history: weak price source or empty title is not recorded', async ()
 
 test('UI: pill is draggable (drag moves + saves, tap opens); wide toggle; show-all for long lists; chrome never shrinks', async () => {
   const many = { results: Array.from({ length: 9 }, (_, i) => ({ shop_name: 'shop' + i + '.ir', price: 2000000 + i * 1000, page_url: 'https://torob.com/r/' + i })) };
-  const routes = [{ m: 'base-product/search', body: TOROB_SEARCH }, { m: 'base-product/sellers', body: many }, { m: '/price-chart/', body: J('fx_price_chart.json') }, { m: '/product/v1/products/', body: J('fx_product.json') }];
+  const routes = [{ m: 'base-product/search', body: TOROB_SEARCH }, { m: 'base-product/sellers', body: many }, { m: '/price-chart/', body: J('fx_price_chart.json') }, { m: '/product/v1/products/', body: headphoneProduct() }];
   const { api, w } = makeEnv(BUYBOX, undefined, { GM_xmlhttpRequest: mockGM(routes) });
-  api.Store.load(); api.UI.mount(); await api.App.refreshProduct(); await api.App.runCompare(); await new Promise(r => setTimeout(r, 50));
+  api.Store.load(); torobOnly(api); api.UI.mount(); await api.App.refreshProduct(); await api.App.runCompare(); await new Promise(r => setTimeout(r, 50));
   const host = w.document.getElementById('ghafel-pro-host'), root = host.shadowRoot, pill = root.querySelector('#pill');
   host.getBoundingClientRect = () => { const l = parseFloat(host.style.left) || 0, t = parseFloat(host.style.top) || 0; return { left: l, top: t, width: 150, height: 40, right: l + 150, bottom: t + 40 }; };
   await new Promise(r => setTimeout(r, 40)); host.style.left = '0px'; host.style.top = '0px';
   const ev = (t, x, y) => pill.dispatchEvent(new w.MouseEvent(t, { clientX: x, clientY: y, bubbles: true }));
   ev('pointerdown', 10, 10); ev('pointermove', 200, 150); ev('pointerup', 200, 150);
   assert.equal(host.style.left, '190px'); assert.ok(!root.querySelector('#panel').classList.contains('open')); assert.equal(api.Store.get().settings.pos.left !== undefined, true);
-  ev('pointerdown', 5, 5); ev('pointerup', 5, 5); assert.ok(root.querySelector('#panel').classList.contains('open'));
+  ev('pointerdown', 5, 5); ev('pointerup', 5, 5); pill.click(); assert.ok(root.querySelector('#panel').classList.contains('open'));
   api.App.state.tab = 'compare'; api.UI.render(); assert.equal(root.querySelectorAll('.offer').length, 5);
   root.querySelector('[data-act="toggleAll"]').click(); assert.equal(root.querySelectorAll('.offer').length, 9);
   const adv = root.innerHTML.indexOf('مشاور خرید'), first = root.innerHTML.indexOf('class="card offer'); assert.ok(adv > 0 && adv < first);
   root.querySelector('#wide').click(); assert.ok(root.querySelector('#panel').classList.contains('wide'));
-  const css = root.querySelector('style').textContent; assert.match(css, /header,\.hero,\.tabs,\.foot\{flex-shrink:0\}/); assert.match(css, /\.body\{min-height:0/);
+  const css = root.querySelector('style').textContent; assert.match(css, /\.tabs\{[^}]*flex-direction:row/); assert.match(css, /\.foot\{flex:0 0 auto/); assert.match(css, /\.body\{min-height:0/);
 });
 
 // ---- v14 ----
@@ -281,10 +289,10 @@ const CAND = (name2, price, key) => ({ name1: 'هدفون بلوتوثی موز�
 
 test('torob: stops after the first matching query and reports what was tried', async () => {
   const urls = [];
-  const gm = routeBy(u => { urls.push(u); if (u.includes('base-product/search')) { const query = new URL(u).searchParams.get('query') || ''; return { body: { search_id: 's', results: query.includes('آپولو') ? [CAND('مشکی', 2100000, 'k1')] : [] } }; } if (u.includes('/sellers/')) return { body: TOROB_SELLERS }; return null; });
+  const gm = routeBy(u => { urls.push(u); if (u.includes('base-product/search')) { const query = new URL(u).searchParams.get('query') || ''; return { body: { search_id: 's', results: /آپولو|apollo/i.test(query) ? [CAND('مشکی', 2100000, 'k1')] : [] } }; } if (u.includes('/sellers/')) return { body: TOROB_SELLERS }; return null; });
   const { api, w } = makeEnv(BUYBOX, undefined, { GM_xmlhttpRequest: gm });
-  api.Store.load(); await api.App.refreshProduct(); await api.App.runCompare();
-  const t = api.App.state.sources.torob; assert.equal(t.status, 'ok'); assert.equal(t.tried.length, 1); assert.match(t.tried[0], /آپولو/); assert.match(t.query, /yrb22/); assert.equal(api.App.state.offers.length, 3); w.close();
+  api.Store.load(); torobOnly(api); await api.App.refreshProduct(); await api.App.runCompare();
+  const t = api.App.state.sources.torob; assert.equal(t.status, 'ok'); assert.equal(t.tried.length, 1); assert.match(t.tried[0], /آپولو|apollo/i); assert.match(t.query, /yrb22/); assert.equal(api.App.state.offers.length, 3); w.close();
 });
 
 test('torob: candidate switch replaces only Torob offers; manual query overrides the ladder', async () => {
@@ -293,16 +301,16 @@ test('torob: candidate switch replaces only Torob offers; manual query overrides
     if (u.includes('prk=k1')) return { body: { results: [{ shop_name: 'A', price: 2000000, page_url: 'https://torob.com/r/a' }] } };
     if (u.includes('prk=k2')) return { body: { results: [{ shop_name: 'B', price: 2250000, page_url: 'https://torob.com/r/b' }] } }; return null; });
   const { api, w } = makeEnv(BUYBOX, undefined, { GM_xmlhttpRequest: gm });
-  api.Store.load(); await api.App.refreshProduct(); await api.App.runCompare();
+  api.Store.load(); torobOnly(api); await api.App.refreshProduct(); await api.App.runCompare();
   let st = api.App.state; assert.equal(st.sources.torob.candidates.length, 2); assert.equal(st.sources.torob.chosenKey, 'k1'); assert.equal(st.offers[0].seller, 'A');
   await api.App.pickCandidate('k2'); assert.equal(st.offers.length, 1); assert.equal(st.offers[0].seller, 'B'); assert.equal(st.sources.torob.chosenKey, 'k2');
   searches.length = 0; await api.App.runCompare({ query: 'yrb22 apolo' }); assert.equal(searches.length, 1); assert.match(searches[0], /query=yrb22 apolo/); assert.deepEqual([...st.sources.torob.tried], ['yrb22 apolo']); w.close();
 });
 
-test('UI v14: tab memory, table view, resize + reset, edge snap, shortcut, manual-search box', async () => {
+test('UI v14: tab memory, table view, edge snap, shortcut, manual search and viewport-scaled panel', async () => {
   const gm = routeBy(u => u.includes('base-product/search') ? { body: { search_id: 's', results: [CAND('مشکی', 2100000, 'k1')] } } : u.includes('/sellers/') ? { body: TOROB_SELLERS } : null);
   const { api, w } = makeEnv(BUYBOX, undefined, { GM_xmlhttpRequest: gm });
-  api.Store.load(); api.Store.get().settings.tab = 'watch'; api.UI.mount();
+  api.Store.load(); torobOnly(api); api.Store.get().settings.tab = 'watch'; api.UI.mount();
   const host = w.document.getElementById('ghafel-pro-host'), root = host.shadowRoot;
   host.getBoundingClientRect = () => { const l = parseFloat(host.style.left) || 0, t = parseFloat(host.style.top) || 0; return { left: l, top: t, width: 150, height: 40, right: l + 150, bottom: t + 40 }; };
   assert.equal(api.App.state.tab, 'watch'); assert.ok(root.querySelector('.tab.on').textContent.includes('واچ‌لیست'));
@@ -314,9 +322,8 @@ test('UI v14: tab memory, table view, resize + reset, edge snap, shortcut, manua
   const pill = root.querySelector('#pill'); ev(pill, 'pointerdown', 10, 10); ev(pill, 'pointermove', 20, 300); ev(pill, 'pointerup', 20, 300);
   assert.equal(host.style.left, '8px'); assert.equal(host.style.top, '290px');
   host.style.left = '0px'; host.style.top = '0px'; ev(pill, 'pointerdown', 10, 10); ev(pill, 'pointermove', 1000, 300); ev(pill, 'pointerup', 1000, 300); assert.equal(host.style.left, '866px');
-  const rs = root.querySelector('#rs'); ev(rs, 'pointerdown', 0, 0); ev(rs, 'pointermove', 500, 600); ev(rs, 'pointerup', 500, 600);
-  assert.deepEqual(JSON.parse(JSON.stringify(api.Store.get().settings.size)), { w: 500, h: 600 }); assert.equal(root.querySelector('#panel').style.width, '500px');
-  rs.dispatchEvent(new w.MouseEvent('dblclick', { bubbles: true })); assert.equal(api.Store.get().settings.size, null);
+  const css = root.querySelector('style').textContent;
+  assert.ok(css.includes('height:84vh')); assert.equal(root.querySelector('#rs'), null);
   w.document.dispatchEvent(new w.KeyboardEvent('keydown', { altKey: true, shiftKey: true, code: 'KeyG', bubbles: true }));
   api.Main.init(); w.document.dispatchEvent(new w.KeyboardEvent('keydown', { altKey: true, shiftKey: true, code: 'KeyG', bubbles: true }));
   assert.ok(root.querySelector('#panel').classList.contains('open'));

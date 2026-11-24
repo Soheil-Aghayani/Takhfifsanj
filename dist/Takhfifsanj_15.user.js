@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         تخفیف‌سنج
 // @namespace    ghafel-com-pro
-// @version      15.2.18
+// @version      15.2.19
 // @description  مقایسهٔ قیمت فروشندگان، تاریخچهٔ قیمت دیجی‌کالا، بازرس تخفیف، واچ‌لیست و هشدار قیمت
 // @author       GHAFEL_com (Original Creator)
 // @contributor  RealMahdi_a (Upgrade & Development)
@@ -22,7 +22,7 @@
 // @noframes
 // @run-at       document-idle
 // ==/UserScript==
-/* تخفیف‌سنج 15.2.18 — Original Creator: GHAFEL_com (https://t.me/GHAFEL_com) · Upgrade & Development: RealMahdi_a (https://t.me/RealMahdi_a) · Website: https://aqilistudio.ir/
+/* تخفیف‌سنج 15.2.19 — Original Creator: GHAFEL_com (https://t.me/GHAFEL_com) · Upgrade & Development: RealMahdi_a (https://t.me/RealMahdi_a) · Website: https://aqilistudio.ir/
    Built from readable modules in /src. The 8.7 engine logic is preserved in src/06-extract.js (extraction),
    src/07-match.js (baseline rule) and src/08-sources.js (Torob flow). */
 (function () {
@@ -650,7 +650,7 @@ const Sources = (() => {
 
   // ---------- Torob: seller prices (engine 8.7 flow, unchanged endpoints) ----------
   const torob = {
-    id: 'torob', label: 'ترب', kind: 'offers', implemented: true, hosts: ['api.torob.com'],
+    id: 'torob', label: 'ترب', icon: 'torob', kind: 'offers', implemented: true, hosts: ['api.torob.com'],
     note: 'جست‌وجوی چندمرحله‌ای ← انتخاب محصول مطابق (قابل‌تغییر دستی) ← فهرست فروشندگان',
     titles: prod => [...new Set([Extract.coreTitle(prod.title), prod.title, ...(prod.altTitles || [])].filter(Boolean))],
     // Search high-signal terms first. Long page headings commonly append dimensions,
@@ -793,7 +793,7 @@ const Sources = (() => {
     return id === '25406964' || isExcludedTorobSellerPage(url);
   }
   const emalls = {
-    id: 'emalls', label: 'ایمالز', icon: 'shop', kind: 'offers', implemented: true, hosts: ['emalls.ir'],
+    id: 'emalls', label: 'ایمالز', icon: 'emalls', kind: 'offers', implemented: true, hosts: ['emalls.ir'],
     note: 'جست‌وجوی زندهٔ ایمالز؛ تطبیق برند و مدل پیش از نمایش قیمت',
     async search(q) {
       const body = new URLSearchParams({ findstr: q, entekhab: 'listitemv2', pagenum: '1' });
@@ -816,7 +816,7 @@ const Sources = (() => {
     }
   };
   const basalam = {
-    id: 'basalam', label: 'باسلام', icon: 'bag', kind: 'offers', implemented: true, hosts: ['services.basalam.com'],
+    id: 'basalam', label: 'باسلام', icon: 'basalam', kind: 'offers', implemented: true, hosts: ['services.basalam.com'],
     note: 'جست‌وجوی زندهٔ باسلام؛ مبلغ ریالی به تومان تبدیل می‌شود',
     async search(q) {
       const url = new URL(BASALAM_API); url.search = new URLSearchParams({ q, sort: 'rank', from: '0', size: '30' }).toString();
@@ -840,7 +840,7 @@ const Sources = (() => {
     }
   };
   const snappshop = {
-    id: 'snappshop', label: 'اسنپ‌شاپ', icon: 'cart', kind: 'offers', implemented: true, hosts: ['apix.snappshop.ir'], cities: SNAPP_CITIES,
+    id: 'snappshop', label: 'اسنپ‌شاپ', icon: 'snappshop', kind: 'offers', implemented: true, hosts: ['apix.snappshop.ir'], cities: SNAPP_CITIES,
     note: 'قیمت اسنپ‌شاپ بر اساس شهر انتخابی محاسبه می‌شود',
     async fetch(prod, { query } = {}) {
       const city = SNAPP_CITIES[Store.get().settings.snappCity] || SNAPP_CITIES.tehran;
@@ -1264,7 +1264,7 @@ const Exporter = (() => {
     for (const x of (p?.local || [])) rows.push([key, p?.title || '', new Date(x.t).toISOString(), x.p, 'local', x.src || 'local']);
     return rows.map(r => r.map(q).join(',')).join('\n');
   }
-  const jsonAll = extra => JSON.stringify({ app: 'تخفیف‌سنج 15.2.18', exportedAt: new Date().toISOString(), db: Store.get(), ...extra }, null, 2);
+  const jsonAll = extra => JSON.stringify({ app: 'تخفیف‌سنج 15.2.19', exportedAt: new Date().toISOString(), db: Store.get(), ...extra }, null, 2);
   function parseCsv(text) {
     const out = []; const lines = String(text || '').replace(/^\uFEFF/, '').split(/\r?\n/).filter(Boolean); if (!lines.length) return out;
     const head = lines[0].toLowerCase().split(',').map(s => s.trim().replace(/"/g, ''));
@@ -1325,6 +1325,14 @@ const SolarIcons = {
   cart: "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\"><path d=\"M9.6851 21H14.3158C16.5656 21 17.6906 21 18.5044 20.3646C19.3181 19.7292 19.591 18.6379 20.1366 16.4552C20.9946 13.0234 21.4236 11.3075 20.5227 10.1538C19.6219 9 17.8532 9 14.3158 9H9.6851C6.14769 9 4.37899 9 3.47816 10.1538C2.57733 11.3075 3.0063 13.0234 3.86425 16.4552C4.40992 18.6379 4.68275 19.7292 5.49654 20.3646C6.31032 21 7.43525 21 9.6851 21Z\"/><path d=\"M10 5H14C14.5523 5 15 4.55228 15 4C15 3.44772 14.5523 3 14 3H10C9.44772 3 9 3.44772 9 4C9 4.55228 9.44772 5 10 5Z\"/><path stroke-linejoin=\"round\" d=\"M4.5 18L7.5 14.4L12 9M7.5 14.4L4.5 10M7.5 14.4L12 21L16.516 14.3766L19.5 18M16.516 14.3766L12.5 9.5M16.516 14.3766L19.5 10\"/><path d=\"M19.4601 9.39865L18.7892 6.89465C18.5152 5.89005 18.3783 5.38775 18.0974 5.00946C17.8176 4.63273 17.4374 4.34234 17.0003 4.17152C16.5615 4 16.0408 4 14.9996 4M4.53897 9.39861L5.20996 6.89465C5.48389 5.89005 5.62085 5.38775 5.90178 5.00946C6.18156 4.63273 6.56172 4.34234 6.99879 4.17152C7.43765 4 7.95829 4 8.99957 4\"/></g>",
 };
 
+// Official favicons cached locally so source logos load without remote requests.
+const ProviderLogoData = Object.freeze({
+  torob: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAGMklEQVR42rWXbWyVZxnHf9d9P+ecnva0pbxsDAvnrJSutoU5XgbKlLgF48xAY1CXzMhEYzRzm9P4Rc3iNLovZM5Es2VbYoguUYyabJGpS0aGmUYZCy+FgZTSUnBgrXQ9fTnnPM99XX7oaQWkY2Pl/vK83///fb38//cD13h8/Yfr7vnao++/fabn0TuZzDZsiAZP/mdFCVaKyLIEXahGSpCJlHDa4KhF7mD+xIHD9/9g3YZMyj3mRFaWJ5K/m7FOBLsqAmfyXe0ifutA//lPmKO9VjwioCYACCAiRMD4WHz08ftWPXAykt86JBcSRVUXXA78igR6WlZcl1MeVmxbnZPsmBoTZgxbggAOMECrxznO41SeP7Q0/dn56nNjIzHOObyX8s8P3Nqcra/zY6XR0a0de4euSOBf+eV3auAJ8ZI/q4FiSChjJIAHMuKoFaEeRy2CM3AKQ/PdgKh+pDQOURoWd0HDdVGLGYfGRyqZbG22+Gz3+u/f0/XKT2Yk8MaSFV8Ycvr0kAU5FwIBA4SsCGlxjGqwUQt9g2pnDeJakexcc4uXufTCTIWFGiSJUtC23pObB0lMGiRtBplanx0fS26ZMQKHCp2f65PwzDkLVEzxCFlx1IijpOFwTNhRJ/qnSrnh+OY39o1PffdQc/PczdJw67KipPyIzi+sr1mVm5dQmZguYUSgXApY1v166q5cCP7ijW1rgrlXypBKbLJm6pwjUXvTG99esKDuqdX79sVXKtoHH1xbWH539Of574mai+cTVCGKhJqmiJHRyo7Pt//l3v8jsKu1NVOJ/b6s852jGgDIOU+iekwDWzadPtr9Tlr2V8fXtVpIPRrHekc5jUmD9GVi+d0dHxpuKsdaWzhz+CsXEXgu3/ZQzqceGw4JADXiUKxPXWXD5t7eU1crRC+8sLZww474iw2vB0n3JWuiBr9RI4hF1+R7u18VgN0LOnLDtcmxtPhFZVP8ZE/Hwdiwuf/oX9+tGp5r7Hxkzpz0w4MSGDelyUUUNflNS3/3FgcwUqub6l20qGw6mXdxBOPJ2QAHePnNw9/7J8lBqca7qAGQTb2FW/IOQNFPTsmUF2Fcw1jWu+2z5QefhiCm21PVjCcYDd6nPfFHHYCYrJlafY04DHtpY++RU7NpSo0SPT+i4d/pahjUjGB2m9u1uHWpwcKkGgIPCG73bLtiU/+BYTH21ogDIJ4UtxZXcn6jc5IxDAFiM9Lo69fCmgWO+eq5GgSzbGTGMi8QquYSYxhu+JoQEBm8yN4RcU4YsukbkyREyFyb7YllL7nGGcnuxEwdk4adFodA4ZrAIzdeuCnwQuK6UvKawJCX/2lzUFs72+A7+ZRXs5XlqsekRHDIWdfW01MGjky1R8UMsDt3tbbOahpWF46tTjlpn2r3lAgg+xyAQ/6QqhIom1Lro0Ko+C2zSUDN7s+KE61GeUIVsD9OErCwczSEiq+SiM1AeGT/9SvqZgP89JLOD9QIdxdVpy2+ZOFgob/7bw7grlPHexV25pzHgJIpWeeX9tWUfvpuwU81d8xVcT8TEZ9U96UZcXjcjwTUTb2YToXvjmuYSIkgVcOoc9HW3y9pv+uqV76ofZ55/1yNc22j1dU3Os9wSF4r9M/9BdW2B+BjPT0nNOi3cs4jVU0QIBG992rAz7SsuI10ak/WufXnNSBARoSKaUgF+7LwcnIRAYCPD/zj8WKIn2300bRe6wWacKJlVePgTTfVvxXw4JLlqwbyXU9X1PaISMcUeCRCThzlYF9dcvrw3hk3peW6aJsfC/VNPtocmxHg6GD+5g9XxL5ZCeWbiyGlJ/NdR4D9ItLj1SaCc3PVtA1sbRFbXe88I6qMVlsuLUKdOIqq32kd6H7yEn+4vGjk8gd/HHl/37zAoSZcZ855NzE9oSOqpmkqVQJUMCbU0At+ghqdJzYrB+yBfN+hpy5jUDOPlwrv/Uwrqe2NzjePaKBkevn/q0uGA+qcJwLKanuC6jfyA92vzuCQbz1OtKxqrNXKlxLY5sW1TxaSkZhNr37KxFIiRCIUNRCJ7PHKEzf0H/zlFSz6bRpJR0f6XMl/MFG5PWDvS8wWBrPpGopESh7pF2FvxtyL1/cf2P925v0vfaHEIxHajwAAAAAASUVORK5CYII=",
+  emalls: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAADqElEQVR42s1XTYhbVRg95977XpxMU+vfzFBBdO3PoosuKphB/BltiwvNIOi2K4W6UlemcaVQqKAulK5E8SdUioKIVpi4caFStVBc6LIuUmaGoUwyeXn3HheTTDJjMnnJjOiFywt5730/9zvf+c4D/uPFLA8JIKTJnZCTvaxy2agMs9csd7PB3ZyzUgkAoPPnC7g9X4DPjZeJtcT16xs8dWplrAC6zlV67CjoTntjH4IxBwGFrGUDIBIAmKjZPOc+/+YNASSgXQPoOk9LT7xIY88ayxxSD02AAQEwJCAhuf+BI7nX3rzcf7IA4AY7f/J5G9m3g0+9T7kBwIGcqP4+SNYZF…73 tokens truncated…SpuPmSh+ya/O/uCAz1QqWVSrPnsA1Q46DxbuxnLdCyb4IJsdfkpdkAPCPQDwjzKMDKCXTSrQ9vLKyjdk55KOA063Aw+CTw1JQWgjQw373k5BRN0RlJkmtn6VSgQArSxXQdJGbsrGUZRpR1Fk43gqJOmqJb/uID9MrIjapcePO5pigAkZAUBjlCDwAqtf/aJy2aBSUZ8TjaWC9p2EdrHJoRLq6sJtN5xToekyR78WNaRkKgDAoTjWWqNhbs7nN1itNkcG0OVpHX/4Tp/PfQjgPpAJNE4n9I56q4Ucm0qSc+7Ct+92yW5wFxSLFrVa6g2etTfF876VeEvavUwGQSAIGfdO6/VXvid5Zbgi6oxj0f8aWu0AmNRDfpwTGLhSH6w1cXygcBeAKzsV0RY4WK16lcsm+qJ2SdKXNnY5SGlfqSbdBpKgUYoIAM6ckQC2YF4ISft3G8f57rwDkE60iRTGGHg/mopJShKnyWt6buHR0Gq/ReIp42xu4hJYC7++/kdjffWnzaGXQRFt+yhZPHHE56IHmZ+egzFm3I8y+HbLrDU+4KcX/8ykiPrEFfdTHY2tiLax2NJSJ/NaZodLAOZnINSLxHwtsIKA/+P6Gz+8xYli3gWnAAAAAElFTkSuQmCC",
+  basalam: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAADvElEQVR42sWXT2wbRRjFfzu768Q2jruOHXCLkAW0RCQFGhUXOBGLqBfEXympRDlUgBAS5MApRYQCPTQXKhSBKLRwQCBapVI4pEWVwBWIRgVUrEKqtolAQUDNXxmTNnHteJdDJk5MdtdrE+CdRjvfznvzzcw3bxQ8IpsywsDdQDewCUgAYdmdB6aBDHAcGIunc3kv4yoeiDcAO4E+wO9R7xxwEBiKp3OTDQnIpowAsBvoBzQawzwwDAzG07lZzwKyKWM9MAp0sDo4A9wfT+emagrIpowu4BgQZXXxG7A1ns59ufyjsJn5CnKlOYCi+7zRCIEIR+x6osAxybFSgFzz0b+Tq21XE3vva6JvnUS0RGryr3lmP22HJ/H39DmJGJVcKzKw227Nm7sfQLQYqGsTBO7Z4T75kEHznfeBEFzxyLNOYR2Sa0mAPGr9trs02FJpa9dtdD/TgSAoC9tKja1DhAyn0H7JWcnAgNNRm586XWmbM7mqPv36jVUCy79ewMz9AoBVKmIVLjkJ0GRtQcgKt80psjD+AcXMJ1iFWeaOvF35Hnr8BVpf/5jogRMogZBUaDKz7zmYLzH7/n6sUtEtYX3ZlBFWsinjIeAd99wqKHoTVrFQ+dT6Whp9wy0A/LHrYQqfHlkK1321yBexXcja7g7LqiIHKJ3PLC1F523V4d7IAbqFvFjqRmnis0rb17ml0eK0SchbrW4UzywJ0NbfjNLkb2SYhFh2pdaFcvY7zN9/WlhzTUdv72pkmLBoKHGqhhpby/z3U/94GTRpJiJefwg9totg71MgqrXrHQ0JyAvpZDwjcO+jK8gXBCRBqTuh00LaKM+4+O5LWMXLmBfzlC9MUzqf4fIXaYqff4hoMeoVkPFWiP49bBfAmPRwqwKxJkb0zXHaRs6i39BVyzeOCeleD60GuaL7CO/ch5ZoR0SuxN/T6xZ+MJ7O5Rd3zR5pIN2PTKKdpuRdtptNveoajKHDNG2Wld0sM/fRiJtZHVo8hsTTuclsyhgGnnb6Q7/xVlpfPgqqSvnHbymcOEo5O43iD+Lr3IIv2YOi6ZX4mTeep3T2lNNww4t2fbkHGAS2OjlhYcRAVRdmu+5agr1P2g9tmswceJFLI6+6OeRBW1csDeO4rSNWFIIPPkGwrx8RabPP6zcT/PnKAMWvxt2c8R3L7Xn9tlzT8d10O3r7ZtRoHMwy5Z9/oHTuFMWJk2BZddny//1hYls7ZWAS2OvldNR4mu0Fknbk9TxOB6RvrOdxegjY0/Dj9L96nv8FWAEu9vkyA6MAAAAASUVORK5CYII=",
+  snappshop: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABe0lEQVR42mPcwrDuP8MAAiaGAQajDhh1AAtFrmdnYnB7683AzI0w5vG8hwyXks/RJwQErYVRLGdgYGB4vesl/aJA1E0Mhf//33+GN3tf088BIq6oDvh47gPD7ze/6OMANlE2Bj4DfhSxN7tf0S8XiLiIMTAyMaLFPz0dgBb8f778Yfhw7B2dHMDIwCCK5oB3B98w/Pv1jz4O4NHiZeCQ4UQNfjLin2wHoPue3ARItgPQ4//r7S8MX65/po8DmNiZGITtReD8X29/QYre/3SqCxiZGBlOehyDlHx//jN8vvSR4e+3v/SrjP5+/8vw/sjbgasNJYKkGJQr1BjYRNkZ3u59xXC9/CrD77e/6OMAUQ8xBqPVZvASkCtZgYFHk5fhmM0hstMASYlQLlURo/gVtBJm4NXlo0+LiJEVu3ImVib6OODp0kcYYp+vfGL4dOEjfRzwfOVThis5Fxl+PP7O8O/nP4ZXW18wnPY5zvD/L/l9G8bRntGoA0a8AwD4cHddERDDRQAAAABJRU5ErkJggg=="
+});
+
 
 // ---- 13-ui.js ----
 /* ===== UI: ONE Shadow-DOM panel. Reads only from App.state. ===== */
@@ -1339,6 +1347,7 @@ const UI = (() => {
 .wrap{color:var(--ink)}
 #pill{all:unset;cursor:pointer;display:inline-flex;gap:7px;align-items:center;padding:9px 16px;border-radius:999px;background:linear-gradient(135deg,#1a1a1a,#000);border:1px solid #d4af37;color:#f1c94e;font-weight:700;box-shadow:var(--shadow);user-select:none;font-family:inherit;font-size:13px}
 .icon{display:inline-block;width:16px;height:16px;flex:0 0 auto;vertical-align:middle}.icon-sm{width:14px;height:14px}
+.brand-logo{object-fit:contain;border-radius:4px;background:#fff}
 #pill:hover{filter:brightness(1.1)}
 #panel{position:relative;display:none;width:min(420px,calc(100vw - 20px));height:84vh;max-height:84vh;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);overflow:hidden}
 #panel.open{display:flex}
@@ -1359,17 +1368,18 @@ header{cursor:move;padding:12px 14px 10px;background:linear-gradient(135deg,rgba
 .price{font-size:24px;font-weight:800;color:var(--acc2);margin:2px 0}.price small{font-size:12px;color:var(--mut);font-weight:400}
 .meta{font-size:11px;color:var(--mut)}.meta s{opacity:.8}
 .workspace{display:flex;flex:1 1 auto;min-height:0;flex-direction:column;overflow:hidden}
-.tabs{position:relative;z-index:2;display:flex;flex:0 0 60px;width:100%;min-height:60px;align-items:center;gap:8px;padding:8px 10px;overflow:hidden;border-bottom:1px solid var(--line);background:var(--panel);isolation:isolate}
+.tabs{position:relative;z-index:2;display:flex;flex:0 0 60px;flex-direction:row;width:100%;min-height:60px;align-items:center;gap:8px;padding:8px 10px;overflow:hidden;border-bottom:1px solid var(--line);background:var(--panel);isolation:isolate}
 .tab-main{direction:rtl;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));flex:1 1 auto;align-items:center;gap:6px;min-width:0;height:44px}
-.tab-indicator{position:absolute;z-index:1;left:0;top:10px;width:0;height:40px;border-radius:999px;background:linear-gradient(145deg,var(--acc2),var(--acc));box-shadow:0 5px 16px color-mix(in srgb,var(--acc) 28%,transparent);pointer-events:none;transform:translateZ(0);transform-origin:0 0;will-change:transform,width,height}
+.tab-indicator{position:absolute;z-index:1;left:0;top:10px;width:0;height:40px;border-radius:999px;background:linear-gradient(145deg,var(--acc2),var(--acc));box-shadow:0 4px 12px color-mix(in srgb,var(--acc) 20%,transparent);pointer-events:none;transform:translateZ(0);transform-origin:0 0;will-change:transform}
 .tab{all:unset;box-sizing:border-box;position:relative;z-index:2;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:100%;min-width:0;height:44px;padding:4px 5px;overflow:hidden;border-radius:12px;color:var(--mut);font-size:11px;font-family:inherit;transition:color .18s ease}
 .tab:focus-visible{outline:2px solid var(--acc2);outline-offset:1px}
-.tab-icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 22px;width:22px;height:22px;line-height:0;transition:opacity .16s ease,transform .24s cubic-bezier(.22,1,.36,1)}
-.tab-icon .icon{display:block;width:20px;height:20px}
-.tab-label{position:absolute;left:50%;width:calc(100% - 6px);overflow:hidden;text-align:center;text-overflow:ellipsis;white-space:nowrap;opacity:0;transform:translate(-50%,3px) scale(.96);pointer-events:none;transition:opacity .16s ease,transform .24s cubic-bezier(.22,1,.36,1)}
+.tab-icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 22px;width:22px;height:22px;line-height:0;transition:opacity .16s ease,transform .28s cubic-bezier(.2,.8,.2,1)}
+.tab-icon .icon{display:block;width:18px;height:18px}
+.tab-label{position:absolute;top:50%;left:50%;width:calc(100% - 6px);overflow:hidden;text-align:center;text-overflow:ellipsis;white-space:nowrap;opacity:0;transform:translate(-50%,-50%) scale(.96);pointer-events:none;transition:opacity .16s ease,transform .24s cubic-bezier(.22,1,.36,1)}
 .tab.on{background:transparent;color:var(--on-acc);font-weight:800}
 .tab.on .tab-icon{opacity:0;transform:scale(.55) rotate(-18deg)}
-.tab.on .tab-label{opacity:1;transform:translate(-50%,0) scale(1)}
+.tab.on .tab-label{opacity:1;transform:translate(-50%,-50%) scale(1)}
+.tab-indicator{transition:none}
 .body{direction:rtl;min-width:0;padding:12px 14px;overflow-y:auto;flex:1 1 auto;scrollbar-width:thin;scrollbar-color:var(--scroll-thumb) var(--panel);scrollbar-gutter:stable;overscroll-behavior:contain}
 .body-content{position:relative;z-index:1;min-height:100%;transform-origin:center}
 .body-transition-exit{position:absolute;inset:0;z-index:3;overflow:hidden;padding:12px 14px;background:var(--panel);pointer-events:none;transform-origin:center}
@@ -1395,10 +1405,11 @@ details.card summary{cursor:pointer;list-style:none}details.card summary::-webki
 .manual-search .btn{width:38px;height:38px;padding:0;flex:0 0 38px}
 .source-row{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
 .source-chip{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:999px;border:1px solid var(--line);color:var(--mut);font-size:10.5px;line-height:1.4}
-.source-chip .icon{width:13px;height:13px}
+.source-chip .icon{width:14px;height:14px}
 .source-chip-icon{display:grid;place-items:center;flex:0 0 16px;width:16px;height:16px;color:var(--acc2)}
 .source-chip.good{color:var(--good)}.source-chip.warn{color:var(--warn)}.source-chip.bad{color:var(--bad)}
-.empty-state{display:grid;grid-template-columns:36px minmax(0,1fr);align-items:start;gap:10px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+.empty-state{display:grid;grid-template-columns:36px minmax(0,1fr);align-items:start;gap:10px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--card);margin-block-end:10px}
+.body-content > .card + .card,.body-content > .card + .empty-state,.body-content > .empty-state + .card,.body-content > .empty-state + .empty-state{margin-block-start:10px}
 .empty-state-icon{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;color:var(--warn);background:var(--warn-soft)}
 .empty-state-copy{min-width:0}
 .empty-state-copy b{display:block;margin:0 0 3px;color:var(--ink);font-size:12px}
@@ -1414,10 +1425,16 @@ details.card summary{cursor:pointer;list-style:none}details.card summary::-webki
 .history-status-copy p{margin:3px 0 0;color:var(--mut);font-size:11px;line-height:1.5}
 .history-countdown{flex:0 0 auto;text-align:center;color:var(--warn);font-size:16px;font-variant-numeric:tabular-nums}
 .history-countdown small{display:block;color:var(--mut);font-size:9px;font-weight:500}
-.watch-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 2px 10px}
+.foot{flex:0 0 auto;padding:8px 10px;border-top:1px solid var(--line);background:var(--panel)}
+.credit{display:flex;flex-wrap:wrap;justify-content:center;gap:6px}
+.credit a{display:inline-flex;align-items:center;gap:5px;padding:5px 8px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--mut);font-size:10px;text-decoration:none;white-space:nowrap;transition:color .16s ease,border-color .16s ease,background .16s ease}
+.credit a:hover{color:var(--ink);border-color:var(--acc2);background:var(--warn-soft)}
+.credit .icon{width:14px;height:14px}
+.watch-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 2px 10px;padding-bottom:9px;border-bottom:1px solid var(--line)}
 .watch-head-copy{display:flex;align-items:center;gap:9px;min-width:0}
-.watch-head-icon{display:grid;place-items:center;flex:0 0 34px;width:34px;height:34px;border-radius:11px;background:var(--warn-soft);color:var(--acc2)}
-.watch-head-copy b{display:block;color:var(--ink);font-size:13px}
+.watch-head-icon{display:grid;place-items:center;flex:0 0 32px;width:32px;height:32px;border-radius:10px;background:var(--warn-soft);color:var(--acc2)}
+.watch-head-copy b{display:block;color:var(--ink);font-size:12px}
+.watch-head-copy small{display:block;margin-top:1px;color:var(--mut);font-size:10px}
 .watch-count{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:22px;padding:0 7px;border:1px solid var(--line);border-radius:999px;background:var(--card);color:var(--mut);font-size:10px;font-variant-numeric:tabular-nums}
 .watch-current{padding:10px 11px;margin-bottom:10px}
 .watch-current-top,.watch-item-top,.watch-item-bottom{display:flex;align-items:center;justify-content:space-between;gap:9px}
@@ -1463,7 +1480,7 @@ details.card summary{cursor:pointer;list-style:none}details.card summary::-webki
 .collection-name-row{display:flex;align-items:center;gap:7px}
 .collection-name-row input{flex:1;min-width:0;height:38px}
 .collection-icon-label{color:var(--mut);font-size:10.5px}
-.collection-icon-picker{display:flex;flex-wrap:wrap;gap:6px}
+.collection-icon-picker{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px}
 .collection-icon-choice{all:unset;box-sizing:border-box;display:grid;place-items:center;width:36px;height:36px;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--mut);cursor:pointer;transition:background-color .16s ease,color .16s ease,border-color .16s ease,transform .16s ease}
 .collection-icon-choice .icon{display:block;width:18px;height:18px}
 .collection-icon-choice:hover{color:var(--ink);transform:translateY(-1px)}
@@ -1471,6 +1488,10 @@ details.card summary{cursor:pointer;list-style:none}details.card summary::-webki
 .collection-create-submit{justify-self:start}
 .collection-selection-actions{display:flex;align-items:center;gap:6px;margin-top:8px}
 .collection-selection-actions .btn{padding:5px 8px;font-size:10px}
+.collection-inline-form{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid var(--line)}
+.collection-inline-form label{grid-column:1/-1;color:var(--mut);font-size:10px}
+.collection-inline-form input{width:100%;min-width:0;height:36px}
+.collection-confirm{display:flex;align-items:center;gap:7px;margin-top:8px;padding:8px 9px;border:1px solid color-mix(in srgb,var(--bad) 55%,var(--line));border-radius:10px;color:var(--ink);font-size:10.5px}
 .collection-empty{padding:12px;border:1px dashed var(--line);border-radius:11px;color:var(--mut);font-size:10.5px;text-align:center}
 .watch-item-collection{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid var(--line);color:var(--mut);font-size:9.5px}
 .watch-item-collection select{width:min(180px,62%);height:30px;padding:4px 7px;font-size:10px}
@@ -1531,12 +1552,16 @@ svg text{font-family:inherit}
 .dark .v-confirmed{background:var(--good-soft);border-color:var(--good);color:var(--good)}
 .dark .v-rise-signal{background:var(--warn-soft);border-color:var(--warn);color:var(--warn)}
 .dark .v-insufficient{background:rgba(167,171,180,.08);border-color:var(--line);color:var(--mut)}
-@media(max-width:380px){.tabs{gap:5px;padding-inline:6px}.tab-main{gap:2px}.tab{font-size:10px;padding-inline:2px}.body{padding:10px}.history-toolbar{align-items:flex-start;flex-direction:column}.watch-target-controls input{width:108px!important}.collection-icon-choice{width:34px;height:34px}}
-@media(prefers-reduced-motion:reduce){.tab,.tab-icon,.tab-label,.switch-track,.switch-track:after{transition:none}}
+@media(max-width:380px){.tabs{gap:4px;padding-inline:6px}.tab-main{gap:2px}.tab{font-size:10px;padding-inline:2px}.body{padding:10px}.history-toolbar{align-items:flex-start;flex-direction:column}.watch-target-controls input{width:108px!important}.collection-icon-choice{width:34px;height:34px}}
+@media(prefers-reduced-motion:reduce){.tab,.tab-icon,.tab-label,.switch-track,.switch-track:after,.collection-pill,.collection-icon-choice{transition:none}}
 `;
   let host, root, S;
   const $ = s => root.querySelector(s);
-  const icon = (name, size = 16, extraClass = '') => `<svg class="icon${extraClass ? ' ' + extraClass : ''}" width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${ICONS[name] || ''}</svg>`;
+  const icon = (name, size = 16, extraClass = '') => {
+    const classes = `icon${extraClass ? ' ' + extraClass : ''}`;
+    if (ProviderLogoData[name]) return `<img class="${classes} brand-logo" width="${size}" height="${size}" src="${ProviderLogoData[name]}" alt="" aria-hidden="true">`;
+    return `<svg class="${classes}" width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${ICONS[name] || ''}</svg>`;
+  };
   const iconText = (name, text) => `${icon(name)}<span>${text}</span>`;
 
   const LV = { high: ['اطمینان بالا', 'good'], medium: ['اطمینان متوسط', 'warn'], low: ['مشکوک', 'bad'] };
@@ -1563,7 +1588,7 @@ svg text{font-family:inherit}
 
   // ----- tabs -----
   function switchRow(label, attributes, checked, iconName = '', disabled = false) {
-    return `<label class="switch-row"><span class="switch-copy">${iconName ? icon(iconName) : ''}<span>${U.esc(label)}</span></span><input class="switch-input" type="checkbox" ${attributes} ${checked ? 'checked' : ''} ${disabled ? 'disabled' : ''}><span class="switch-track" aria-hidden="true"></span></label>`;
+    return `<label class="switch-row"><span class="switch-copy">${iconName ? icon(iconName) : ''}<span>${U.esc(label)}</span></span><input class="switch-input" type="checkbox" role="switch" aria-checked="${checked}" ${attributes} ${checked ? 'checked' : ''} ${disabled ? 'disabled' : ''}><span class="switch-track" aria-hidden="true"></span></label>`;
   }
 
   function tabCompare() {
@@ -1583,7 +1608,7 @@ svg text{font-family:inherit}
     if (S.trustedOnly) offers = offers.filter(o => o.matchLevel !== 'low');
     offers.sort((a, b) => S.sort === 'name' ? a.seller.localeCompare(b.seller, 'fa') : S.sort === 'desc' ? b.price - a.price : a.price - b.price);
     if (S.offers.length) {
-      h += `<div class="row" style="margin-bottom:6px"><select data-sel="sort" aria-label="مرتب‌سازی فروشندگان"><option value="price" ${S.sort === 'price' ? 'selected' : ''}>ارزان‌ترین</option><option value="desc" ${S.sort === 'desc' ? 'selected' : ''}>گران‌ترین</option><option value="name" ${S.sort === 'name' ? 'selected' : ''}>نام فروشنده</option></select><label class="switch-row" style="min-height:38px;padding:2px 0;border:0"><span class="switch-copy"><span>تطبیق مطمئن</span></span><input class="switch-input" type="checkbox" data-ck="trusted" ${S.trustedOnly ? 'checked' : ''}><span class="switch-track" aria-hidden="true"></span></label><button class="btn sec icon-btn" data-act="toggleTable" title="${S.table ? 'نمای کارتی' : 'نمای جدول'}" aria-label="${S.table ? 'نمای کارتی' : 'نمای جدول'}">${icon(S.table ? 'layers' : 'compare')}</button></div>`;
+      h += `<div class="row" style="margin-bottom:6px"><select data-sel="sort" aria-label="مرتب‌سازی فروشندگان"><option value="price" ${S.sort === 'price' ? 'selected' : ''}>ارزان‌ترین</option><option value="desc" ${S.sort === 'desc' ? 'selected' : ''}>گران‌ترین</option><option value="name" ${S.sort === 'name' ? 'selected' : ''}>نام فروشنده</option></select><label class="switch-row" style="min-height:38px;padding:2px 0;border:0"><span class="switch-copy"><span>تطبیق مطمئن</span></span><input class="switch-input" type="checkbox" role="switch" aria-checked="${S.trustedOnly}" data-ck="trusted" ${S.trustedOnly ? 'checked' : ''}><span class="switch-track" aria-hidden="true"></span></label><button class="btn sec icon-btn" data-act="toggleTable" title="${S.table ? 'نمای کارتی' : 'نمای جدول'}" aria-label="${S.table ? 'نمای کارتی' : 'نمای جدول'}">${icon(S.table ? 'layers' : 'compare')}</button></div>`;
       const a = App.advice();
       h += `<div class="card"><b class="${a.tone === 'good' ? 'good' : a.tone === 'warn' ? 'warn' : ''}">مشاور خرید: ${U.esc(a.headline)}</b><ul>${a.points.map(x => `<li class="${x.k === 'good' ? 'good' : x.k === 'warn' ? 'warn' : ''}">${U.esc(x.text)}</li>`).join('')}</ul><div class="muted" style="margin-top:6px">${a.caveats.map(U.esc).join('<br>')}</div></div>`;
       const bestPrice = Math.min(...S.offers.filter(o => o.matchLevel !== 'low').map(o => o.price));
@@ -1616,9 +1641,9 @@ svg text{font-family:inherit}
     const rangeEnd = combined.length ? Math.max(...combined.map(p => p.t)) : Date.now();
     const stats = Analysis.stats(combined.filter(p => p.t >= rangeEnd - S.range * U.DAY));
     const rateLimited = S.historyCooldownNote === 'rate-limit' && !!S.chartError;
-    h += `<div class="history-toolbar"><button class="btn sec icon-btn" data-act="reloadHistory" title="دریافت دوبارهٔ تاریخچه" ${S.chartLoading || cooldown > 0 ? 'disabled' : ''}>${icon('refresh')}<span>${S.chartLoading ? 'در حال دریافت…' : 'تلاش دوباره'}</span></button><div class="history-ranges" aria-label="بازهٔ تاریخچه">${[7, 30, 90].map(d => `<button class="btn ${S.range === d ? '' : 'sec'}" data-range="${d}" aria-pressed="${S.range === d}">${U.toFa(d)} روز</button>`).join('')}</div></div>`;
+    h += `<div class="history-toolbar"><button class="btn sec icon-btn" data-act="reloadHistory" title="دریافت دوبارهٔ تاریخچه" ${S.chartLoading || cooldown > 0 ? 'disabled' : ''}>${icon('refresh')}<span>${S.chartLoading ? 'در حال دریافت…' : cooldown > 0 ? 'منتظر بمانید' : 'تلاش دوباره'}</span></button><div class="history-ranges" aria-label="بازهٔ تاریخچه">${[7, 30, 90].map(d => `<button class="btn ${S.range === d ? '' : 'sec'}" data-range="${d}" aria-pressed="${S.range === d}">${U.toFa(d)} روز</button>`).join('')}</div></div>`;
     if (S.chartLoading) h += `<div class="history-status" role="status"><span class="history-status-icon">${icon('refresh', 18)}</span><div class="history-status-copy"><b>در حال دریافت تاریخچه</b><p>درخواست به دیجی‌کالا فرستاده شد.</p></div></div>`;
-    else if (rateLimited) h += `<div class="history-status" role="status"><span class="history-status-icon">${icon('clock', 18)}</span><div class="history-status-copy"><b>محدودیت موقت دیجی‌کالا</b><p>بعد از شمارش دوباره تلاش کنید.</p></div><strong class="history-countdown">${cooldown ? U.toFa(cooldown) : icon('check', 16)}<small>${cooldown ? 'ثانیه' : 'آماده'}</small></strong></div>`;
+    else if (rateLimited) h += `<div class="history-status" role="status"><span class="history-status-icon">${icon('clock', 18)}</span><div class="history-status-copy"><b>محدودیت موقت دیجی‌کالا</b><p>تا پایان شمارش، تلاش دوباره غیرفعال است.</p></div><strong class="history-countdown" data-history-countdown>${cooldown ? U.toFa(cooldown) : icon('check', 16)}<small>${cooldown ? 'ثانیه' : 'آماده'}</small></strong></div>`;
     else if (S.chartError) h += `<div class="history-status" role="status"><span class="history-status-icon">${icon('shield', 18)}</span><div class="history-status-copy"><b>دریافت تاریخچه ناموفق بود</b><p>${U.esc(S.chartError)}. برای تلاش مجدد از دکمهٔ بالای صفحه استفاده کنید.</p></div></div>`;
     if (cooldown > 0 && !S.chartLoading) scheduleCountdownTick();
     if (S.chart) {
@@ -1630,7 +1655,7 @@ svg text{font-family:inherit}
     } else {
       if (loc.length) h += `<div class="card">${chart([], loc, S.range)}<div class="muted">این‌ها قیمت‌هایی هستند که افزونه برای همین محصول/واریانت ثبت کرده است.</div></div>`;
       if (!loc.length && !S.chartError && !S.chartLoading) h += '<div class="empty-state" role="status"><span class="empty-state-icon">' + icon('history', 18) + '</span><div class="empty-state-copy"><b>تاریخچه‌ای برای نمایش نیست</b><p>برای این محصول هنوز دادهٔ رسمی یا ثبت محلی وجود ندارد.</p></div></div>';
-      else if (!loc.length && S.chartError && !S.chartLoading) h += '<div class="empty-state" role="status"><span class="empty-state-icon">' + icon('history', 18) + '</span><div class="empty-state-copy"><b>نمودار فعلاً خالی است</b><p>دادهٔ رسمی در دسترس نیست و هنوز قیمت محلی برای این محصول ثبت نشده. بعداً دوباره تلاش کنید یا محصول را در واچ‌لیست بگذارید.</p></div></div>';
+      else if (!loc.length && S.chartError && !S.chartLoading && !rateLimited) h += '<div class="empty-state" role="status"><span class="empty-state-icon">' + icon('history', 18) + '</span><div class="empty-state-copy"><b>نمودار فعلاً خالی است</b><p>دادهٔ رسمی در دسترس نیست و هنوز قیمت محلی برای این محصول ثبت نشده. بعداً دوباره تلاش کنید یا محصول را در واچ‌لیست بگذارید.</p></div></div>';
     }
     if (S.dk && S.dk.lowest30dOfficial) h += `<div class="card"><span class="muted">کمترین قیمت اعلامی دیجی‌کالا در ۳۰ روز اخیر</span><div class="pv">${U.fmt(S.dk.lowest30dOfficial)} تومان</div></div>`;
     return h;
@@ -1661,9 +1686,9 @@ svg text{font-family:inherit}
     const collections = db.collections || (db.collections = {});
     const collectionList = Object.values(collections);
     const tracked = Object.values(db.products).filter(p => p.watch).sort((a, b) => (b.lastTs || 0) - (a.lastTs || 0));
-    const iconChoices = [['heart', 'علاقه'], ['tag', 'مناسبت'], ['layers', 'دسته'], ['wallet', 'خرید'], ['pin', 'برنامه'], ['file', 'فهرست'], ['shop', 'فروشگاه'], ['bag', 'کیف خرید'], ['cart', 'سبد خرید'], ['global', 'عمومی'], ['bell', 'هشدار']];
+    const iconChoices = [['gift', 'هدیه'], ['heart', 'علاقه'], ['tag', 'مناسبت'], ['layers', 'دسته'], ['wallet', 'خرید'], ['pin', 'برنامه'], ['file', 'فهرست'], ['shop', 'فروشگاه'], ['bag', 'کیف خرید'], ['cart', 'سبد خرید'], ['global', 'عمومی'], ['bell', 'هشدار']];
     if (watchCollectionFilter !== 'all' && watchCollectionFilter !== 'none' && !collections[watchCollectionFilter]) watchCollectionFilter = 'all';
-    const collectionSelect = p => collectionList.length ? `<label class="watch-item-collection"><span>مجموعه</span><select data-sel="collection" data-key="${U.esc(p.key)}" aria-label="مجموعهٔ ${U.esc((p.title || 'محصول').slice(0, 36))}"><option value="">بدون مجموعه</option>${collectionList.map(c => `<option value="${U.esc(c.id)}" ${p.collectionId === c.id ? 'selected' : ''}>${U.esc(c.name)}</option>`).join('')}</select></label>` : '';
+    const collectionSelect = p => collectionList.length ? `<label class="watch-item-collection" aria-label="مجموعهٔ ${U.esc((p.title || 'محصول').slice(0, 36))}"><span>${icon('layers', 14)}</span><select data-sel="collection" data-key="${U.esc(p.key)}" aria-label="انتقال ${U.esc((p.title || 'محصول').slice(0, 36))} به مجموعه"><option value="">بدون مجموعه</option>${collectionList.map(c => `<option value="${U.esc(c.id)}" ${p.collectionId === c.id ? 'selected' : ''}>${U.esc(c.name)}</option>`).join('')}</select></label>` : '';
     const itemCard = p => {
       const first = p.local?.[0], change = first && p.lastPrice ? (p.lastPrice - first.p) / first.p * 100 : null;
       const hit = p.target > 0 && p.lastPrice <= p.target, current = p.key === S.key;
@@ -1676,21 +1701,35 @@ svg text{font-family:inherit}
         <div class="watch-item-bottom"><strong class="watch-item-price">${currentPrice ? U.fmt(currentPrice) : '—'}<small>تومان</small></strong><span class="watch-item-target">${icon('target', 13)}هدف <b>${p.target ? U.fmt(p.target) : 'تنظیم‌نشده'}</b></span><span class="watch-item-state ${hit ? 'good' : 'warn'}" title="${U.esc(state)}">${icon(hit ? 'check' : 'clock', 13)}${hit ? 'به هدف رسید' : p.target ? 'در انتظار هدف' : 'بدون هدف'}${change == null ? '' : ' · ' + U.fmtPct(change)}</span></div>
         ${targetEditor}${collectionSelect(p)}</article>`;
     };
-    let h = `<div class="watch-head"><div class="watch-head-copy"><span class="watch-head-icon">${icon('heart', 19)}</span><b>واچ‌لیست</b><span class="watch-count" aria-label="${U.toFa(tracked.length)} محصول">${U.toFa(tracked.length)}</span></div><button class="btn sec icon-btn" data-act="checkNow" title="بررسی قیمت‌های واچ‌لیست">${iconText('refresh', 'بررسی حالا')}</button></div>`;
+    let h = `<div class="watch-head"><div class="watch-head-copy"><span class="watch-head-icon">${icon('heart', 18)}</span><div><b>پیگیری قیمت</b><small>${U.toFa(tracked.length)} محصول زیرنظر</small></div></div><button class="btn sec icon-btn" data-act="checkNow" title="بررسی قیمت‌های واچ‌لیست">${iconText('refresh', 'بررسی قیمت‌ها')}</button></div>`;
     if (cur && !cur.watch) {
       const currentTitle = Extract.coreTitle(S.product?.title) || S.product?.title || cur.title || 'محصول فعلی';
       const currentPrice = Number(S.product?.price || cur.lastPrice || 0);
       h += `<section class="card watch-current"><div class="watch-current-top"><b class="card-title">${icon('tag')}<span>افزودن محصول این صفحه</span></b>${switchRow('پیگیری قیمت', 'data-ck="watch"', false, 'bell')}</div><div class="watch-current-name">${U.esc(currentTitle)}</div><div class="watch-current-price"><span>قیمت فعلی</span><b>${currentPrice ? U.fmt(currentPrice) : '—'}</b><span>تومان</span></div><div class="watch-target-row"><label for="tgt">هشدار در قیمت هدف</label><div class="watch-target-controls"><input type="number" id="tgt" aria-label="قیمت هدف به تومان" min="0" value="${cur.target || ''}" placeholder="تومان"><button class="btn icon-btn" data-act="setTarget" aria-label="ثبت قیمت هدف" title="ثبت قیمت هدف">${icon('check')}</button></div></div></section>`;
     }
+    const collectionCounts = new Map();
+    for (const product of tracked) {
+      const id = collections[product.collectionId] ? product.collectionId : 'none';
+      collectionCounts.set(id, (collectionCounts.get(id) || 0) + 1);
+    }
     const filters = [
-      { id: 'all', name: 'همه', icon: 'layers' },
-      ...collectionList.map(c => ({ id: c.id, name: c.name, icon: c.icon || 'layers' })),
-      ...(tracked.some(product => !collections[product.collectionId]) ? [{ id: 'none', name: 'بدون مجموعه', icon: 'tag' }] : [])
+      { id: 'all', name: 'همه', icon: 'layers', count: tracked.length },
+      ...collectionList.map(c => ({ id: c.id, name: c.name, icon: c.icon || 'layers', count: collectionCounts.get(c.id) || 0 })),
+      ...(collectionCounts.has('none') ? [{ id: 'none', name: 'بدون مجموعه', icon: 'tag', count: collectionCounts.get('none') }] : [])
     ];
     const selectedCollection = collections[watchCollectionFilter];
-    h += `<section class="collection-manager"><div class="collection-manager-head"><div class="collection-manager-title">${icon('layers')}<b>مجموعه‌ها</b></div><button type="button" class="btn sec icon-btn icon-only" data-act="toggleCollectionForm" aria-expanded="${collectionFormOpen}" aria-controls="collectionCreateForm" aria-label="${collectionFormOpen ? 'بستن فرم ساخت مجموعه' : 'ساخت مجموعهٔ جدید'}" title="${collectionFormOpen ? 'بستن فرم' : 'ساخت مجموعه'}">${icon(collectionFormOpen ? 'close' : 'tag')}</button></div>${collectionList.length ? `<div class="collection-pills" aria-label="فیلتر مجموعه‌ها">${filters.map(f => `<button type="button" class="collection-pill" data-act="toggleCollection" data-collection-id="${U.esc(f.id)}" aria-pressed="${watchCollectionFilter === f.id}">${icon(f.icon, 14)}<span>${U.esc(f.name)}</span></button>`).join('')}</div>` : ''}${selectedCollection ? `<div class="collection-selection-actions"><button class="btn sec" data-act="renameCollection" data-collection-id="${U.esc(selectedCollection.id)}">${iconText('pen', 'تغییر نام')}</button><button class="btn sec icon-btn" data-act="deleteCollection" data-collection-id="${U.esc(selectedCollection.id)}">${iconText('trash', 'حذف مجموعه')}</button></div>` : ''}<div class="collection-create-form" id="collectionCreateForm" ${collectionFormOpen ? '' : 'hidden'}><div class="collection-name-row"><input type="text" id="collectionName" maxlength="32" aria-label="نام مجموعهٔ جدید" placeholder="مثلاً تولد یا هدیه"><button type="button" class="btn sec icon-btn collection-create-submit" data-act="createCollection">${iconText('check', 'ساخت')}</button></div><span class="collection-icon-label">آیکون مجموعه</span><div class="collection-icon-picker" role="group" aria-label="انتخاب آیکون مجموعه">${iconChoices.map(([name, label], i) => `<button type="button" class="collection-icon-choice" data-collection-icon="${name}" aria-label="${label}" title="${label}" aria-pressed="${i === 0}">${icon(name, 18)}</button>`).join('')}</div></div></section>`;
+    const selectionActions = selectedCollection && collectionEditId === selectedCollection.id
+      ? `<div class="collection-inline-form"><label for="collectionEditName">نام مجموعه</label><input type="text" id="collectionEditName" maxlength="32" value="${U.esc(selectedCollection.name)}" aria-label="نام مجموعه" aria-describedby="collectionEditNameError"><small id="collectionEditNameError" class="collection-form-error" hidden>نام مجموعه را وارد کنید.</small><button class="btn icon-btn" data-act="saveCollection" data-collection-id="${U.esc(selectedCollection.id)}" aria-label="ذخیرهٔ نام مجموعه" title="ذخیره">${icon('check')}</button><button class="btn sec icon-btn" data-act="cancelCollectionEdit" aria-label="لغو ویرایش" title="لغو">${icon('close')}</button></div>`
+      : selectedCollection && collectionDeleteId === selectedCollection.id
+        ? `<div class="collection-confirm" role="status"><span>محصول‌ها حفظ می‌شوند.</span><button class="btn bad icon-btn" data-act="confirmDeleteCollection" data-collection-id="${U.esc(selectedCollection.id)}" aria-label="حذف مجموعه" title="حذف">${iconText('trash', 'حذف')}</button><button class="btn sec icon-btn" data-act="cancelCollectionDelete" aria-label="انصراف از حذف" title="انصراف">${icon('close')}</button></div>`
+        : selectedCollection
+          ? `<div class="collection-selection-actions"><button class="btn sec" data-act="editCollection" data-collection-id="${U.esc(selectedCollection.id)}">${iconText('pen', 'ویرایش')}</button><button class="btn sec icon-btn" data-act="requestDeleteCollection" data-collection-id="${U.esc(selectedCollection.id)}" aria-label="حذف مجموعه" title="حذف">${icon('trash')}</button></div>`
+          : '';
+    const collectionPills = collectionList.length || tracked.length
+      ? `<div class="collection-pills" aria-label="فیلتر مجموعه‌ها">${filters.map(f => `<button type="button" class="collection-pill" data-act="toggleCollection" data-collection-id="${U.esc(f.id)}" aria-pressed="${watchCollectionFilter === f.id}">${icon(f.icon, 14)}<span>${U.esc(f.name)}</span><small>${U.toFa(f.count)}</small></button>`).join('')}</div>`
+      : '<p class="muted collection-help">برای دسته‌بندی محصولات، مجموعه بسازید.</p>';
+    h += `<section class="collection-manager"><div class="collection-manager-head"><div class="collection-manager-title">${icon('layers')}<b>مجموعه‌ها</b></div><button type="button" class="btn sec icon-btn" data-act="toggleCollectionForm" aria-expanded="${collectionFormOpen}" aria-controls="collectionCreateForm" aria-label="${collectionFormOpen ? 'بستن فرم ساخت مجموعه' : 'ساخت مجموعهٔ جدید'}" title="${collectionFormOpen ? 'بستن فرم' : 'ساخت مجموعه'}">${icon(collectionFormOpen ? 'close' : 'tag')}<span>${collectionFormOpen ? 'بستن' : 'مجموعهٔ جدید'}</span></button></div>${collectionPills}${selectionActions}<div class="collection-create-form" id="collectionCreateForm" ${collectionFormOpen ? '' : 'hidden'}><label for="collectionName" class="collection-icon-label">نام مجموعه</label><div class="collection-name-row"><input type="text" id="collectionName" maxlength="32" aria-describedby="collectionNameError" aria-label="نام مجموعهٔ جدید" placeholder="مثلاً تولد یا هدیه"><button type="button" class="btn collection-create-submit" data-act="createCollection">${iconText('check', 'ساخت')}</button><button type="button" class="btn sec icon-btn" data-act="toggleCollectionForm" aria-label="لغو ساخت مجموعه" title="لغو">${icon('close')}</button></div><small id="collectionNameError" class="collection-form-error" hidden>نام مجموعه را وارد کنید.</small><span class="collection-icon-label">آیکون</span><div class="collection-icon-picker" role="group" aria-label="انتخاب آیکون مجموعه">${iconChoices.map(([name, label], i) => `<button type="button" class="collection-icon-choice" data-collection-icon="${name}" aria-label="${label}" title="${label}" aria-pressed="${i === 0}">${icon(name, 18)}</button>`).join('')}</div></div></section>`;
     const visible = tracked.filter(p => watchCollectionFilter === 'all' || (watchCollectionFilter === 'none' ? !collections[p.collectionId] : p.collectionId === watchCollectionFilter));
-    if (visible.length) h += `<div class="watch-list-title">${watchCollectionFilter === 'all' ? 'محصول‌های زیرنظر' : U.esc(filters.find(f => f.id === watchCollectionFilter)?.name || 'مجموعه')}</div>`;
     if (visible.length) h += `<div class="watch-list">${visible.map(itemCard).join('')}</div>`;
     else if (tracked.length) h += `<div class="collection-empty">در این مجموعه هنوز محصولی نیست.</div>`;
     else if (!cur?.watch && !S.product) h += `<div class="empty-state watch-empty" role="status"><span class="empty-state-icon">${icon('heart', 18)}</span><div class="empty-state-copy"><b>هنوز محصولی زیر نظر نیست</b><p>برای افزودن کالا، صفحهٔ محصول را باز کنید.</p></div></div>`;
@@ -1744,9 +1783,30 @@ svg text{font-family:inherit}
   const tabScrollPositions = Object.create(null);
   let watchCollectionFilter = 'all';
   let collectionFormOpen = false;
+  let collectionEditId = '', collectionDeleteId = '';
+  let tabMorphSequence = 0, tabMorphActive = false, tabMorphAnimations = [];
+  let queuedAppRender = false, appRenderFrame = 0;
+  const requestFrame = callback => typeof requestAnimationFrame === 'function' ? requestAnimationFrame(callback) : setTimeout(callback, 16);
+  const cancelFrame = frame => typeof cancelAnimationFrame === 'function' ? cancelAnimationFrame(frame) : clearTimeout(frame);
+  function queueAppRender() {
+    queuedAppRender = true;
+    if (tabMorphActive || appRenderFrame) return;
+    appRenderFrame = requestFrame(() => {
+      appRenderFrame = 0;
+      if (tabMorphActive || !queuedAppRender) return;
+      queuedAppRender = false;
+      render();
+    });
+  }
+  function cancelTabMorph() {
+    tabMorphSequence += 1;
+    tabMorphAnimations.forEach(animation => { try { animation.cancel(); } catch {} });
+    tabMorphAnimations = []; tabMorphActive = false;
+    $('#body')?.querySelectorAll('.body-transition-exit').forEach(node => node.remove());
+  }
   function positionTabIndicator(fromRect = null) {
     const nav = $('#tabs'), indicator = nav?.querySelector('.tab-indicator'), active = nav?.querySelector('.tab.on');
-    if (!nav || !indicator || !active) return;
+    if (!nav || !indicator || !active) return null;
     const navRect = nav.getBoundingClientRect(), activeRect = active.getBoundingClientRect();
     const labelWidth = active.querySelector('.tab-label')?.scrollWidth || 0;
     const width = Math.min(activeRect.width, Math.max(48, Math.ceil(labelWidth + 24))), height = 40;
@@ -1761,36 +1821,37 @@ svg text{font-family:inherit}
     indicator.style.top = target.top + 'px';
     indicator.style.width = target.width + 'px';
     indicator.style.height = target.height + 'px';
+    if (fromRect) indicator.getAnimations?.().forEach(animation => animation.cancel());
+    indicator.style.transform = 'none';
+    const destinationRect = indicator.getBoundingClientRect();
     if (fromRect) {
-      indicator.getAnimations?.().forEach(animation => animation.cancel());
-      indicator.style.transform = 'none';
       lastIndicatorTarget = target;
-      if ((typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches) || !indicator.animate) return;
-      const dx = fromRect.left - activeRect.left, dy = fromRect.top - activeRect.top;
-      const sx = fromRect.width / Math.max(activeRect.width, 1), sy = fromRect.height / Math.max(activeRect.height, 1);
+      if ((typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches) || !indicator.animate) return destinationRect;
+      const dx = fromRect.left - destinationRect.left, dy = fromRect.top - destinationRect.top;
+      const sx = fromRect.width / Math.max(destinationRect.width, 1), sy = fromRect.height / Math.max(destinationRect.height, 1);
       const start = `translate3d(${dx}px, ${dy}px, 0) scale(${sx}, ${sy})`;
       const settle = `translate3d(${dx * 0.08}px, ${dy * 0.08}px, 0) scale(${1 + (sx - 1) * 0.08}, ${1 + (sy - 1) * 0.08})`;
-      const duration = Math.max(250, Math.min(380, 230 + Math.abs(dx) * 0.35));
+      const duration = Math.max(280, Math.min(420, 300 + Math.abs(dx) * 0.28));
       const animation = indicator.animate([
         { transform: start, borderRadius: '999px' },
-        { offset: 0.68, transform: settle, borderRadius: '999px' },
+        { offset: 0.72, transform: settle, borderRadius: '999px' },
         { transform: 'translate3d(0,0,0) scale(1,1)', borderRadius: '999px' }
-      ], { duration, easing: 'cubic-bezier(.22,1,.36,1)' });
+      ], { duration, easing: 'cubic-bezier(.2,.8,.2,1)' });
       animation.onfinish = () => { indicator.style.transform = 'none'; };
-      return;
+      return destinationRect;
     }
     if (changed) {
       indicator.getAnimations?.().forEach(animation => animation.cancel());
-      indicator.style.transform = 'none';
     }
     lastIndicatorTarget = target;
+    return destinationRect;
   }
   function renderTabs(fromRect = null) {
     const nav = $('#tabs'); if (!nav) return;
     if (!TABS.some(([key]) => key === S.tab) && S.tab !== 'log') S.tab = 'compare';
     if (!nav.querySelector('.tab-indicator')) {
       const indicator = document.createElement('span'); indicator.className = 'tab-indicator'; indicator.setAttribute('aria-hidden', 'true');
-      const main = document.createElement('div'); main.className = 'tab-main';
+      const main = document.createElement('div'); main.className = 'tab-main'; main.setAttribute('role', 'presentation');
       nav.append(indicator, main);
       const appendTab = (parent, [key, ico, labelText, title]) => {
         const button = document.createElement('button'); button.type = 'button'; button.id = 'tab-' + key; button.className = 'tab'; button.dataset.tab = key;
@@ -1807,14 +1868,34 @@ svg text{font-family:inherit}
       const button = nav.querySelector('#tab-' + key), active = key === S.tab || (key === 'settings' && S.tab === 'log');
       button.classList.toggle('on', active); button.setAttribute('aria-selected', String(active));
     }
-    positionTabIndicator(fromRect);
+    return positionTabIndicator(fromRect);
   }
   let countdownTimer = null;
-  function scheduleCountdownTick() { if (countdownTimer) return; countdownTimer = setTimeout(() => { countdownTimer = null; if (S.tab === 'history') render(); }, 1000); }
+  function scheduleCountdownTick() {
+    if (countdownTimer) return;
+    countdownTimer = setTimeout(() => {
+      countdownTimer = null;
+      if (S.tab !== 'history') return;
+      const value = Math.max(0, Math.ceil((S.historyCooldownUntil - Date.now()) / 1000));
+      const counter = root?.querySelector('[data-history-countdown]');
+      const retry = root?.querySelector('[data-act="reloadHistory"]');
+      const statusText = root?.querySelector('.history-status-copy p');
+      if (!counter || !retry) return;
+      if (value) {
+        counter.innerHTML = `${U.toFa(value)}<small>ثانیه</small>`;
+        retry.disabled = true;
+        scheduleCountdownTick();
+      } else {
+        counter.innerHTML = `${icon('check', 16)}<small>آماده</small>`;
+        retry.disabled = !!S.chartLoading;
+        if (statusText) statusText.textContent = 'اکنون می‌توانید دوباره تلاش کنید.';
+      }
+    }, 1000);
+  }
   function animateTabContent(bodyNode, oldHtml, oldScrollTop = 0, originRect = null) {
-    if (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
     const entering = bodyNode.querySelector('.body-content');
-    if (!entering || typeof entering.animate !== 'function') return;
+    if (!entering || typeof entering.animate !== 'function') return false;
     const exit = document.createElement('div'); exit.className = 'body-transition-exit';
     exit.setAttribute('aria-hidden', 'true'); exit.inert = true; exit.innerHTML = `<div class="body-exit-content">${oldHtml}</div>`;
     exit.firstElementChild.style.transform = `translateY(-${Math.max(0, oldScrollTop)}px)`;
@@ -1827,25 +1908,45 @@ svg text{font-family:inherit}
       const pillWidth = Math.min(width, Math.max(48, Math.ceil(originRect?.width || 64)));
       const left = Math.min(width - pillWidth, Math.max(0, centerX - pillWidth / 2));
       const right = width - left - pillWidth, pillHeight = Math.min(height, 38);
-      return `inset(0px ${right}px calc(100% - ${pillHeight}px) ${left}px round 999px)`;
+      const centerY = originRect ? originRect.top + originRect.height / 2 - rect.top : pillHeight / 2;
+      const top = Math.min(height - pillHeight, Math.max(0, centerY - pillHeight / 2));
+      const bottom = height - top - pillHeight;
+      return `inset(${top}px ${right}px ${bottom}px ${left}px round 999px)`;
     };
-    const collapsed = morphClip(exit), expanded = 'inset(0px 0px 0px 0px round 0px)';
-    const enteringAnimation = entering.animate([
-      { opacity: 0.62, clipPath: morphClip(entering), transform: 'translateY(-5px) scale(.985)' },
-      { opacity: 1, clipPath: expanded, transform: 'translateY(0) scale(1)' }
-    ], { duration: 390, easing: 'cubic-bezier(.22,1,.36,1)' });
-    const leaving = exit.animate([
-      { opacity: 1, clipPath: expanded, transform: 'translateY(0) scale(1)' },
-      { opacity: 0.2, clipPath: collapsed, transform: 'translateY(-5px) scale(.99)' }
-    ], { duration: 330, easing: 'cubic-bezier(.4,0,.2,1)' });
+    const collapsed = morphClip(exit), expanded = 'inset(0px 0px 0px 0px round 14px)';
     const cleanup = () => { if (exit.isConnected) exit.remove(); };
-    leaving.onfinish = cleanup;
-    leaving.oncancel = cleanup;
-    enteringAnimation.oncancel = cleanup;
+    let enteringAnimation, leaving;
+    try {
+      enteringAnimation = entering.animate([
+        { opacity: 0.88, clipPath: morphClip(entering), transform: 'translateY(-4px) scale(.99)' },
+        { opacity: 1, clipPath: expanded, transform: 'translateY(0) scale(1)' }
+      ], { duration: 440, easing: 'cubic-bezier(.2,.8,.2,1)' });
+      leaving = exit.animate([
+        { opacity: 1, clipPath: expanded, transform: 'translateY(0) scale(1)' },
+        { opacity: 0.18, clipPath: collapsed, transform: 'translateY(-3px) scale(.99)' }
+      ], { duration: 300, easing: 'cubic-bezier(.4,0,.2,1)' });
+    } catch {
+      cleanup();
+      return false;
+    }
+    const sequence = ++tabMorphSequence;
+    tabMorphActive = true; tabMorphAnimations = [enteringAnimation, leaving];
+    const release = () => {
+      if (sequence !== tabMorphSequence) return;
+      cleanup(); tabMorphAnimations = []; tabMorphActive = false;
+      if (queuedAppRender) queueAppRender();
+    };
+    const fallback = setTimeout(release, 520);
+    Promise.allSettled([enteringAnimation.finished, leaving.finished]).then(() => { clearTimeout(fallback); release(); });
+    return true;
   }
 
   function render(transition = {}) {
-    if (!root) return; const st = Store.get().settings, p = S.product || {};
+    if (!root) return;
+    if (appRenderFrame) { cancelFrame(appRenderFrame); appRenderFrame = 0; }
+    queuedAppRender = false;
+    if (tabMorphActive) cancelTabMorph();
+    const st = Store.get().settings, p = S.product || {};
     const pn = $('#panel'); if (!pn) return;
     pn.classList.toggle('wide', !!st.wide);
     const wideLabel = st.wide ? 'باریک‌کردن پنل' : 'عریض‌کردن پنل'; $('#wide').title = wideLabel; $('#wide').setAttribute('aria-label', wideLabel);
@@ -1856,7 +1957,7 @@ svg text{font-family:inherit}
     $('#price').innerHTML = p.price ? `${U.fmt(p.price)} <small>تومان · ${U.esc(p.priceSource || '')}</small>` : '<span class="warn" style="font-size:16px">قیمت شناسایی نشد — «ثبت دستی قیمت»</span>';
     const dk = S.dk && S.dk.chosen;
     $('#meta').innerHTML = [p.oldPrice ? `قبل از تخفیف: <s>${U.fmt(p.oldPrice)}</s>` : '', p.seller ? 'فروشنده: ' + U.esc(p.seller) : '', p.warranty ? 'گارانتی: ' + U.esc(p.warranty) : '', dk && S.dk.lowest30dOfficial ? 'کمینهٔ ۳۰روزهٔ اعلامی دیجی‌کالا: ' + U.fmt(S.dk.lowest30dOfficial) : ''].filter(Boolean).join(' · ');
-    renderTabs(transition.indicatorRect || null);
+    const morphOriginRect = renderTabs(transition.indicatorRect || null);
     const body = { compare: tabCompare, history: tabHistory, inspect: tabInspector, watch: tabWatch, settings: tabSettings, log: tabLog }[S.tab]();
     const bodyNode = $('#body');
     bodyNode.setAttribute('aria-labelledby', `tab-${S.tab === 'log' ? 'settings' : S.tab}`);
@@ -1869,9 +1970,9 @@ svg text{font-family:inherit}
     bodyNode.innerHTML = `<div class="body-content">${tamper + (S.banner ? `<div class="banner">${U.esc(S.banner)}</div>` : '') + body}</div>`;
     bodyNode.scrollTop = transition.toTab ? (tabScrollPositions[transition.toTab] || 0) : keep;
     if (oldHtml != null && transition.fromTab !== transition.toTab) {
-      animateTabContent(bodyNode, oldHtml, exitScroll, transition.indicatorRect);
+      animateTabContent(bodyNode, oldHtml, exitScroll, morphOriginRect);
     }
-    const th = $('[data-set="theme"]'); if (th) th.checked = st.theme === 'light';
+    const th = $('[data-set="theme"]'); if (th) { th.checked = st.theme === 'light'; th.setAttribute('aria-checked', String(th.checked)); }
   }
 
 
@@ -1950,28 +2051,40 @@ svg text{font-family:inherit}
       else if (a === 'manual') { const v = Number(U.digits(prompt('قیمت فعلی محصول (تومان):', '') || '').replace(/\D/g, '')); if (v > 0) App.setManualPrice(v); }
       else if (a === 'reloadHistory') App.loadHistory();
       else if (a === 'setTarget') { const v = Number(U.digits($('#tgt').value).replace(/\D/g, '')); const p = Store.touchProduct(S.key); p.target = v > 0 ? v : null; if (v > 0) p.watch = true; Store.save(); render(); }
-      else if (a === 'toggleCollectionForm') { collectionFormOpen = !collectionFormOpen; return render(); }
-      else if (a === 'toggleCollection') { watchCollectionFilter = t.dataset.collectionId || 'none'; return render(); }
+      else if (a === 'toggleCollectionForm') {
+        collectionFormOpen = !collectionFormOpen;
+        render();
+        if (collectionFormOpen) requestFrame(() => $('#collectionName')?.focus());
+        return;
+      }
+      else if (a === 'toggleCollection') { watchCollectionFilter = t.dataset.collectionId || 'none'; collectionEditId = collectionDeleteId = ''; return render(); }
       else if (a === 'createCollection') {
         const input = $('#collectionName'), name = input?.value.trim().slice(0, 32);
-        if (!name) { input?.setAttribute('aria-invalid', 'true'); input?.focus(); return; }
+        if (!name) { input?.setAttribute('aria-invalid', 'true'); $('#collectionNameError').hidden = false; input?.focus(); return; }
         const id = 'collection-' + (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2, 8));
-        const iconName = root.querySelector('[data-collection-icon][aria-pressed="true"]')?.dataset.collectionIcon || 'heart';
+        const iconName = root.querySelector('[data-collection-icon][aria-pressed="true"]')?.dataset.collectionIcon || 'gift';
         (db.collections ||= {})[id] = { id, name, icon: iconName };
-        collectionFormOpen = false; watchCollectionFilter = id;
+        collectionFormOpen = false; collectionEditId = collectionDeleteId = ''; watchCollectionFilter = id;
         Store.save(); return render();
       }
-      else if (a === 'renameCollection') {
-        const collection = db.collections?.[t.dataset.collectionId]; if (!collection) return;
-        const value = prompt('نام جدید مجموعه:', collection.name); if (value == null) return;
-        const name = value.trim().slice(0, 32); if (!name) return;
-        collection.name = name; Store.save(); return render();
+      else if (a === 'editCollection') {
+        collectionEditId = t.dataset.collectionId; collectionDeleteId = ''; render(); requestFrame(() => $('#collectionEditName')?.focus()); return;
       }
-      else if (a === 'deleteCollection') {
-        const id = t.dataset.collectionId, collection = db.collections?.[id]; if (!collection || !confirm(`مجموعهٔ «${collection.name}» حذف شود؟ محصولات آن بدون مجموعه می‌مانند.`)) return;
+      else if (a === 'saveCollection') {
+        const collection = db.collections?.[t.dataset.collectionId], input = $('#collectionEditName'), name = input?.value.trim().slice(0, 32);
+        if (!collection) return;
+        if (!name) { input?.setAttribute('aria-invalid', 'true'); $('#collectionEditNameError').hidden = false; input?.focus(); return; }
+        collection.name = name; collectionEditId = ''; Store.save(); return render();
+      }
+      else if (a === 'cancelCollectionEdit') { collectionEditId = ''; return render(); }
+      else if (a === 'requestDeleteCollection') { collectionDeleteId = t.dataset.collectionId; collectionEditId = ''; return render(); }
+      else if (a === 'cancelCollectionDelete') { collectionDeleteId = ''; return render(); }
+      else if (a === 'confirmDeleteCollection') {
+        const id = t.dataset.collectionId, collection = db.collections?.[id]; if (!collection) return;
         delete db.collections[id];
         for (const product of Object.values(db.products)) if (product.collectionId === id) product.collectionId = '';
         if (watchCollectionFilter === id) watchCollectionFilter = 'all';
+        collectionDeleteId = collectionEditId = '';
         Store.save(); return render();
       }
       else if (a === 'checkNow') { const r = await Alerts.checkAll(true); S.banner = `بررسی انجام شد: ${U.toFa(r.checked)} محصول، ${U.toFa(r.fired)} هشدار`; render(); }
@@ -1981,8 +2094,20 @@ svg text{font-family:inherit}
       else if (a === 'clearProd') { if (confirm('تاریخچهٔ محلی این محصول پاک شود؟')) { Store.touchProduct(S.key).local = []; Store.save(); render(); } }
       else if (a === 'clearAll') { if (confirm('همهٔ داده‌ها و تنظیمات افزونه پاک شود؟')) { Store.reset(); render(); } }
     });
-    root.addEventListener('input', e => { if (e.target.id === 'q') S.manualQuery = e.target.value; else if (e.target.id === 'collectionName') e.target.removeAttribute('aria-invalid'); });
-    root.addEventListener('keydown', e => { if (e.target.id === 'q' && e.key === 'Enter') { e.preventDefault(); S.manualQuery = e.target.value.trim(); App.runCompare(S.manualQuery ? { query: S.manualQuery } : {}); } });
+    root.addEventListener('input', e => {
+      if (e.target.id === 'q') S.manualQuery = e.target.value;
+      else if (e.target.id === 'collectionName' || e.target.id === 'collectionEditName') {
+        e.target.removeAttribute('aria-invalid');
+        const errorId = e.target.id === 'collectionName' ? 'collectionNameError' : 'collectionEditNameError';
+        const error = $('#' + errorId); if (error) error.hidden = true;
+      }
+    });
+    root.addEventListener('keydown', e => {
+      if (e.target.id === 'q' && e.key === 'Enter') { e.preventDefault(); S.manualQuery = e.target.value.trim(); App.runCompare(S.manualQuery ? { query: S.manualQuery } : {}); }
+      else if ((e.target.id === 'collectionName' || e.target.id === 'collectionEditName') && e.key === 'Enter') {
+        e.preventDefault(); root.querySelector(`[data-act="${e.target.id === 'collectionName' ? 'createCollection' : 'saveCollection'}"]`)?.click();
+      }
+    });
     root.addEventListener('change', e => {
       const t = e.target, st = Store.get().settings;
       if (t.dataset.sel === 'cand') { App.pickCandidate(t.value); return; }
@@ -2014,8 +2139,9 @@ svg text{font-family:inherit}
     root.innerHTML = `<style>${CSS}</style><div class="wrap dark"><button type="button" id="pill" aria-label="بازکردن پنل تخفیف‌سنج" aria-expanded="false" title="تخفیف‌سنج — بکشید تا جابه‌جا شود (Alt+Shift+G)">${icon('tag')}<span>تخفیف‌سنج</span></button>
       <section id="panel"><header><div class="brand">تخفیف‌سنج</div><button type="button" class="x x3" id="wide" title="عریض‌کردن پنل" aria-label="عریض‌کردن پنل">${icon('expand')}</button><button type="button" class="x x2" id="min" title="جمع‌کردن پنل" aria-label="جمع‌کردن پنل">${icon('minus')}</button><button type="button" class="x" id="close" title="بستن پنل" aria-label="بستن پنل">${icon('close')}</button></header>
       <div class="hero"><div class="name" id="name"></div><div class="price" id="price"></div><div class="meta" id="meta"></div></div>
-      <div class="workspace"><nav class="tabs" id="tabs" role="tablist" aria-label="بخش‌های تخفیف‌سنج"></nav><div class="body" id="body" role="tabpanel"></div></div></section></div>`;
-    bind(); App.on(render); render(); requestAnimationFrame(applyPos);
+      <div class="workspace"><nav class="tabs" id="tabs" role="tablist" aria-label="بخش‌های تخفیف‌سنج"></nav><div class="body" id="body" role="tabpanel"></div></div>
+      <footer class="foot"><div class="credit" aria-label="پیوندهای تخفیف‌سنج"><a href="https://aqilistudio.ir/" target="_blank" rel="noopener noreferrer">${icon('global')}<span>سایت و آموزش</span></a><a href="https://t.me/RealMahdi_a" target="_blank" rel="noopener noreferrer">${icon('chat')}<span>تلگرام @RealMahdi_a</span></a><a href="https://t.me/GHAFEL_com" target="_blank" rel="noopener noreferrer">${icon('layers')}<span>موتور پایه · GHAFEL_com</span></a></div></footer></section></div>`;
+    bind(); App.on(queueAppRender); render(); requestAnimationFrame(applyPos);
     addEventListener('resize', () => { applyPos(); positionTabIndicator(); });
     if (Store.get().settings.open) setOpen(true);
   }
@@ -2049,7 +2175,7 @@ const Main = (() => {
     };
     const run = () => { try { check(); } catch (e) { Log.error('main', e.message); } };
     setTimeout(run, 600); setInterval(run, 1500);
-    Log.info('main', 'تخفیف‌سنج 15.2.18 آماده شد');
+    Log.info('main', 'تخفیف‌سنج 15.2.19 آماده شد');
   }
   return { init };
 })();

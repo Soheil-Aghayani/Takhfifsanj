@@ -24,7 +24,7 @@ const Sources = (() => {
 
   // ---------- Torob: seller prices (engine 8.7 flow, unchanged endpoints) ----------
   const torob = {
-    id: 'torob', label: 'ترب', kind: 'offers', implemented: true, hosts: ['api.torob.com'],
+    id: 'torob', label: 'ترب', icon: 'torob', kind: 'offers', implemented: true, hosts: ['api.torob.com'],
     note: 'جست‌وجوی چندمرحله‌ای ← انتخاب محصول مطابق (قابل‌تغییر دستی) ← فهرست فروشندگان',
     titles: prod => [...new Set([Extract.coreTitle(prod.title), prod.title, ...(prod.altTitles || [])].filter(Boolean))],
     // Search high-signal terms first. Long page headings commonly append dimensions,
@@ -167,7 +167,7 @@ const Sources = (() => {
     return id === '25406964' || isExcludedTorobSellerPage(url);
   }
   const emalls = {
-    id: 'emalls', label: 'ایمالز', icon: 'shop', kind: 'offers', implemented: true, hosts: ['emalls.ir'],
+    id: 'emalls', label: 'ایمالز', icon: 'emalls', kind: 'offers', implemented: true, hosts: ['emalls.ir'],
     note: 'جست‌وجوی زندهٔ ایمالز؛ تطبیق برند و مدل پیش از نمایش قیمت',
     async search(q) {
       const body = new URLSearchParams({ findstr: q, entekhab: 'listitemv2', pagenum: '1' });
@@ -190,7 +190,7 @@ const Sources = (() => {
     }
   };
   const basalam = {
-    id: 'basalam', label: 'باسلام', icon: 'bag', kind: 'offers', implemented: true, hosts: ['services.basalam.com'],
+    id: 'basalam', label: 'باسلام', icon: 'basalam', kind: 'offers', implemented: true, hosts: ['services.basalam.com'],
     note: 'جست‌وجوی زندهٔ باسلام؛ مبلغ ریالی به تومان تبدیل می‌شود',
     async search(q) {
       const url = new URL(BASALAM_API); url.search = new URLSearchParams({ q, sort: 'rank', from: '0', size: '30' }).toString();
@@ -214,7 +214,7 @@ const Sources = (() => {
     }
   };
   const snappshop = {
-    id: 'snappshop', label: 'اسنپ‌شاپ', icon: 'cart', kind: 'offers', implemented: true, hosts: ['apix.snappshop.ir'], cities: SNAPP_CITIES,
+    id: 'snappshop', label: 'اسنپ‌شاپ', icon: 'snappshop', kind: 'offers', implemented: true, hosts: ['apix.snappshop.ir'], cities: SNAPP_CITIES,
     note: 'قیمت اسنپ‌شاپ بر اساس شهر انتخابی محاسبه می‌شود',
     async fetch(prod, { query } = {}) {
       const city = SNAPP_CITIES[Store.get().settings.snappCity] || SNAPP_CITIES.tehran;
