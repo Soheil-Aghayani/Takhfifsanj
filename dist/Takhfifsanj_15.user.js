@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         تخفیف‌سنج
 // @namespace    ghafel-com-pro
-// @version      15.2.32
+// @version      15.2.33
 // @description  مقایسهٔ قیمت فروشندگان، تاریخچهٔ قیمت دیجی‌کالا، بازرس تخفیف، واچ‌لیست و هشدار قیمت
 // @author       GHAFEL_com (Original Creator)
 // @contributor  RealMahdi_a (Upgrade & Development)
@@ -22,7 +22,7 @@
 // @noframes
 // @run-at       document-idle
 // ==/UserScript==
-/* تخفیف‌سنج 15.2.32 — Original Creator: GHAFEL_com (https://t.me/GHAFEL_com) · Upgrade & Development: RealMahdi_a (https://t.me/RealMahdi_a) · Website: https://aqilistudio.ir/
+/* تخفیف‌سنج 15.2.33 — Original Creator: GHAFEL_com (https://t.me/GHAFEL_com) · Upgrade & Development: RealMahdi_a (https://t.me/RealMahdi_a) · Website: https://aqilistudio.ir/
    Built from readable modules in /src. The 8.7 engine logic is preserved in src/06-extract.js (extraction),
    src/07-match.js (baseline rule) and src/08-sources.js (Torob flow). */
 (function () {
@@ -727,6 +727,19 @@ const Sources = (() => {
         : [core, U.tokens(core).slice(0, 5).join(' '), shortEnglish];
       return [...new Set(candidates.map(x => String(x || '').trim()).filter(Boolean))].slice(0, 4);
     },
+    candidateIdentity(r) {
+      // Torob may return the same base product under different random_keys and
+      // title word order across the search ladder. Compare normalized token sets
+      // so punctuation, duplicate words, and filler such as «مدل» do not create
+      // duplicate choices; meaningful color/model/spec tokens remain distinct.
+      const title = [r?.name1, r?.name2].filter(Boolean).join(' '), codes = Match.modelCodes(title);
+      const tokens = [...new Set(U.normalize(title).split(' ').filter(token => token && !U.STOP.has(token)))];
+      const codeParts = new Set(tokens.filter(token => {
+        const part = token.replace(/[^a-z0-9]/g, '');
+        return part && codes.some(code => code.includes(part));
+      }));
+      return [...new Set([...tokens.filter(token => !codeParts.has(token)), ...codes])].sort().join(' ');
+    },
     async search(q) {
       const e = encodeURIComponent(q);
       const r = await Net.json(`https://api.torob.com/v4/base-product/search/?page=0&sort=popularity&size=24&query=${e}&q=${e}&source=next_desktop`, { referer: TOROB_REF, timeout: 15000, anonymous: true });
@@ -810,7 +823,13 @@ const Sources = (() => {
         }
       }
       if (!successfulSearches && firstError) throw firstError;
-      const ok = [...byKey.values()].sort(compareCandidates), misses = [...nearMiss.values()].slice(0, 3);
+      const byIdentity = new Map();
+      for (const candidate of byKey.values()) {
+        const identity = torob.candidateIdentity(candidate.r);
+        const current = byIdentity.get(identity);
+        if (!current || compareCandidates(candidate, current) < 0) byIdentity.set(identity, candidate);
+      }
+      const ok = [...byIdentity.values()].sort(compareCandidates), misses = [...nearMiss.values()].slice(0, 3);
       if (!ok.length) return { status: 'no-match', offers: [], note: 'محصول مطابقی در ترب با اطمینان کافی پیدا نشد (' + tried.length + ' جست‌وجو)', nearMiss: misses, rejected: rejected.size, tried, candidates: [], query: tried[0] || '' };
       const pick = (pickKey && ok.find(x => x.r.random_key === pickKey)) || ok[0], base = pick.r;
       const baseTitle = base.name1 + ' ' + (base.name2 || '');
@@ -1423,7 +1442,7 @@ const Exporter = (() => {
     for (const x of (p?.local || [])) rows.push([key, p?.title || '', new Date(x.t).toISOString(), x.p, 'local', x.src || 'local']);
     return rows.map(r => r.map(q).join(',')).join('\n');
   }
-  const jsonAll = extra => JSON.stringify({ app: 'تخفیف‌سنج 15.2.32', exportedAt: new Date().toISOString(), db: Store.get(), ...extra }, null, 2);
+  const jsonAll = extra => JSON.stringify({ app: 'تخفیف‌سنج 15.2.33', exportedAt: new Date().toISOString(), db: Store.get(), ...extra }, null, 2);
   function parseCsv(text) {
     const out = []; const lines = String(text || '').replace(/^\uFEFF/, '').split(/\r?\n/).filter(Boolean); if (!lines.length) return out;
     const head = lines[0].toLowerCase().split(',').map(s => s.trim().replace(/"/g, ''));
@@ -2443,7 +2462,7 @@ const Main = (() => {
     };
     const run = () => { try { check(); } catch (e) { Log.error('main', e.message); } };
     setTimeout(run, 600); setInterval(run, 1500);
-    Log.info('main', 'تخفیف‌سنج 15.2.32 آماده شد');
+    Log.info('main', 'تخفیف‌سنج 15.2.33 آماده شد');
   }
   return { init };
 })();

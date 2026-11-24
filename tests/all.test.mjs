@@ -430,10 +430,16 @@ const CAND = (name2, price, key) => ({ name1: 'هدفون بلوتوثی موز�
 
 test('torob: searches every query, deduplicates product candidates and reports the full search ladder', async () => {
   const urls = [];
-  const gm = routeBy(u => { urls.push(u); if (u.includes('base-product/search')) { const query = new URL(u).searchParams.get('query') || ''; return { body: { search_id: 's', results: /آپولو|apollo/i.test(query) ? [CAND('مشکی', 2100000, 'k1')] : [] } }; } if (u.includes('/sellers/')) return { body: TOROB_SELLERS }; return null; });
+  const sameProductReordered = { ...CAND('مشکی', 2050000, 'k2'), name1: 'موزیک آپولو هدفون بلوتوثی مدل YRB22' };
+  const sameProductRepeated = { ...CAND('مشکی هدفون بلوتوثی', 2070000, 'k3'), name1: 'هدفون بلوتوثی موزیک آپولو YRB22' };
+  const whiteVariant = CAND('سفید', 2200000, 'k4');
+  const gm = routeBy(u => { urls.push(u); if (u.includes('base-product/search')) { const query = new URL(u).searchParams.get('query') || ''; return { body: { search_id: 's', results: /آپولو|apollo/i.test(query) ? [CAND('مشکی', 2100000, 'k1'), sameProductReordered, sameProductRepeated, whiteVariant] : [] } }; } if (u.includes('/sellers/')) return { body: TOROB_SELLERS }; return null; });
   const { api, w } = makeEnv(BUYBOX, undefined, { GM_xmlhttpRequest: gm });
+  const identity = api.Sources.torob.candidateIdentity;
+  assert.equal(identity({ name1: 'اسپیکر JBL Clip 5', name2: '' }), identity({ name1: 'JBL Clip5', name2: 'اسپیکر' }));
+  assert.notEqual(identity({ name1: 'محصول مدل 5', name2: '' }), identity({ name1: 'محصول مدل 6', name2: '' }));
   api.Store.load(); torobOnly(api); await api.App.refreshProduct(); await api.App.runCompare();
-  const t = api.App.state.sources.torob; assert.equal(t.status, 'ok'); assert.ok(t.tried.length > 1); assert.equal(urls.filter(u => u.includes('base-product/search')).length, t.tried.length); assert.ok(t.tried.some(q => /آپولو|apollo/i.test(q))); assert.match(t.query, /yrb22/); assert.equal(t.candidates.length, 1); assert.equal(api.App.state.offers.length, 3); w.close();
+  const t = api.App.state.sources.torob; assert.equal(t.status, 'ok'); assert.ok(t.tried.length > 1); assert.equal(urls.filter(u => u.includes('base-product/search')).length, t.tried.length); assert.ok(t.tried.some(q => /آپولو|apollo/i.test(q))); assert.match(t.query, /yrb22/); assert.equal(t.candidates.length, 2); assert.equal(t.candidates.filter(c => c.title.includes('مشکی')).length, 1); assert.equal(t.candidates.filter(c => c.title.includes('سفید')).length, 1); assert.equal(api.App.state.offers.length, 3); w.close();
 });
 
 test('torob: candidate switch replaces only Torob offers; manual query overrides the ladder', async () => {
