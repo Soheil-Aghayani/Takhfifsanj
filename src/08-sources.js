@@ -5,19 +5,14 @@ const Sources = (() => {
   // Origin is a forbidden header for GM requests; cookies are sent (anonymous:false) so Digikala's CDN accepts the call; page fetch is the fallback.
   const DK_OPTS = { referer: DK_REF, headers: { 'x-web-client': 'desktop', 'x-web-client-id': 'web' }, anonymous: false, pageFetchFallback: true };
   // Torob can attach an unrelated marketplace page to an otherwise relevant base product.
-  // Match direct pages, Torob redirect keys, and Basalam relay links; tracking parameters are ignored.
+  // Exclude the exact unwanted Basalam page; keep Torob redirect links usable as product references.
   const EXCLUDED_TOROB_SELLER_PAGES = new Set(['basalam.com/pakhshshop/product/25406964']);
-  const EXCLUDED_TOROB_REDIRECT_KEYS = new Set(['2db1d0a1-c8f0-455b-82fc-9d64497dfed4']);
-  const EXCLUDED_TOROB_REDIRECT_UIDS = new Set(['4688671']);
   function isExcludedTorobSellerPage(raw, depth = 0) {
     if (depth > 4) return false;
     try {
       const u = new URL(raw, 'https://api.torob.com/'), host = u.hostname.toLowerCase().replace(/^www\./, '');
       const path = u.pathname.replace(/\/+$/, '').toLowerCase();
       if (EXCLUDED_TOROB_SELLER_PAGES.has(host + path)) return true;
-      if (host === 'api.torob.com' && path === '/v4/product-page/redirect') {
-        if (EXCLUDED_TOROB_REDIRECT_KEYS.has(u.searchParams.get('prk')) || EXCLUDED_TOROB_REDIRECT_UIDS.has(u.searchParams.get('uid'))) return true;
-      }
       for (const key of ['to', 'url', 'redirect_url']) {
         const nested = u.searchParams.get(key);
         if (nested && nested !== raw && isExcludedTorobSellerPage(nested, depth + 1)) return true;
@@ -43,8 +38,11 @@ const Sources = (() => {
       const prefix = U.tokens(core).filter(x => !codes.includes(x)).slice(0, 4).join(' ');
       const focused = [prefix, codes.join(' ')].filter(Boolean).join(' ');
       const shortEnglish = en ? Extract.coreTitle(en) : '';
+      const aliases = Array.isArray(prod.brandAliases) ? prod.brandAliases : [prod.brandAliases];
+      const searchableBrand = [prod.brandEn, ...aliases, prod.brand].find(x => /[a-z]/i.test(String(x || '')));
+      const brandCodeQuery = searchableBrand && codeQuery ? `${String(searchableBrand).trim()} ${codeQuery}` : '';
       const candidates = codes.length
-        ? [focused, codeQuery, core, shortEnglish]
+        ? [brandCodeQuery, focused, ...(brandCodeQuery ? [] : [codeQuery]), core, shortEnglish]
         : [core, U.tokens(core).slice(0, 5).join(' '), shortEnglish];
       return [...new Set(candidates.map(x => String(x || '').trim()).filter(Boolean))].slice(0, 4);
     },
@@ -69,8 +67,7 @@ const Sources = (() => {
       if (searchId) params.set('search_id', searchId);
       const res = await Net.json('https://api.torob.com/v4/base-product/sellers/?' + params, { referer: TOROB_REF, timeout: 15000 });
       const list = res?.results || res?.products_info?.result || [], ts = Date.now();
-      const excludedOffer = s => EXCLUDED_TOROB_REDIRECT_UIDS.has(String(s.uid ?? s.product_uid ?? ''))
-        || [s.page_url, s.redirect_url, s.product_url, s.url].filter(Boolean).some(isExcludedTorobSellerPage);
+      const excludedOffer = s => [s.page_url, s.redirect_url, s.product_url, s.url].filter(Boolean).some(isExcludedTorobSellerPage);
       const eligible = list.filter(s => !excludedOffer(s)), excluded = list.length - eligible.length;
       const mapped = eligible.map(s => {
         const shop = String(s.shop_name || s.domain || s.shop_text || '').replace(/^www\./, '');

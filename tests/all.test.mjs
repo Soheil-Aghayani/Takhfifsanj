@@ -192,16 +192,17 @@ const TOROB_SELLERS = { results: [
   { shop_name: 'ایمالز', domain: 'emalls.ir', price: 2150000, page_url: 'https://torob.com/r/3' },
   { shop_name: 'shop.example.ir', price: 1990000, page_url: 'https://torob.com/r/4' }] };
 
-test('torob: excludes a blocked redirect even when another seller URL field appears first', async () => {
-  const badRedirect = 'https://api.torob.com/v4/product-page/redirect/?uid=4688671&prk=2db1d0a1-c8f0-455b-82fc-9d64497dfed4';
+test('torob: keeps the user-provided product redirect and still excludes the named Basalam page', async () => {
+  const productRedirect = 'https://api.torob.com/v4/product-page/redirect/?uid=4688671&prk=2db1d0a1-c8f0-455b-82fc-9d64497dfed4';
   const sellers = { results: [
-    { uid: 'different-id', shop_name: 'باسلام', domain: 'basalam.com', price: 140000, page_url: 'https://torob.com/r/opaque', redirect_url: badRedirect },
+    { uid: '4688671', shop_name: 'فروشگاه نمونه', domain: 'shop.example.ir', price: 140000, page_url: 'https://torob.com/r/opaque', redirect_url: productRedirect },
+    { uid: 'blocked-id', shop_name: 'باسلام', domain: 'basalam.com', price: 140000, page_url: 'https://basalam.com/pakhshshop/product/25406964?utm_source=Torob' },
     { uid: 'safe-id', shop_name: 'دیجی‌کالا', domain: 'digikala.com', price: 2200000, page_url: 'https://torob.com/r/safe' }
   ] };
   const { api } = makeEnv('<html><body></body></html>', undefined, { GM_xmlhttpRequest: mockGM([{ m: 'base-product/sellers', body: sellers }]) });
   const prod = api.Model.product({ id: '23248296', title: 'کابل USB-C روموس مدل 3241' });
   const offers = await api.Sources.torob.sellers(prod, { random_key: 'base', name1: 'کابل USB-C روموس مدل 3241' }, { score: 0.9, level: 'high', flags: [] }, '');
-  assert.equal(offers.length, 1); assert.equal(offers[0].sellerKey, 'digikala.com');
+  assert.equal(offers.length, 2); assert.ok(offers.some(o => o.price === 140000)); assert.ok(offers.some(o => o.sellerKey === 'digikala.com'));
 });
 
 test('E2E (mock net): Torob picks the right base product, dedups sellers, DOES NOT use the wrong model', async () => {
@@ -278,12 +279,12 @@ test('UI: pill is draggable (drag moves + saves, tap opens); wide toggle; show-a
 const routeBy = (fn) => (o) => { const r = fn(decodeURIComponent(o.url)); setTimeout(() => r ? o.onload({ status: r.status || 200, responseText: JSON.stringify(r.body) }) : o.onload({ status: 404, responseText: '' }), 0); };
 const CAND = (name2, price, key) => ({ name1: 'هدفون بلوتوثی موزیک آپولو مدل YRB22', name2, price, random_key: key, is_adv: false });
 
-test('torob: query ladder falls back to short brand+model query and reports what was tried', async () => {
+test('torob: stops after the first matching query and reports what was tried', async () => {
   const urls = [];
   const gm = routeBy(u => { urls.push(u); if (u.includes('base-product/search')) { const query = new URL(u).searchParams.get('query') || ''; return { body: { search_id: 's', results: query.includes('آپولو') ? [CAND('مشکی', 2100000, 'k1')] : [] } }; } if (u.includes('/sellers/')) return { body: TOROB_SELLERS }; return null; });
   const { api, w } = makeEnv(BUYBOX, undefined, { GM_xmlhttpRequest: gm });
   api.Store.load(); await api.App.refreshProduct(); await api.App.runCompare();
-  const t = api.App.state.sources.torob; assert.equal(t.status, 'ok'); assert.equal(t.tried.length, 2); assert.match(t.query, /yrb22/); assert.equal(api.App.state.offers.length, 3); w.close();
+  const t = api.App.state.sources.torob; assert.equal(t.status, 'ok'); assert.equal(t.tried.length, 1); assert.match(t.tried[0], /آپولو/); assert.match(t.query, /yrb22/); assert.equal(api.App.state.offers.length, 3); w.close();
 });
 
 test('torob: candidate switch replaces only Torob offers; manual query overrides the ladder', async () => {
@@ -378,6 +379,20 @@ test('torob: long product headings search by model/core title and still reject a
   const good = api.Sources.torob.evalCand(prod, { name1: 'پرزگیر برقی لباس میجیا مدل MQXJQ01KL', name2: '' });
   const bad = api.Sources.torob.evalCand(prod, { name1: 'پرزگیر برقی لباس میجیا مدل MQXJQ00KL', name2: '' });
   assert.equal(good.ok, true); assert.equal(bad.ok, false); assert.ok(bad.flags.includes('model-mismatch'));
+});
+
+test('torob: prefers English brand plus model and skips the noisy standalone numeric query', () => {
+  const { api } = makeEnv();
+  const prod = {
+    title: 'کابل USB-C روموس مدل 3241 طول 1.2 متر',
+    altTitles: ['کابل USB-C روموس مدل 3241 طول 1.2 متر'],
+    brand: 'روموس', brandEn: 'Romoss', brandAliases: ['روموس', 'Romoss']
+  };
+  const queries = api.Sources.torob.queries(prod);
+  assert.equal(queries[0], 'Romoss 3241');
+  assert.ok(queries[1].includes('روموس'));
+  assert.ok(!queries.includes('3241'));
+  assert.ok(api.Sources.torob.queries({ title: prod.title }).includes('3241'));
 });
 
 test('history: exact variant title wins over an earlier partial color match', () => {
