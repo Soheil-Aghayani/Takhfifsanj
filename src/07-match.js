@@ -52,10 +52,12 @@ const Match = (() => {
     return BRAND_FAMILIES.filter(([, aliases]) => aliases.some(alias => text.includes(' ' + U.normalize(alias) + ' '))).map(([id]) => id);
   }
   function productTypes(raw) { return PRODUCT_TYPES.filter(([, aliases]) => aliases.some(alias => hasPhrase(raw, alias))).map(([id]) => id); }
-  function productTypeMismatch(source, candidate) {
+  function productTypeMismatch(source, candidate, strict) {
     const expected = productTypes(source), found = productTypes(candidate);
     if (expected.length && found.length && !expected.some(id => found.includes(id)))
       return { ok: false, score: 0, level: 'low', reasons: ['نوع کالای نتیجه با محصول صفحه متفاوت است'], flags: ['category-mismatch'] };
+    if (strict && expected.length && !found.length)
+      return { ok: false, score: 0, level: 'low', reasons: ['نوع کالای نتیجه برای تأیید تطبیق مشخص نیست'], flags: ['category-unverified'] };
     return null;
   }
   function brandMismatch(brandAliases, candidate, strict) {
@@ -79,11 +81,14 @@ const Match = (() => {
   function evaluate(src, cand, { strict = false, brandAliases = [] } = {}) {
     const reasons = [], flags = [];
     const base = baseline(src, cand);
-    const st = U.tokens(src), cn = U.normalize(cand), set = new Set(cn.split(' ')), cc = cn.replace(/\s+/g, '');
+    const st = U.tokens(src), ct = U.tokens(cand), cn = U.normalize(cand), set = new Set(cn.split(' ')), cc = cn.replace(/\s+/g, '');
+    const sourceSet = new Set(st), sourceCompact = U.normalize(src).replace(/\s+/g, '');
     const cov = st.length ? st.filter(t => set.has(t) || (t.length >= 4 && cc.includes(t))).length / st.length : 0;
+    const precision = ct.length ? ct.filter(t => sourceSet.has(t) || (t.length >= 4 && sourceCompact.includes(t))).length / ct.length : 0;
+    const titleFit = cov + precision ? 2 * cov * precision / (cov + precision) : 0;
     const { codes, found, missing } = modelCodeMatch(src, cand);
     const a = specs(src), b = specs(cand);
-    const typeConflict = productTypeMismatch(src, cand);
+    const typeConflict = productTypeMismatch(src, cand, strict);
     if (typeConflict) return typeConflict;
     const brandConflict = brandMismatch(brandAliases, cand, strict);
     if (brandConflict) return brandConflict;
@@ -107,12 +112,13 @@ const Match = (() => {
     // sunflower seeds scoring 0.56) showed this matters, so no-code matches need a much higher bar to be accepted.
     if (!codes.length) {
       flags.push('no-model-code');
-      if (cov < 0.75) return { ok: false, score: cov * 0.4, level: 'low', reasons: ['بدون کد مدل/ظرفیت، پوشش کلمات نام کافی نیست (' + Math.round(cov * 100) + '٪ < ۷۵٪) — احتمال برند یا محصول متفاوت'], flags: ['no-model-code', 'low-coverage'] };
+      if (cov < 0.9 || precision < 0.85) return { ok: false, score: titleFit * 0.4, level: 'low', reasons: ['بدون کد مدل/ظرفیت، شباهت دوطرفهٔ عنوان برای نمایش قیمت کافی نیست'], flags: ['no-model-code', 'low-coverage'] };
       reasons.push('کد مدل لاتین برای تأیید وجود ندارد؛ فقط بر اساس پوشش کلمات نام (' + Math.round(cov * 100) + '٪) پذیرفته شد');
     }
-    let score = codes.length ? 0.35 * cov + 0.65 * model : Math.min(0.85, cov);
+    // A title-only match is useful but cannot carry the same evidence as an explicit model code.
+    let score = codes.length ? 0.45 * titleFit + 0.55 * model : Math.min(0.72, titleFit * 0.72);
     if (codes.length && cov < 0.75) { flags.push('low-coverage'); reasons.push('پوشش کلمات نام ' + Math.round(cov * 100) + '٪'); }
-    const level = score >= 0.85 ? 'high' : score >= 0.65 ? 'medium' : 'low';
+    const level = score >= 0.9 ? 'high' : score >= 0.65 ? 'medium' : 'low';
     if (level === 'low') flags.push('suspicious');
     return { ok: true, score: +score.toFixed(2), level, reasons, flags };
   }

@@ -14,3 +14,7 @@ Check these preferences before making UI changes. The user's latest explicit cor
 - Preserve the Watchlist's named collections and per-collection Solar icon choice; keep its sections and product cards clearly spaced.
 - Keep tab transitions smooth and morph-shaped without cloning old panel content or overlapping boxes.
 - Keep cards and controls visibly separated; preserve the five evenly distributed tabs, showing only an icon on inactive tabs and only a readable text label on the active tab.
+- For visible toman amounts, use the supplied local `toman` SVG icon instead of appending the word «تومان». Keep the word in explanatory prose and input labels when it provides context; keep amount labels accessible to screen readers.
+- Display product-match scores as a number and percent only; do not describe the heuristic as a probability or show a confidence label.
+- Only show seller shipping or warranty chips when the source provides details; make each chip open its details. Never show a deduplication chip to shoppers.
+- For Torob, reject explicit brand, product-type, model, or specification conflicts against the current page title before ranking alternatives. Require two-way title similarity when no model code is available.

@@ -27,6 +27,10 @@ const Model = (() => {
       nameCandidates: o.nameCandidates || []
     };
   }
+  const infoList = value => [...new Set((Array.isArray(value) ? value : [value])
+    .filter(item => typeof item === 'string')
+    .map(item => item.trim())
+    .filter(Boolean))];
   // One seller price from any source.
   function offer(o) {
     return {
@@ -38,6 +42,8 @@ const Model = (() => {
       price: o.price,                     // Seller price (toman)
       currency: 'IRT',
       shippingCost: o.shippingCost ?? null, // null = unknown (never guessed)
+      shippingInfo: infoList(o.shippingInfo),
+      warrantyInfo: infoList(o.warrantyInfo),
       ts: o.ts || now(),                  // Timestamp
       dataSource: o.dataSource || o.sourceId, // Data source (endpoint family)
       matchConfidence: o.matchConfidence ?? null, // Match confidence 0..1

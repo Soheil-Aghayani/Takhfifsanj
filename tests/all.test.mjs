@@ -82,6 +82,21 @@ test('match: spec mismatch (capacity) rejected, model w/o code flagged', () => {
   const nc = api.Match.evaluate('شیر کم چرب میهن یک لیتری', 'شیر کم چرب میهن یک لیتری'); assert.ok(nc.flags.includes('no-model-code')); assert.ok(nc.score <= 0.85);
 });
 
+test('match: code-free title similarity remains below model-backed scores', () => {
+  const { api } = makeEnv();
+  const result = api.Match.evaluate('کابل شارژ روموس USB-C', 'کابل شارژ روموس USB-C', { strict: true, brandAliases: ['روموس', 'Romoss'] });
+  assert.equal(result.ok, true); assert.equal(result.score, 0.72); assert.equal(result.level, 'medium');
+});
+
+test('Torob: current page title rejects a same-code product from another type and brand', () => {
+  const { api } = makeEnv();
+  const product = api.Model.product({ title: 'اسپیکر بلوتوثی هیسکا مدل B60' });
+  product.brand = 'هیسکا'; product.brandEn = 'Hiska'; product.brandAliases = ['هیسکا', 'Hiska'];
+  const result = api.Sources.torob.evalCand(product, { name1: 'هدست مخصوص بازی بلوتوثی اونیکوما', name2: 'مدل B60' });
+  assert.equal(result.ok, false);
+  assert.ok(result.flags.includes('category-mismatch') || result.flags.includes('brand-mismatch'));
+});
+
 test('Digikala price-chart parser on the REAL API fixture: rial->toman, Jalali dates, gaps kept', () => {
   const { api } = makeEnv(); const c = api.Sources.dk.parseChart(J('fx_price_chart.json'));
   assert.equal(c.variants.length, 2); const v = c.variants[0];
@@ -202,7 +217,7 @@ const TOROB_SEARCH = { search_id: 'sid1', results: [
   { name1: 'هدفون بلوتوثی موزیک آپولو مدل YRB22', name2: 'مشکی', price: 2100000, random_key: 'good', is_adv: false }] };
 const TOROB_SELLERS = { results: [
   { shop_name: 'دیجی‌کالا', domain: 'digikala.com', price: 2200000, page_url: 'https://torob.com/r/1' },
-  { shop_name: 'ایمالز', domain: 'emalls.ir', price: 2050000, page_url: 'https://torob.com/r/2' },
+  { shop_name: 'ایمالز', domain: 'emalls.ir', price: 2050000, page_url: 'https://torob.com/r/2', more_info: { shipping_types: ['پست', 'تیپاکس'], free_shipping: true }, guarantee_info: { status: 'enabled', title: 'گارانتی اصالت' } },
   { shop_name: 'ایمالز', domain: 'emalls.ir', price: 2150000, page_url: 'https://torob.com/r/3' },
   { shop_name: 'shop.example.ir', price: 1990000, page_url: 'https://torob.com/r/4' }] };
 const headphoneProduct = () => {
@@ -297,6 +312,19 @@ test('UI: exactly ONE panel host, mount is idempotent, every tab renders, legacy
   api.App.state.tab = 'compare'; api.UI.render(); assert.ok(root.querySelectorAll('.offer').length === 3);
   assert.ok(![...root.querySelectorAll('.offer')].some(e => e.textContent.includes('TWSDX')) && !root.innerHTML.includes('2,590,000') && !root.innerHTML.includes('۲٬۵۹۰٬۰۰۰'));
   assert.ok(root.querySelector('details.rejected-results')); assert.equal(root.querySelector('details.rejected-results').open, false);
+  for (const card of root.querySelectorAll('.offer')) {
+    assert.doesNotMatch(card.textContent, /ارسال: نامشخص|تکراری‌ها حذف شد/);
+    assert.match(card.querySelector('.match-score')?.textContent || '', /^[۰-۹]+٪$/);
+  }
+  const emallsCard = [...root.querySelectorAll('.offer')].find(card => card.querySelector('.offer-info'));
+  const shipping = emallsCard.querySelector('.offer-info'); assert.ok(shipping); assert.equal(shipping.open, false);
+  shipping.open = true; assert.match(shipping.querySelector('.offer-info-body').textContent, /پست.*تیپاکس.*ارسال رایگان/);
+  assert.ok(emallsCard.querySelectorAll('.offer-info').length === 2);
+  const bareCard = [...root.querySelectorAll('.offer')].find(card => !card.querySelector('.offer-info'));
+  assert.equal(bareCard.querySelectorAll('.offer-info').length, 0);
+  root.querySelector('[data-act="toggleTable"]').click();
+  assert.equal(root.querySelectorAll('.tb .match-score').length, 3);
+  for (const score of root.querySelectorAll('.tb .match-score')) assert.match(score.textContent, /^[۰-۹]+٪$/);
 });
 
 test('alerts: fires once per drop under target, not above, not repeatedly', () => {
@@ -389,7 +417,7 @@ test('match: different brand, same category, no model code is REJECTED even with
 });
 test('match: identical no-code product text still accepted (regression guard)', () => {
   const { api } = makeEnv(); const r = api.Match.evaluate('شیر کم چرب میهن یک لیتری', 'شیر کم چرب میهن یک لیتری');
-  assert.equal(r.ok, true); assert.ok(r.score >= 0.75);
+  assert.equal(r.ok, true); assert.ok(r.score >= 0.65);
 });
 
 test('App: overlapping refreshProduct() calls do not fire duplicate Digikala product requests (fixes the 429 storm)', async () => {

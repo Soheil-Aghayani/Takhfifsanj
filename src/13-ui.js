@@ -137,7 +137,16 @@ details.card summary{cursor:pointer;list-style:none}details.card summary::-webki
 .watch-item-actions .btn.icon-only{width:34px;height:34px;flex-basis:34px}
 .watch-item-bottom{margin-top:9px;align-items:center;justify-content:flex-start;flex-wrap:wrap;gap:7px 12px}
 .watch-item-price{color:var(--acc2);font-size:15px;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
-.watch-item-price small{margin-right:3px;color:var(--mut);font-size:9px;font-weight:500}
+.money{display:inline-flex;align-items:center;gap:3px;direction:rtl;vertical-align:middle;white-space:nowrap}
+.money .currency-symbol{display:block;flex:0 0 var(--money-icon-size,16px);width:var(--money-icon-size,16px);height:var(--money-icon-size,16px);color:currentColor}
+.offer-info{display:inline-block;min-width:0}
+.offer-info>summary{display:inline-flex;align-items:center;gap:4px;list-style:none;cursor:pointer}
+.offer-info>summary::-webkit-details-marker{display:none}
+.offer-info>summary .icon{width:13px;height:13px}
+.offer-info-body{display:block;margin:5px 0 2px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--mut);font-size:10px;line-height:1.55;overflow-wrap:anywhere}
+.offer-info-row{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:4px}
+.offer-info[open]{flex:1 1 100%}
+.match-score{font-variant-numeric:tabular-nums;direction:rtl}
 .watch-item-target{display:inline-flex;align-items:center;gap:4px;color:var(--mut);font-size:10px;white-space:nowrap}
 .watch-item-target b{color:var(--ink);font-size:11px;font-variant-numeric:tabular-nums}
 .watch-item-state{display:inline-flex;align-items:center;gap:4px;margin-right:auto;padding:3px 7px;border:1px solid var(--line);border-radius:999px;font-size:9.5px;white-space:nowrap}
@@ -228,14 +237,29 @@ svg text{font-family:inherit}
 `;
   let host, root, S;
   const $ = s => root.querySelector(s);
+  const ICON_VIEWBOXES = { toman: '0 0 14 16' };
   const icon = (name, size = 16, extraClass = '') => {
     const classes = `icon${extraClass ? ' ' + extraClass : ''}`;
     if (ProviderLogoData[name]) return `<img class="${classes} brand-logo" width="${size}" height="${size}" src="${ProviderLogoData[name]}" alt="" aria-hidden="true">`;
-    return `<svg class="${classes}" width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${ICONS[name] || ''}</svg>`;
+    return `<svg class="${classes}" width="${size}" height="${size}" viewBox="${ICON_VIEWBOXES[name] || '0 0 24 24'}" aria-hidden="true" focusable="false">${ICONS[name] || ''}</svg>`;
   };
+  const money = (value, size = 16) => {
+    const amount = Number(value);
+    if (!Number.isFinite(amount) || amount <= 0) return '—';
+    const formatted = U.fmt(amount);
+    return `<span class="money" role="img" aria-label="${formatted} تومان" style="--money-icon-size:${size}px"><bdi aria-hidden="true">${formatted}</bdi>${icon('toman', size, 'currency-symbol')}</span>`;
+  };
+  const offerInfoTag = (label, iconName, values) => {
+    const items = [...new Set((Array.isArray(values) ? values : []).map(value => String(value || '').trim()).filter(Boolean))];
+    return items.length ? `<details class="offer-info"><summary class="chip" title="نمایش جزئیات ${label}">${icon(iconName, 13)}${label}</summary><span class="offer-info-body">${items.map(U.esc).join('<br>')}</span></details>` : '';
+  };
+  const matchPercent = offer => offer?.matchConfidence == null || !Number.isFinite(Number(offer.matchConfidence))
+    ? ''
+    : `${U.toFa(Math.round(Math.max(0, Math.min(1, Number(offer.matchConfidence))) * 100))}٪`;
+  const textWithCurrency = value => U.esc(value).replace(/([\d۰-۹٠-٩][\d۰-۹٠-٩٬,،]*)\s*تومان/g, (_match, raw) => money(Number(U.digits(raw).replace(/\D/g, '')), 14));
   const iconText = (name, text) => `${icon(name)}<span>${text}</span>`;
 
-  const LV = { high: ['اطمینان بالا', 'good'], medium: ['اطمینان متوسط', 'warn'], low: ['مشکوک', 'bad'] };
+  const LV = { high: ['تطبیق قوی', 'good'], medium: ['تطبیق احتمالی', 'warn'], low: ['مشکوک', 'bad'] };
   const STATUS = { ok: ['فعال', 'good'], loading: ['در حال دریافت…', ''], empty: ['بدون نتیجه', 'warn'], 'no-match': ['تطبیقی پیدا نشد', 'warn'], error: ['خطا', 'bad'], unavailable: ['در دسترس نیست', ''], off: ['خاموش', ''] };
 
   function chart(storePts, localPts, rangeDays) {
@@ -254,7 +278,7 @@ svg text{font-family:inherit}
     return `<svg role="img" aria-label="نمودار تغییر قیمت در بازهٔ انتخابی" viewBox="0 0 ${W} ${H}" width="100%" style="direction:ltr"><title>نمودار تغییر قیمت در بازهٔ انتخابی</title><path d="${d}" fill="none" stroke="var(--chart-official)" stroke-width="2.2" stroke-linejoin="round"/>${dots}
       ${minP ? `<circle cx="${x(minP.t).toFixed(1)}" cy="${y(minP.price).toFixed(1)}" r="4" fill="var(--chart-min)"/>` : ''}
       <text x="${pl}" y="${H - 6}" font-size="9.5" fill="var(--chart-label)">${U.faDate(from)}</text><text x="${W - pr}" y="${H - 6}" font-size="9.5" fill="var(--chart-label)" text-anchor="end">${U.faDate(end)}</text>
-      <text x="${W - pr}" y="${pt + 2}" font-size="9.5" fill="var(--chart-label)" text-anchor="end">${U.fmt(mx)}</text><text x="${W - pr}" y="${H - pb - 3}" font-size="9.5" fill="var(--chart-label)" text-anchor="end">${U.fmt(mn)}</text></svg>`;
+      <text x="${W - pr - 12}" y="${pt + 2}" font-size="9.5" fill="var(--chart-label)" text-anchor="end">${U.fmt(mx)}</text><svg x="${W - pr - 8}" y="${pt - 7}" width="8" height="10" viewBox="0 0 14 16" style="color:var(--chart-label)" aria-hidden="true">${ICONS.toman}</svg><text x="${W - pr - 12}" y="${H - pb - 3}" font-size="9.5" fill="var(--chart-label)" text-anchor="end">${U.fmt(mn)}</text><svg x="${W - pr - 8}" y="${H - pb - 12}" width="8" height="10" viewBox="0 0 14 16" style="color:var(--chart-label)" aria-hidden="true">${ICONS.toman}</svg></svg>`;
   }
 
   // ----- tabs -----
@@ -272,7 +296,7 @@ svg text{font-family:inherit}
       return `<span class="source-chip ${cl} source-${U.esc(id)}" title="${U.esc(st.error || st.note || r.note)}"><span class="source-chip-icon">${icon(r.icon || 'global')}</span><b>${U.esc(r.label)}</b><span>${lbl}${st.count ? ' · ' + U.toFa(st.count) : ''}</span></span>`;
     }).join('');
     h += `<div class="source-row" aria-label="وضعیت منابع">${chips}</div>`;
-    const tr = srcs.torob; if (tr && tr.candidates && tr.candidates.length > 1) h += `<div class="card"><div class="muted" style="margin-bottom:4px">محصول تطبیق‌یافته در ترب — اگر رنگ/مدل دیگری مدنظر است تغییر دهید</div><select data-sel="cand" style="width:100%">${tr.candidates.map(c => `<option value="${U.esc(c.key)}" ${c.key === tr.chosenKey ? 'selected' : ''}>${U.esc(c.title.slice(0, 60))} · ${U.fmt(c.price)}</option>`).join('')}</select></div>`;
+    const tr = srcs.torob; if (tr && tr.candidates && tr.candidates.length > 1) h += `<div class="card"><div class="muted" style="margin-bottom:4px">محصول تطبیق‌یافته در ترب — اگر رنگ/مدل دیگری مدنظر است تغییر دهید</div><select data-sel="cand" style="width:100%">${tr.candidates.map(c => `<option value="${U.esc(c.key)}" ${c.key === tr.chosenKey ? 'selected' : ''}>${U.esc(c.title.slice(0, 60))}</option>`).join('')}</select></div>`;
     if (tr && tr.tried && tr.tried.length > 1) h += `<div class="muted" style="margin-bottom:6px">جست‌وجوی چندمرحله‌ای: ${U.toFa(tr.tried.length)} عبارت امتحان شد؛ عبارت موفق: «${U.esc(tr.query)}»</div>`;
     const sourceErrors = Object.entries(srcs).filter(([, st]) => st.error);
     let offers = S.offers.slice();
@@ -281,16 +305,17 @@ svg text{font-family:inherit}
     if (S.offers.length) {
       h += `<div class="row" style="margin-bottom:6px"><select data-sel="sort" aria-label="مرتب‌سازی فروشندگان"><option value="price" ${S.sort === 'price' ? 'selected' : ''}>ارزان‌ترین</option><option value="desc" ${S.sort === 'desc' ? 'selected' : ''}>گران‌ترین</option><option value="name" ${S.sort === 'name' ? 'selected' : ''}>نام فروشنده</option></select><label class="switch-row" style="min-height:38px;padding:2px 0;border:0"><span class="switch-copy"><span>تطبیق مطمئن</span></span><input class="switch-input" type="checkbox" role="switch" aria-checked="${S.trustedOnly}" data-ck="trusted" ${S.trustedOnly ? 'checked' : ''}><span class="switch-track" aria-hidden="true"></span></label><button class="btn sec icon-btn" data-act="toggleTable" title="${S.table ? 'نمای کارتی' : 'نمای جدول'}" aria-label="${S.table ? 'نمای کارتی' : 'نمای جدول'}">${icon(S.table ? 'layers' : 'compare')}</button></div>`;
       const a = App.advice();
-      h += `<div class="card"><b class="${a.tone === 'good' ? 'good' : a.tone === 'warn' ? 'warn' : ''}">مشاور خرید: ${U.esc(a.headline)}</b><ul>${a.points.map(x => `<li class="${x.k === 'good' ? 'good' : x.k === 'warn' ? 'warn' : ''}">${U.esc(x.text)}</li>`).join('')}</ul><div class="muted" style="margin-top:6px">${a.caveats.map(U.esc).join('<br>')}</div></div>`;
+      h += `<div class="card"><b class="${a.tone === 'good' ? 'good' : a.tone === 'warn' ? 'warn' : ''}">مشاور خرید: ${U.esc(a.headline)}</b><ul>${a.points.map(x => `<li class="${x.k === 'good' ? 'good' : x.k === 'warn' ? 'warn' : ''}">${textWithCurrency(x.text)}</li>`).join('')}</ul><div class="muted" style="margin-top:6px">${a.caveats.map(U.esc).join('<br>')}</div></div>`;
       const bestPrice = Math.min(...S.offers.filter(o => o.matchLevel !== 'low').map(o => o.price));
       const shown = S.showAll ? offers : offers.slice(0, 5);
       if (S.table) {
-        h += '<table class="tb">' + shown.map(o => { const diff = p.price ? (o.price - p.price) / p.price * 100 : null; return `<tr class="${o.price === bestPrice && o.matchLevel !== 'low' ? 'best' : ''}"><td><span class="dot ${o.matchLevel}" title="${(LV[o.matchLevel] || [''])[0]}"></span>${U.esc(o.seller)}</td><td><b>${U.fmt(o.price)}</b></td><td class="${diff != null && diff < -0.5 ? 'good' : diff > 0.5 ? 'bad' : 'muted'}">${diff == null ? '' : (diff < 0 ? '−' : diff > 0 ? '+' : '') + U.fmtPct(Math.abs(diff))}</td><td>${o.sellerUrl ? `<a style="color:var(--acc)" href="${U.esc(o.sellerUrl)}" target="_blank" rel="noopener noreferrer" title="بازکردن صفحهٔ فروشنده" aria-label="بازکردن صفحهٔ فروشنده">${icon('link', 14, 'icon-sm')}</a>` : ''}</td></tr>`; }).join('') + '</table>';
+        h += '<table class="tb">' + shown.map(o => { const diff = p.price ? (o.price - p.price) / p.price * 100 : null, pct = matchPercent(o), lv = LV[o.matchLevel] || ['', '']; return `<tr class="${o.price === bestPrice && o.matchLevel !== 'low' ? 'best' : ''}"><td>${pct ? `<span class="chip ${lv[1]} match-score" title="امتیاز تطبیق">${pct}</span> ` : ''}${U.esc(o.seller)}</td><td><b>${money(o.price, 12)}</b></td><td class="${diff != null && diff < -0.5 ? 'good' : diff > 0.5 ? 'bad' : 'muted'}">${diff == null ? '' : (diff < 0 ? '−' : diff > 0 ? '+' : '') + U.fmtPct(Math.abs(diff))}</td><td>${o.sellerUrl ? `<a style="color:var(--acc)" href="${U.esc(o.sellerUrl)}" target="_blank" rel="noopener noreferrer" title="بازکردن صفحهٔ فروشنده" aria-label="بازکردن صفحهٔ فروشنده">${icon('link', 14, 'icon-sm')}</a>` : ''}</td></tr>`; }).join('') + '</table>';
       }
       else for (const o of shown) {
         const diff = p.price ? (o.price - p.price) / p.price * 100 : null, lv = LV[o.matchLevel] || ['', ''];
-        const dd = diff == null ? '' : Math.abs(diff) < 0.5 ? '<span class="muted">هم‌قیمت با این صفحه</span>' : diff < 0 ? `<span class="good">${U.fmtPct(-diff)} ارزان‌تر · صرفه‌جویی ${U.fmt(p.price - o.price)}</span>` : `<span class="bad">${U.fmtPct(diff)} گران‌تر</span>`;
-        h += `<div class="card offer ${o.price === bestPrice && o.matchLevel !== 'low' ? 'best' : ''}"><div><b>${U.esc(o.seller)}</b> ${o.price === bestPrice && o.matchLevel !== 'low' ? '<span class="chip good">ارزان‌ترین</span>' : ''}<br>${dd}<br><span class="chip ${lv[1]}" title="${U.esc((o.flags || []).join(' | '))}">${lv[0]} · ${U.toFa(Math.round((o.matchConfidence || 0) * 100))}٪</span> <span class="chip">ارسال: نامشخص</span> ${o.flags.some(f => f.startsWith('dedup')) ? '<span class="chip">تکراری‌ها حذف شد</span>' : ''}<div class="muted">${U.esc(o.sourceId)} · ${new Date(o.ts).toLocaleTimeString('fa-IR')}</div></div><div style="text-align:left"><div class="pv">${U.fmt(o.price)} <small class="muted">تومان</small></div>${o.sellerUrl ? `<a href="${U.esc(o.sellerUrl)}" target="_blank" rel="noopener noreferrer" title="بازکردن صفحهٔ فروشنده">${icon('link', 14, 'icon-sm')} فروشگاه</a>` : ''}</div></div>`;
+        const dd = diff == null ? '' : Math.abs(diff) < 0.5 ? '<span class="muted">هم‌قیمت با این صفحه</span>' : diff < 0 ? `<span class="good">${U.fmtPct(-diff)} ارزان‌تر · صرفه‌جویی ${money(p.price - o.price, 12)}</span>` : `<span class="bad">${U.fmtPct(diff)} گران‌تر</span>`;
+        const pct = matchPercent(o), infoTags = [offerInfoTag('روش ارسال', 'bag', o.shippingInfo), offerInfoTag('گارانتی', 'shield', o.warrantyInfo)].filter(Boolean).join('');
+        h += `<div class="card offer ${o.price === bestPrice && o.matchLevel !== 'low' ? 'best' : ''}"><div><b>${U.esc(o.seller)}</b> ${o.price === bestPrice && o.matchLevel !== 'low' ? '<span class="chip good">ارزان‌ترین</span>' : ''}<br>${dd}<br>${pct ? `<span class="chip ${lv[1]} match-score" title="امتیاز تطبیق" aria-label="امتیاز تطبیق ${pct}">${pct}</span>` : ''}${infoTags ? `<div class="offer-info-row">${infoTags}</div>` : ''}<div class="muted">${U.esc(o.sourceId)} · ${new Date(o.ts).toLocaleTimeString('fa-IR')}</div></div><div style="text-align:left"><div class="pv">${money(o.price, 14)}</div>${o.sellerUrl ? `<a href="${U.esc(o.sellerUrl)}" target="_blank" rel="noopener noreferrer" title="بازکردن صفحهٔ فروشنده">${icon('link', 14, 'icon-sm')} فروشگاه</a>` : ''}</div></div>`;
       }
       if (offers.length > 5) h += `<div class="btns"><button class="btn sec" data-act="toggleAll">${S.showAll ? 'نمایش کمتر' : 'نمایش همهٔ ' + U.toFa(offers.length) + ' مورد'}</button></div>`;
     } else if (!S.running && sourceErrors.length) {
@@ -327,14 +352,14 @@ svg text{font-family:inherit}
       const updated = S.chartFetchedAt ? new Date(S.chartFetchedAt).toLocaleString('fa-IR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
       const cacheLabel = S.chartFromCache && updated ? `<div class="muted history-cache-label">${S.chartStale ? 'ذخیره‌شده · ' : 'آخرین دریافت · '}${updated}</div>` : '';
       h += `<div class="card history-chart-card">${chart(officialValid, loc, S.range)}<div class="muted">خط بنفش: تاریخچهٔ رسمی · نقطه‌های طلایی: قیمت‌های محلی · نقطهٔ سبز: کمینه</div>${cacheLabel}</div>`;
-      if (stats) h += `<div class="grid2"><div class="m"><span>کمترین قیمت در بازهٔ انتخابی</span><b>${U.fmt(stats.min)}</b></div><div class="m"><span>بیشترین قیمت</span><b>${U.fmt(stats.max)}</b></div><div class="m"><span>میانه</span><b>${U.fmt(stats.median)}</b></div><div class="m"><span>بازهٔ دارای داده</span><b>${U.toFa(stats.span)} روز · ${U.toFa(stats.count)} روز</b></div></div><div class="muted" style="margin-top:6px">نقطه‌های رسمی: ${U.toFa(officialValid.length)} · ثبت‌های محلی: ${U.toFa(loc.length)} · دادهٔ رسمی ممکن است فقط حدود یک ماه را پوشش دهد؛ سابقهٔ محلی از این پس به‌مرور کامل‌تر می‌شود. روزهای خالی درون‌یابی نمی‌شوند.</div>`;
+    if (stats) h += `<div class="grid2"><div class="m"><span>کمترین قیمت در بازهٔ انتخابی</span><b>${money(stats.min, 12)}</b></div><div class="m"><span>بیشترین قیمت</span><b>${money(stats.max, 12)}</b></div><div class="m"><span>میانه</span><b>${money(stats.median, 12)}</b></div><div class="m"><span>بازهٔ دارای داده</span><b>${U.toFa(stats.span)} روز · ${U.toFa(stats.count)} روز</b></div></div><div class="muted" style="margin-top:6px">نقطه‌های رسمی: ${U.toFa(officialValid.length)} · ثبت‌های محلی: ${U.toFa(loc.length)} · دادهٔ رسمی ممکن است فقط حدود یک ماه را پوشش دهد؛ سابقهٔ محلی از این پس به‌مرور کامل‌تر می‌شود. روزهای خالی درون‌یابی نمی‌شوند.</div>`;
       else h += '<div class="card muted">این واریانت نقطهٔ قابل‌فروش ندارد.</div>';
     } else {
       if (loc.length) h += `<div class="card">${chart([], loc, S.range)}<div class="muted">این‌ها قیمت‌هایی هستند که افزونه برای همین محصول/واریانت ثبت کرده است.</div></div>`;
       if (!loc.length && !S.chartError && !S.historyNotice && !S.chartLoading) h += '<div class="empty-state" role="status"><span class="empty-state-icon">' + icon('history', 18) + '</span><div class="empty-state-copy"><b>تاریخچه‌ای برای نمایش نیست</b><p>برای این محصول هنوز دادهٔ رسمی یا ثبت محلی وجود ندارد.</p></div></div>';
       else if (!loc.length && S.historyNotice === 'error' && !S.chartLoading) h += '<div class="empty-state" role="status"><span class="empty-state-icon">' + icon('history', 18) + '</span><div class="empty-state-copy"><b>نمودار فعلاً خالی است</b><p>دادهٔ رسمی در دسترس نیست و هنوز قیمت محلی برای این محصول ثبت نشده. بعداً دوباره تلاش کنید یا محصول را در واچ‌لیست بگذارید.</p></div></div>';
     }
-    if (S.dk && S.dk.lowest30dOfficial) h += `<div class="card"><span class="muted">کمترین قیمت اعلامی دیجی‌کالا در ۳۰ روز اخیر</span><div class="pv">${U.fmt(S.dk.lowest30dOfficial)} تومان</div></div>`;
+    if (S.dk && S.dk.lowest30dOfficial) h += `<div class="card"><span class="muted">کمترین قیمت اعلامی دیجی‌کالا در ۳۰ روز اخیر</span><div class="pv">${money(S.dk.lowest30dOfficial, 14)}</div></div>`;
     return h;
   }
   const localOnly = () => { const p = Store.get().products[S.key], local = App.localHistoryPoints(); if (!p || !local.length) return ''; return `<div class="card"><b>نقاط ثبت‌شدهٔ محلی</b>${chart([], local, 365)}</div>`; };
@@ -351,8 +376,8 @@ svg text{font-family:inherit}
     let h = `<div class="verdict v-${r.verdict}">${T[r.verdict]}<div class="muted" style="font-weight:400">میزان اطمینان تحلیل: ${cf}</div></div>`;
     if (S.chart && S.chart.variants.length > 1) h += `<div class="card"><label class="muted">واریانت تاریخچه را با رنگ همین صفحه تطبیق دهید</label><div style="margin-top:5px"><select data-sel="variant">${S.chart.variants.map((x, i) => `<option value="${i}" ${i === S.variantIdx ? 'selected' : ''}>${U.esc(x.title || 'واریانت ' + (i + 1))}</option>`).join('')}</select> <span class="chip ${S.variantManual ? 'warn' : S.variantExact ? 'good' : 'warn'}">${S.variantManual ? 'انتخاب دستی' : S.variantExact ? 'تطبیق خودکار' : 'تطبیق نامطمئن'}</span></div></div>`;
     const n = r.numbers;
-    if (n && n.baseline) h += `<div class="grid2"><div class="m"><span>قیمت پایه · میانهٔ داده‌های پیش از ۱۴ روز اخیر</span><b>${U.fmt(n.baseline)}</b></div><div class="m"><span>${S.product?.price > 0 ? 'قیمت فعلی صفحه' : 'آخرین قیمت ثبت‌شده'}</span><b>${U.fmt(n.current)}</b></div><div class="m"><span>تغییر نسبت به پایه</span><b>${U.fmtPct(n.realDropPct)}</b></div><div class="m"><span>تخفیف ادعایی</span><b>${n.claimedPct == null ? '—' : U.fmtPct(n.claimedPct)}</b></div><div class="m"><span>کمترین قیمت دوره</span><b>${U.fmt(n.min)}</b></div><div class="m"><span>بیشترین قیمت دوره</span><b>${U.fmt(n.max)}</b></div></div><div class="muted" style="margin-top:6px">آخرین نقطه: ${U.faDate(n.latest)} · ${U.toFa(n.ageDays)} روز پیش · ${U.toFa(n.baselinePoints || 0)} نقطه برای پایه</div>`;
-    if (r.signals.length) h += `<div class="card"><b class="warn">نشانه‌ها</b><ul>${r.signals.map(s => `<li>${U.esc(s.text)}</li>`).join('')}</ul></div>`;
+    if (n && n.baseline) h += `<div class="grid2"><div class="m"><span>قیمت پایه · میانهٔ داده‌های پیش از ۱۴ روز اخیر</span><b>${money(n.baseline, 12)}</b></div><div class="m"><span>${S.product?.price > 0 ? 'قیمت فعلی صفحه' : 'آخرین قیمت ثبت‌شده'}</span><b>${money(n.current, 12)}</b></div><div class="m"><span>تغییر نسبت به پایه</span><b>${U.fmtPct(n.realDropPct)}</b></div><div class="m"><span>تخفیف ادعایی</span><b>${n.claimedPct == null ? '—' : U.fmtPct(n.claimedPct)}</b></div><div class="m"><span>کمترین قیمت دوره</span><b>${money(n.min, 12)}</b></div><div class="m"><span>بیشترین قیمت دوره</span><b>${money(n.max, 12)}</b></div></div><div class="muted" style="margin-top:6px">آخرین نقطه: ${U.faDate(n.latest)} · ${U.toFa(n.ageDays)} روز پیش · ${U.toFa(n.baselinePoints || 0)} نقطه برای پایه</div>`;
+    if (r.signals.length) h += `<div class="card"><b class="warn">نشانه‌ها</b><ul>${r.signals.map(s => `<li>${textWithCurrency(s.text)}</li>`).join('')}</ul></div>`;
     h += `<details class="card muted"><summary class="card-title">${icon('shield')}روش و محدودیت‌ها</summary><ul><li>قیمت پایه، میانهٔ قیمت‌های قابل‌فروشِ ثبت‌شده تا ۱۴ روز پیش از آخرین داده است؛ حداقل ۱۰ نقطه در ۲۱ روز و ۵ نقطه برای پایه لازم است.</li><li>بازرس جهش بیش از ۸٪ پیش از دورهٔ اخیر و اختلاف مرجع/تخفیف ادعایی را علامت می‌زند. این‌ها نشانه‌اند، نه اثبات تخلف.</li><li>قیمت فروشنده، موجودی یا گارانتی ممکن است عوض شده باشد؛ دادهٔ قدیمی یا واریانت نامطمئن نتیجهٔ قطعی نمی‌دهد.</li></ul></details>`;
     if (r.reasons.length) h += `<div class="card muted"><ul>${r.reasons.map(x => `<li>${U.esc(x)}</li>`).join('')}</ul></div>`;
     return h;
@@ -375,14 +400,14 @@ svg text{font-family:inherit}
       const targetEditor = current ? `<div class="watch-target-row"><label for="tgt">قیمت هشدار</label><div class="watch-target-controls"><input type="number" id="tgt" aria-label="قیمت هدف به تومان" min="0" value="${p.target || ''}" placeholder="تومان"><button class="btn icon-btn" data-act="setTarget" aria-label="ثبت قیمت هدف" title="ثبت قیمت هدف">${icon('check')}</button></div></div>` : '';
       return `<article class="card watch-item ${current ? 'current' : ''}">
         <div class="watch-item-top"><div class="watch-item-copy"><b title="${U.esc(p.title || p.key)}">${U.esc((p.title || p.key).slice(0, 90))}</b><span>${U.esc(p.lastSource || 'قیمت ثبت‌شده')} · ${priceLabel}</span></div><div class="watch-item-actions"><a class="btn sec icon-btn icon-only" href="${U.esc(p.url)}" target="_blank" rel="noopener noreferrer" aria-label="بازکردن محصول" title="بازکردن محصول">${icon('global')}</a><button class="btn sec icon-btn icon-only" data-rm="${U.esc(p.key)}" aria-label="حذف از واچ‌لیست" title="حذف از واچ‌لیست">${icon('trash')}</button></div></div>
-        <div class="watch-item-bottom"><strong class="watch-item-price">${currentPrice ? U.fmt(currentPrice) : '—'}<small>تومان</small></strong><span class="watch-item-target">${icon('target', 13)}هدف <b>${p.target ? U.fmt(p.target) : 'تنظیم‌نشده'}</b></span><span class="watch-item-state ${hit ? 'good' : 'warn'}" title="${U.esc(state)}">${icon(hit ? 'check' : 'clock', 13)}${hit ? 'به هدف رسید' : p.target ? 'در انتظار هدف' : 'بدون هدف'}${change == null ? '' : ' · ' + U.fmtPct(change)}</span></div>
+        <div class="watch-item-bottom"><strong class="watch-item-price">${currentPrice ? money(currentPrice, 14) : '—'}</strong><span class="watch-item-target">${icon('target', 13)}هدف <b>${p.target ? money(p.target, 12) : 'تنظیم‌نشده'}</b></span><span class="watch-item-state ${hit ? 'good' : 'warn'}" title="${U.esc(state)}">${icon(hit ? 'check' : 'clock', 13)}${hit ? 'به هدف رسید' : p.target ? 'در انتظار هدف' : 'بدون هدف'}${change == null ? '' : ' · ' + U.fmtPct(change)}</span></div>
         ${targetEditor}${collectionSelect(p)}</article>`;
     };
     let h = `<div class="watch-head"><div class="watch-head-copy"><span class="watch-head-icon">${icon('heart', 18)}</span><div><b>واچ‌لیست</b><small>${U.toFa(tracked.length)} محصول زیرنظر</small></div></div><button class="btn sec icon-btn" data-act="checkNow" title="بررسی قیمت‌های واچ‌لیست">${iconText('refresh', 'بررسی قیمت‌ها')}</button></div>`;
     if (cur && !cur.watch) {
       const currentTitle = Extract.coreTitle(S.product?.title) || S.product?.title || cur.title || 'محصول فعلی';
       const currentPrice = Number(S.product?.price || cur.lastPrice || 0);
-      h += `<section class="card watch-current"><div class="watch-current-top"><b class="card-title">${icon('tag')}<span>افزودن محصول این صفحه</span></b>${switchRow('پیگیری قیمت', 'data-ck="watch"', false, 'bell')}</div><div class="watch-current-name">${U.esc(currentTitle)}</div><div class="watch-current-price"><span>قیمت فعلی</span><b>${currentPrice ? U.fmt(currentPrice) : '—'}</b><span>تومان</span></div><div class="watch-target-row"><label for="tgt">هشدار در قیمت هدف</label><div class="watch-target-controls"><input type="number" id="tgt" aria-label="قیمت هدف به تومان" min="0" value="${cur.target || ''}" placeholder="تومان"><button class="btn icon-btn" data-act="setTarget" aria-label="ثبت قیمت هدف" title="ثبت قیمت هدف">${icon('check')}</button></div></div></section>`;
+      h += `<section class="card watch-current"><div class="watch-current-top"><b class="card-title">${icon('tag')}<span>افزودن محصول این صفحه</span></b>${switchRow('پیگیری قیمت', 'data-ck="watch"', false, 'bell')}</div><div class="watch-current-name">${U.esc(currentTitle)}</div><div class="watch-current-price"><span>قیمت فعلی</span><b>${currentPrice ? money(currentPrice, 14) : '—'}</b></div><div class="watch-target-row"><label for="tgt">هشدار در قیمت هدف</label><div class="watch-target-controls"><input type="number" id="tgt" aria-label="قیمت هدف به تومان" min="0" value="${cur.target || ''}" placeholder="تومان"><button class="btn icon-btn" data-act="setTarget" aria-label="ثبت قیمت هدف" title="ثبت قیمت هدف">${icon('check')}</button></div></div></section>`;
     }
     const collectionCounts = new Map();
     for (const product of tracked) {
@@ -635,9 +660,9 @@ svg text{font-family:inherit}
     $('.wrap').className = 'wrap ' + (st.theme === 'light' ? 'light' : 'dark');
     $('#name').textContent = Extract.coreTitle(p.title) || p.title || 'نام محصول شناسایی نشد';
     $('#name').setAttribute('title', p.title || '');
-    $('#price').innerHTML = p.price ? `${U.fmt(p.price)} <small>تومان · ${U.esc(p.priceSource || '')}</small>` : '<span class="warn" style="font-size:16px">قیمت شناسایی نشد — «ثبت دستی قیمت»</span>';
+    $('#price').innerHTML = p.price ? `${money(p.price, 20)} <small>· ${U.esc(p.priceSource || '')}</small>` : '<span class="warn" style="font-size:16px">قیمت شناسایی نشد — «ثبت دستی قیمت»</span>';
     const dk = S.dk && S.dk.chosen;
-    $('#meta').innerHTML = [p.oldPrice ? `قبل از تخفیف: <s>${U.fmt(p.oldPrice)}</s>` : '', p.seller ? 'فروشنده: ' + U.esc(p.seller) : '', p.warranty ? 'گارانتی: ' + U.esc(p.warranty) : '', dk && S.dk.lowest30dOfficial ? 'کمینهٔ ۳۰روزهٔ اعلامی دیجی‌کالا: ' + U.fmt(S.dk.lowest30dOfficial) : ''].filter(Boolean).join(' · ');
+    $('#meta').innerHTML = [p.oldPrice ? `قبل از تخفیف: <s>${money(p.oldPrice, 12)}</s>` : '', p.seller ? 'فروشنده: ' + U.esc(p.seller) : '', p.warranty ? 'گارانتی: ' + U.esc(p.warranty) : '', dk && S.dk.lowest30dOfficial ? 'کمینهٔ ۳۰روزهٔ اعلامی دیجی‌کالا: ' + money(S.dk.lowest30dOfficial, 12) : ''].filter(Boolean).join(' · ');
     const indicatorTargetRect = renderTabs(transition.indicatorRect || null);
     const morphOriginRect = transition.originRect || indicatorTargetRect;
     const body = { compare: tabCompare, history: tabHistory, inspect: tabInspector, watch: tabWatch, settings: tabSettings, log: tabLog }[S.tab]();
@@ -820,7 +845,7 @@ svg text{font-family:inherit}
     root.innerHTML = `<style>${CSS}</style><div class="wrap dark"><button type="button" id="pill" aria-label="بازکردن پنل تخفیف‌سنج" aria-expanded="false" title="تخفیف‌سنج — بکشید تا جابه‌جا شود (Alt+Shift+G)">${icon('tag')}<span>تخفیف‌سنج</span></button>
       <section id="panel"><header><div class="brand">تخفیف‌سنج</div><button type="button" class="x x3" id="wide" title="عریض‌کردن پنل" aria-label="عریض‌کردن پنل">${icon('expand')}</button><button type="button" class="x x2" id="min" title="جمع‌کردن پنل" aria-label="جمع‌کردن پنل">${icon('minus')}</button><button type="button" class="x" id="close" title="بستن پنل" aria-label="بستن پنل">${icon('close')}</button></header>
       <div class="hero"><div class="name" id="name"></div><div class="price" id="price"></div><div class="meta" id="meta"></div></div>
-      <div class="workspace"><nav class="tabs" id="tabs" role="group" aria-label="ناوبری و عیب‌یابی"></nav><div class="body" id="body" role="tabpanel"></div></div>
+      <div class="workspace"><nav class="tabs" id="tabs" role="group" aria-label="بخش‌های اصلی"></nav><div class="body" id="body" role="tabpanel"></div></div>
       </section></div>`;
     bind(); App.on(queueAppRender); render(); requestAnimationFrame(applyPos);
     addEventListener('resize', () => { applyPos(); positionTabIndicator(); });

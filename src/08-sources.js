@@ -54,13 +54,17 @@ const Sources = (() => {
     },
     // Evaluate against every known title of the product (page title + Digikala official titles) and keep the best verdict.
     evalCand(prod, r) {
-      const ct = r.name1 + ' ' + (r.name2 || ''); let best = null;
+      const ct = r.name1 + ' ' + (r.name2 || '');
       // Check model/spec contradictions before token coverage: long page headings may have low overlap.
-      const brandAliases = [...new Set([...(prod.brandAliases || []), prod.brand, prod.brandEn, ...torob.titles(prod).flatMap(Match.brandFamilies)].filter(Boolean))];
-      const strict = Match.evaluate(prod.title || '', ct, { strict: true, brandAliases });
-      if (strict.flags.some(flag => ['model-mismatch', 'spec-mismatch', 'brand-mismatch', 'category-mismatch', 'low-context'].includes(flag))) return strict;
-      for (const t of torob.titles(prod)) { const ev = Match.evaluate(t, ct); if (!best || (ev.ok && !best.ok) || (ev.ok === best.ok && ev.score > best.score)) best = ev; }
-      return best || Match.evaluate(prod.title || '', ct);
+      const titles = torob.titles(prod);
+      const aliases = Array.isArray(prod.brandAliases) ? prod.brandAliases : [prod.brandAliases];
+      const brandAliases = [...new Set([...aliases, prod.brand, prod.brandEn, ...titles.flatMap(Match.brandFamilies)].filter(Boolean))];
+      const primaryTitle = prod.title || titles[0] || '';
+      const primary = Match.evaluate(primaryTitle, ct, { strict: true, brandAliases });
+      const hardConflicts = ['model-mismatch', 'spec-mismatch', 'brand-mismatch', 'category-mismatch', 'category-unverified', 'low-context'];
+      if (primary.flags.some(flag => hardConflicts.includes(flag))) return primary;
+      const alternatives = titles.filter(title => title !== primaryTitle).map(title => Match.evaluate(title, ct, { brandAliases }));
+      return [primary, ...alternatives].filter(ev => ev.ok).sort((a, b) => b.score - a.score)[0] || primary;
     },
     async sellers(prod, base, ev, searchId) {
       const baseTitle = base.name1 + ' ' + (base.name2 || '');
@@ -69,12 +73,25 @@ const Sources = (() => {
       const res = await Net.json('https://api.torob.com/v4/base-product/sellers/?' + params, { referer: TOROB_REF, timeout: 15000, anonymous: true });
       const list = res?.results || res?.products_info?.result || [], ts = Date.now();
       const excludedOffer = s => [s.page_url, s.redirect_url, s.product_url, s.url].filter(Boolean).some(isExcludedTorobSellerPage);
-      const eligible = list.filter(s => !excludedOffer(s)), excluded = list.length - eligible.length;
+      const eligible = list.filter(s => !excludedOffer(s) && s.availability !== false && s.is_price_unreliable !== true), excluded = list.length - eligible.length;
       const mapped = eligible.map(s => {
         const shop = String(s.shop_name || s.domain || s.shop_text || '').replace(/^www\./, '');
         const key = Extract.matchKnownSite(s.domain || shop) || Extract.matchKnownSite(shop);
+        const more = s.more_info || {}, badges = Array.isArray(s.badges) ? s.badges.filter(value => typeof value === 'string').map(value => value.trim()).filter(Boolean) : [];
+        const shippingInfo = [...new Set([
+          ...(Array.isArray(more.shipping_types) ? more.shipping_types.filter(value => typeof value === 'string') : []),
+          ...(more.free_shipping === true ? ['ارسال رایگان'] : []),
+          ...(more.same_day_delivery === true ? ['تحویل در همان روز'] : []),
+          ...(more.payment_on_delivery === true ? ['پرداخت در محل'] : []),
+          ...badges.filter(value => /ارسال|تحویل|پیک|پست|تیپاکس/.test(value))
+        ].map(value => value.trim()).filter(Boolean))];
+        const warrantyInfo = [...new Set([
+          ...[s.warranty, s.warranty_info, s.guarantee_info?.title, s.guarantee_info?.text].filter(value => typeof value === 'string'),
+          ...(s.guarantee_info?.status === 'enabled' ? ['وضعیت گارانتی: فعال'] : []),
+          ...badges.filter(value => /گارانتی|ضمانت/.test(value))
+        ].map(value => value.trim()).filter(Boolean))];
         return Model.offer({ sourceId: 'torob', productId: prod.id, seller: key ? (Extract.KNOWN[key][0] || key) : shop, sellerKey: key || '', sellerUrl: String(s.page_url || s.redirect_url || s.product_url || s.url || ''), price: Number(s.price ?? s.price_value),
-          ts, dataSource: 'torob:base-product/sellers', matchConfidence: ev.score, matchLevel: ev.level, matchTitle: baseTitle, flags: ev.flags });
+          ts, dataSource: 'torob:base-product/sellers', matchConfidence: ev.score, matchLevel: ev.level, matchTitle: baseTitle, flags: ev.flags, shippingInfo, warrantyInfo });
       });
       if (excluded) Log.info('torob', `${excluded} صفحهٔ فروش نامرتبط حذف شد`);
       const raw = mapped.filter(o => o.seller && o.price > 0);
@@ -103,9 +120,9 @@ const Sources = (() => {
         const valid = res.results.filter(r => r && r.name1 && !r.is_adv && Number(r.price) > 0 && r.random_key);
         for (const r of valid) {
           const candidate = { r, ev: torob.evalCand(prod, r), searchId: res.searchId, q: item.q, queryIndex: item.index };
-          if (!candidate.ev.ok) {
+          if (!candidate.ev.ok || candidate.ev.level === 'low') {
             rejected.add(r.random_key);
-            if (candidate.ev.flags.includes('model-mismatch') && nearMiss.size < 8 && !nearMiss.has(r.random_key)) nearMiss.set(r.random_key, { title: r.name1 + ' ' + (r.name2 || ''), reason: candidate.ev.reasons[0] });
+            if (candidate.ev.flags.some(flag => ['model-mismatch', 'spec-mismatch', 'brand-mismatch', 'category-mismatch', 'category-unverified', 'low-context', 'low-coverage'].includes(flag)) && nearMiss.size < 8 && !nearMiss.has(r.random_key)) nearMiss.set(r.random_key, { title: r.name1 + ' ' + (r.name2 || ''), reason: candidate.ev.reasons[0] });
             continue;
           }
           const current = byKey.get(r.random_key);
