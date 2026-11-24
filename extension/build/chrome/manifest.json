@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "تخفیف‌سنج",
-  "version": "15.2.29",
+  "version": "15.2.30",
   "description": "مقایسهٔ قیمت فروشندگان، تاریخچهٔ دیجی‌کالا، بازرس تخفیف، واچ‌لیست و هشدار قیمت.",
   "homepage_url": "https://aqilistudio.ir/",
   "icons": { "16": "icons/icon16.png", "32": "icons/icon32.png", "48": "icons/icon48.png", "128": "icons/icon128.png" },

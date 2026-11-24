@@ -15,6 +15,7 @@ Check these preferences before making UI changes. The user's latest explicit cor
 - Keep tab transitions smooth and morph-shaped without cloning old panel content or overlapping boxes.
 - Keep cards and controls visibly separated; preserve the five evenly distributed tabs, showing only an icon on inactive tabs and only a readable text label on the active tab.
 - For visible toman amounts, use the supplied local `toman` SVG icon instead of appending the word «تومان». Keep the word in explanatory prose and input labels when it provides context; keep amount labels accessible to screen readers.
+- For editable toman prices, display Persian digits grouped every three digits. Use a text input with a numeric mobile keyboard instead of a native number input, so browser spinner arrows do not appear. Make save controls visibly show the Solar Check icon and give clear save feedback.
 - Display product-match scores as a number and percent only; do not describe the heuristic as a probability or show a confidence label.
 - Only show seller shipping or warranty chips when the source provides details; make each chip open its details. Never show a deduplication chip to shoppers.
 - For Torob, reject explicit brand, product-type, model, or specification conflicts against the current page title before ranking alternatives. Require two-way title similarity when no model code is available.

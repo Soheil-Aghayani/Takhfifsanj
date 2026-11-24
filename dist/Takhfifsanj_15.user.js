@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         تخفیف‌سنج
 // @namespace    ghafel-com-pro
-// @version      15.2.29
+// @version      15.2.30
 // @description  مقایسهٔ قیمت فروشندگان، تاریخچهٔ قیمت دیجی‌کالا، بازرس تخفیف، واچ‌لیست و هشدار قیمت
 // @author       GHAFEL_com (Original Creator)
 // @contributor  RealMahdi_a (Upgrade & Development)
@@ -22,7 +22,7 @@
 // @noframes
 // @run-at       document-idle
 // ==/UserScript==
-/* تخفیف‌سنج 15.2.29 — Original Creator: GHAFEL_com (https://t.me/GHAFEL_com) · Upgrade & Development: RealMahdi_a (https://t.me/RealMahdi_a) · Website: https://aqilistudio.ir/
+/* تخفیف‌سنج 15.2.30 — Original Creator: GHAFEL_com (https://t.me/GHAFEL_com) · Upgrade & Development: RealMahdi_a (https://t.me/RealMahdi_a) · Website: https://aqilistudio.ir/
    Built from readable modules in /src. The 8.7 engine logic is preserved in src/06-extract.js (extraction),
    src/07-match.js (baseline rule) and src/08-sources.js (Torob flow). */
 (function () {
@@ -1409,7 +1409,7 @@ const Exporter = (() => {
     for (const x of (p?.local || [])) rows.push([key, p?.title || '', new Date(x.t).toISOString(), x.p, 'local', x.src || 'local']);
     return rows.map(r => r.map(q).join(',')).join('\n');
   }
-  const jsonAll = extra => JSON.stringify({ app: 'تخفیف‌سنج 15.2.29', exportedAt: new Date().toISOString(), db: Store.get(), ...extra }, null, 2);
+  const jsonAll = extra => JSON.stringify({ app: 'تخفیف‌سنج 15.2.30', exportedAt: new Date().toISOString(), db: Store.get(), ...extra }, null, 2);
   function parseCsv(text) {
     const out = []; const lines = String(text || '').replace(/^\uFEFF/, '').split(/\r?\n/).filter(Boolean); if (!lines.length) return out;
     const head = lines[0].toLowerCase().split(',').map(s => s.trim().replace(/"/g, ''));
@@ -1438,6 +1438,7 @@ const Exporter = (() => {
 // ---- 12-icons.js ----
 /* Solar Icon Set by 480 Design, licensed CC BY 4.0: https://github.com/480-Design/Solar-Icon-Set */
 const SolarIcons = {
+  check: "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"><path d=\"M5 12.5L10 17.5L20 7.5\"/></g>",
   tag: "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\"><path d=\"M2.85574 7.39057L2.57231 8.61875C2.08083 10.7485 1.83509 11.8134 2.12264 12.816C2.41018 13.8186 3.18295 14.5914 4.72848 16.1369L6.55812 17.9665C9.24711 20.6555 10.5916 22 12.2623 22C13.933 22 15.2775 20.6555 17.9665 17.9665C20.6555 15.2775 22 13.933 22 12.2623C22 10.5916 20.6555 9.24711 17.9665 6.55812L16.1369 4.72848C14.5914 3.18295 13.8186 2.41018 12.816 2.12264C11.8134 1.83509 10.7485 2.08083 8.61875 2.57231L7.39057 2.85574C5.59881 3.26922 4.70292 3.47597 4.08944 4.08944C3.47597 4.70292 3.26922 5.59881 2.85574 7.39057Z\"/><circle cx=\"8.607\" cy=\"8.879\" r=\"2\"/><path d=\"M11.5413 18.4998L18.5203 11.5205\"/></g>",
   pen: "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"><path d=\"M13.5 6.5L17.5 10.5\"/><path d=\"M4.5 19.5L8.4 18.7L19.6 7.5C20.4 6.7 20.4 5.3 19.6 4.5C18.8 3.7 17.4 3.7 16.6 4.5L5.3 15.7L4.5 19.5Z\"/><path d=\"M4 22H20\"/></g>",
   compare: "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\"><path d=\"M12 22C7.28595 22 4.92893 22 3.46447 20.5355C2 19.0711 2 16.714 2 12C2 7.28595 2 4.92893 3.46447 3.46447C4.92893 2 7.28595 2 12 2C16.714 2 19.0711 2 20.5355 3.46447C22 4.92893 22 7.28595 22 12C22 16.714 22 19.0711 20.5355 20.5355C19.0711 22 16.714 22 12 22Z\"/><path d=\"M7 18V9\"/><path d=\"M12 18V6\"/><path d=\"M17 18V13\"/></g>",
@@ -1606,7 +1607,8 @@ details.card summary{cursor:pointer;list-style:none}details.card summary::-webki
 .watch-target-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid var(--line)}
 .watch-target-row label{color:var(--mut);font-size:10.5px}
 .watch-target-controls{display:flex;align-items:center;gap:6px}
-.watch-target-controls input{width:122px!important;height:34px}
+.watch-target-controls input{width:122px!important;height:34px;text-align:center;direction:ltr;font-variant-numeric:tabular-nums}
+.watch-target-controls button{flex:0 0 38px;width:38px;height:34px;padding:0;color:var(--on-acc)}
 .watch-list-title{display:flex;align-items:center;justify-content:space-between;margin:12px 2px 7px;font-size:12px;font-weight:700}
 .watch-list-title small{color:var(--mut);font-size:10px;font-weight:500}
 .watch-list{display:grid;gap:12px;margin-top:0}
@@ -1731,6 +1733,22 @@ svg text{font-family:inherit}
     const formatted = U.fmt(amount);
     return `<span class="money" role="img" aria-label="${formatted} تومان" style="--money-icon-size:${size}px"><bdi aria-hidden="true">${formatted}</bdi>${icon('toman', size, 'currency-symbol')}</span>`;
   };
+  const priceInputDigits = value => U.digits(value).replace(/\D/g, '');
+  const formatPriceInputValue = value => {
+    const digits = priceInputDigits(value);
+    return digits ? U.toFa(digits.replace(/\B(?=(\d{3})+(?!\d))/g, '٬')) : '';
+  };
+  function formatPriceTargetInput(input) {
+    const raw = input.value, caret = input.selectionStart ?? raw.length;
+    const digitsBeforeCaret = priceInputDigits(raw.slice(0, caret)).length;
+    input.value = formatPriceInputValue(raw);
+    let position = 0, seen = 0;
+    while (position < input.value.length && seen < digitsBeforeCaret) {
+      if (/\d/.test(U.digits(input.value[position]))) seen++;
+      position++;
+    }
+    input.setSelectionRange(position, position);
+  }
   const offerInfoTag = (label, iconName, values) => {
     const items = [...new Set((Array.isArray(values) ? values : []).map(value => String(value || '').trim()).filter(Boolean))];
     return items.length ? `<details class="offer-info"><summary class="chip" title="نمایش جزئیات ${label}">${icon(iconName, 13)}${label}</summary><span class="offer-info-body">${items.map(U.esc).join('<br>')}</span></details>` : '';
@@ -1879,7 +1897,7 @@ svg text{font-family:inherit}
       const priceLabel = p.lastTs ? new Date(p.lastTs).toLocaleDateString('fa-IR') : 'هنوز قیمتی ثبت نشده';
       const state = hit ? 'به قیمت هدف رسیده' : p.target ? 'در انتظار قیمت هدف' : 'قیمت هدف تنظیم نشده';
       const currentPrice = current ? Number(S.product?.price || p.lastPrice || 0) : Number(p.lastPrice || 0);
-      const targetEditor = current ? `<div class="watch-target-row"><label for="tgt">قیمت هشدار</label><div class="watch-target-controls"><input type="number" id="tgt" aria-label="قیمت هدف به تومان" min="0" value="${p.target || ''}" placeholder="تومان"><button class="btn icon-btn" data-act="setTarget" aria-label="ثبت قیمت هدف" title="ثبت قیمت هدف">${icon('check')}</button></div></div>` : '';
+      const targetEditor = current ? `<div class="watch-target-row"><label for="tgt">قیمت هشدار</label><div class="watch-target-controls"><input type="text" id="tgt" class="watch-target-input" inputmode="numeric" autocomplete="off" spellcheck="false" dir="ltr" aria-label="قیمت هدف به تومان" value="${formatPriceInputValue(p.target)}" placeholder="تومان"><button type="button" class="btn icon-btn" data-act="setTarget" aria-label="ثبت قیمت هدف" title="ثبت قیمت هدف">${icon('check')}</button></div></div>` : '';
       return `<article class="card watch-item ${current ? 'current' : ''}">
         <div class="watch-item-top"><div class="watch-item-copy"><b title="${U.esc(p.title || p.key)}">${U.esc((p.title || p.key).slice(0, 90))}</b><span>${U.esc(p.lastSource || 'قیمت ثبت‌شده')} · ${priceLabel}</span></div><div class="watch-item-actions"><a class="btn sec icon-btn icon-only" href="${U.esc(p.url)}" target="_blank" rel="noopener noreferrer" aria-label="بازکردن محصول" title="بازکردن محصول">${icon('global')}</a><button class="btn sec icon-btn icon-only" data-rm="${U.esc(p.key)}" aria-label="حذف از واچ‌لیست" title="حذف از واچ‌لیست">${icon('trash')}</button></div></div>
         <div class="watch-item-bottom"><strong class="watch-item-price">${currentPrice ? money(currentPrice, 14) : '—'}</strong><span class="watch-item-target">${icon('target', 13)}هدف <b>${p.target ? money(p.target, 12) : 'تنظیم‌نشده'}</b></span><span class="watch-item-state ${hit ? 'good' : 'warn'}" title="${U.esc(state)}">${icon(hit ? 'check' : 'clock', 13)}${hit ? 'به هدف رسید' : p.target ? 'در انتظار هدف' : 'بدون هدف'}${change == null ? '' : ' · ' + U.fmtPct(change)}</span></div>
@@ -1889,7 +1907,7 @@ svg text{font-family:inherit}
     if (cur && !cur.watch) {
       const currentTitle = Extract.coreTitle(S.product?.title) || S.product?.title || cur.title || 'محصول فعلی';
       const currentPrice = Number(S.product?.price || cur.lastPrice || 0);
-      h += `<section class="card watch-current"><div class="watch-current-top"><b class="card-title">${icon('tag')}<span>افزودن محصول این صفحه</span></b>${switchRow('پیگیری قیمت', 'data-ck="watch"', false, 'bell')}</div><div class="watch-current-name">${U.esc(currentTitle)}</div><div class="watch-current-price"><span>قیمت فعلی</span><b>${currentPrice ? money(currentPrice, 14) : '—'}</b></div><div class="watch-target-row"><label for="tgt">هشدار در قیمت هدف</label><div class="watch-target-controls"><input type="number" id="tgt" aria-label="قیمت هدف به تومان" min="0" value="${cur.target || ''}" placeholder="تومان"><button class="btn icon-btn" data-act="setTarget" aria-label="ثبت قیمت هدف" title="ثبت قیمت هدف">${icon('check')}</button></div></div></section>`;
+      h += `<section class="card watch-current"><div class="watch-current-top"><b class="card-title">${icon('tag')}<span>افزودن محصول این صفحه</span></b>${switchRow('پیگیری قیمت', 'data-ck="watch"', false, 'bell')}</div><div class="watch-current-name">${U.esc(currentTitle)}</div><div class="watch-current-price"><span>قیمت فعلی</span><b>${currentPrice ? money(currentPrice, 14) : '—'}</b></div><div class="watch-target-row"><label for="tgt">هشدار در قیمت هدف</label><div class="watch-target-controls"><input type="text" id="tgt" class="watch-target-input" inputmode="numeric" autocomplete="off" spellcheck="false" dir="ltr" aria-label="قیمت هدف به تومان" value="${formatPriceInputValue(cur.target)}" placeholder="تومان"><button type="button" class="btn icon-btn" data-act="setTarget" aria-label="ثبت قیمت هدف" title="ثبت قیمت هدف">${icon('check')}</button></div></div></section>`;
     }
     const collectionCounts = new Map();
     for (const product of tracked) {
@@ -2245,7 +2263,16 @@ svg text{font-family:inherit}
       else if (a === 'reread') App.refreshProduct();
       else if (a === 'manual') { const v = Number(U.digits(prompt('قیمت فعلی محصول (تومان):', '') || '').replace(/\D/g, '')); if (v > 0) App.setManualPrice(v); }
       else if (a === 'reloadHistory') App.loadHistory(undefined, { refresh: true });
-      else if (a === 'setTarget') { const v = Number(U.digits($('#tgt').value).replace(/\D/g, '')); const p = Store.touchProduct(S.key); p.target = v > 0 ? v : null; if (v > 0) p.watch = true; Store.save(); render(); }
+      else if (a === 'setTarget') {
+        const digits = priceInputDigits($('#tgt')?.value || ''), v = digits ? Number(digits) : 0;
+        if (!Number.isSafeInteger(v)) { S.banner = 'عدد قیمت هدف معتبر نیست.'; return render(); }
+        const p = Store.touchProduct(S.key);
+        p.target = v > 0 ? v : null;
+        if (v > 0) p.watch = true;
+        Store.save();
+        S.banner = v > 0 ? `هشدار قیمت ${formatPriceInputValue(digits)} تومان ثبت شد.` : 'قیمت هدف پاک شد.';
+        return render();
+      }
       else if (a === 'toggleCollectionForm') {
         collectionFormOpen = !collectionFormOpen;
         render();
@@ -2291,6 +2318,7 @@ svg text{font-family:inherit}
     });
     root.addEventListener('input', e => {
       if (e.target.id === 'q') S.manualQuery = e.target.value;
+      else if (e.target.id === 'tgt') formatPriceTargetInput(e.target);
       else if (e.target.id === 'collectionName' || e.target.id === 'collectionEditName') {
         e.target.removeAttribute('aria-invalid');
         const errorId = e.target.id === 'collectionName' ? 'collectionNameError' : 'collectionEditNameError';
@@ -2299,6 +2327,7 @@ svg text{font-family:inherit}
     });
     root.addEventListener('keydown', e => {
       if (e.target.id === 'q' && e.key === 'Enter') { e.preventDefault(); S.manualQuery = e.target.value.trim(); App.runCompare(S.manualQuery ? { query: S.manualQuery } : {}); }
+      else if (e.target.id === 'tgt' && e.key === 'Enter') { e.preventDefault(); root.querySelector('[data-act="setTarget"]')?.click(); }
       else if ((e.target.id === 'collectionName' || e.target.id === 'collectionEditName') && e.key === 'Enter') {
         e.preventDefault(); root.querySelector(`[data-act="${e.target.id === 'collectionName' ? 'createCollection' : 'saveCollection'}"]`)?.click();
       }
@@ -2306,6 +2335,7 @@ svg text{font-family:inherit}
     root.addEventListener('change', e => {
       const t = e.target, st = Store.get().settings;
       if (t.dataset.sel === 'cand') { App.pickCandidate(t.value); return; }
+      else if (t.id === 'tgt') return;
       else if (t.dataset.sel === 'collection') { const product = Store.get().products[t.dataset.key]; if (product) product.collectionId = t.value || ''; Store.save(); return render(); }
       else if (t.dataset.sel === 'snappCity') {
         st.snappCity = Sources.snappshop.cities[t.value] ? t.value : 'tehran'; Store.save();
@@ -2370,7 +2400,7 @@ const Main = (() => {
     };
     const run = () => { try { check(); } catch (e) { Log.error('main', e.message); } };
     setTimeout(run, 600); setInterval(run, 1500);
-    Log.info('main', 'تخفیف‌سنج 15.2.29 آماده شد');
+    Log.info('main', 'تخفیف‌سنج 15.2.30 آماده شد');
   }
   return { init };
 })();

@@ -330,6 +330,33 @@ test('UI: exactly ONE panel host, mount is idempotent, every tab renders, legacy
   for (const score of root.querySelectorAll('.tb .match-score')) assert.match(score.textContent, /^[۰-۹]+٪$/);
 });
 
+test('UI: target price is Persian and grouped; blur does not cancel its save click', () => {
+  const { api, w } = makeEnv();
+  api.Store.load();
+  const key = 'digikala.com:price-input-test';
+  api.Store.touchProduct(key, { host: 'digikala.com', pid: 'price-input-test', title: 'محصول آزمایشی', url: 'https://www.digikala.com/product/test/' });
+  api.Store.get().settings.tab = 'watch';
+  api.App.state.key = key;
+  api.App.state.product = { key, title: 'محصول آزمایشی', price: 1000000 };
+  api.UI.mount();
+  const root = w.document.getElementById('ghafel-pro-host').shadowRoot;
+  const input = root.querySelector('#tgt'), saveButton = root.querySelector('[data-act="setTarget"]');
+  assert.equal(input.type, 'text');
+  assert.equal(input.getAttribute('inputmode'), 'numeric');
+  assert.ok(saveButton.querySelector('svg').innerHTML, 'Solar Check icon should be visible');
+  input.value = '22222222';
+  input.setSelectionRange(input.value.length, input.value.length);
+  input.dispatchEvent(new w.Event('input', { bubbles: true }));
+  assert.equal(input.value, '۲۲٬۲۲۲٬۲۲۲');
+  input.dispatchEvent(new w.Event('change', { bubbles: true }));
+  assert.equal(root.querySelector('#tgt'), input, 'blur should not replace the form before the click');
+  saveButton.click();
+  assert.equal(api.Store.get().products[key].target, 22222222);
+  assert.equal(api.Store.get().products[key].watch, true);
+  assert.match(root.querySelector('.banner').textContent, /۲۲٬۲۲۲٬۲۲۲/);
+  w.close();
+});
+
 test('alerts: fires once per drop under target, not above, not repeatedly', () => {
   const { api } = makeEnv(); api.Store.load(); const p = api.Store.touchProduct('a', { watch: true, target: 1000, title: 'x', url: 'https://x' });
   assert.equal(api.Alerts.evaluate(p, 1200), false); assert.equal(api.Alerts.evaluate(p, 950), true); assert.equal(api.Alerts.evaluate(p, 950), false); assert.equal(api.Alerts.evaluate(p, 900), true);
