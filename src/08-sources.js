@@ -3,6 +3,11 @@ const Sources = (() => {
   const TOROB_REF = 'https://torob.com/';
   const DK_REF = 'https://www.digikala.com/';
   const SEARCH_QUERY_NOISE = new Set(['مخصوص', 'مدل', 'قیمت', 'خرید', 'ارزان', 'ارزانترین', 'اورجینال', 'اصل', 'مناسب', 'و', 'با', 'از', 'برای', 'در', 'به']);
+  // Torob appends VAR-* catalog identifiers to some titles. These identify
+  // Torob records, not shopper-facing models or variants, so ignore them in
+  // matching, deduplication, and the visible candidate title.
+  const candidateTitle = r => [r?.name1, r?.name2].filter(Boolean).join(' ')
+    .replace(/\bVAR[\s._-]*\d+\b/gi, ' ').replace(/\s+/g, ' ').trim();
   // Origin is a forbidden header for GM requests; cookies are sent (anonymous:false) so Digikala's CDN accepts the call; page fetch is the fallback.
   const DK_OPTS = { referer: DK_REF, headers: { 'x-web-client': 'desktop', 'x-web-client-id': 'web' }, anonymous: false, pageFetchFallback: true };
   // Torob can attach an unrelated marketplace page to an otherwise relevant base product.
@@ -47,8 +52,9 @@ const Sources = (() => {
         : [core, U.tokens(core).slice(0, 5).join(' '), shortEnglish];
       return [...new Set(candidates.map(x => String(x || '').trim()).filter(Boolean))].slice(0, 4);
     },
+    candidateTitle,
     candidateProfile(r) {
-      const title = [r?.name1, r?.name2].filter(Boolean).join(' ');
+      const title = torob.candidateTitle(r);
       const normalized = U.normalize(title), codes = Match.modelCodes(title);
       const tokens = [...new Set(normalized.split(' ').filter(token => token && !U.STOP.has(token)))];
       const codeParts = new Set(tokens.filter(token => {
@@ -122,7 +128,7 @@ const Sources = (() => {
     },
     // Evaluate against every known title of the product (page title + Digikala official titles) and keep the best verdict.
     evalCand(prod, r) {
-      const ct = r.name1 + ' ' + (r.name2 || '');
+      const ct = torob.candidateTitle(r);
       // Check model/spec contradictions before token coverage: long page headings may have low overlap.
       const titles = torob.titles(prod);
       const aliases = Array.isArray(prod.brandAliases) ? prod.brandAliases : [prod.brandAliases];
@@ -135,7 +141,7 @@ const Sources = (() => {
       return [primary, ...alternatives].filter(ev => ev.ok).sort((a, b) => b.score - a.score)[0] || primary;
     },
     async sellers(prod, base, ev, searchId) {
-      const baseTitle = base.name1 + ' ' + (base.name2 || '');
+      const baseTitle = torob.candidateTitle(base);
       const params = new URLSearchParams({ source: 'next_mobile', discover_method: 'direct', prk: base.random_key, list_type: 'products_info' });
       if (searchId) params.set('search_id', searchId);
       const res = await Net.json('https://api.torob.com/v4/base-product/sellers/?' + params, { referer: TOROB_REF, timeout: 15000, anonymous: true });
@@ -190,7 +196,7 @@ const Sources = (() => {
           const candidate = { r, ev: torob.evalCand(prod, r), searchId: res.searchId, q: item.q, queryIndex: item.index };
           if (!candidate.ev.ok || candidate.ev.level === 'low') {
             rejected.add(r.random_key);
-            if (candidate.ev.flags.some(flag => ['model-mismatch', 'spec-mismatch', 'brand-mismatch', 'category-mismatch', 'category-unverified', 'low-context', 'low-coverage'].includes(flag)) && nearMiss.size < 8 && !nearMiss.has(r.random_key)) nearMiss.set(r.random_key, { title: r.name1 + ' ' + (r.name2 || ''), reason: candidate.ev.reasons[0] });
+            if (candidate.ev.flags.some(flag => ['model-mismatch', 'spec-mismatch', 'brand-mismatch', 'category-mismatch', 'category-unverified', 'low-context', 'low-coverage'].includes(flag)) && nearMiss.size < 8 && !nearMiss.has(r.random_key)) nearMiss.set(r.random_key, { title: torob.candidateTitle(r), reason: candidate.ev.reasons[0] });
             continue;
           }
           const current = byKey.get(r.random_key);
@@ -205,10 +211,10 @@ const Sources = (() => {
       const misses = [...nearMiss.values()].slice(0, 3);
       if (!ok.length) return { status: 'no-match', offers: [], note: 'محصول مطابقی در ترب با اطمینان کافی پیدا نشد (' + tried.length + ' جست‌وجو)', nearMiss: misses, rejected: rejected.size, tried, candidates: [], query: tried[0] || '' };
       const pick = (pickKey && ok.find(x => x.r.random_key === pickKey)) || ok[0], base = pick.r;
-      const baseTitle = base.name1 + ' ' + (base.name2 || '');
+      const baseTitle = torob.candidateTitle(base);
       Log.info('torob', `محصول انتخاب‌شده: ${baseTitle} [${pick.ev.level} ${pick.ev.score}]`);
       const offers = await torob.sellers(prod, base, pick.ev, pick.searchId);
-      const candidates = ok.slice(0, 6).map(x => ({ key: x.r.random_key, title: x.r.name1 + ' ' + (x.r.name2 || ''), price: Number(x.r.price), level: x.ev.level }));
+      const candidates = ok.slice(0, 6).map(x => ({ key: x.r.random_key, title: torob.candidateTitle(x.r), price: Number(x.r.price), level: x.ev.level }));
       return { status: offers.length ? 'ok' : 'empty', offers, note: baseTitle, nearMiss: misses, rejected: rejected.size, tried, candidates, chosenKey: base.random_key, query: pick.q };
     }
   };

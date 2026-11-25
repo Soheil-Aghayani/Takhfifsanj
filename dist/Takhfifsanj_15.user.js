@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         تخفیف‌سنج
 // @namespace    ghafel-com-pro
-// @version      15.2.35
+// @version      15.2.37
 // @description  مقایسهٔ قیمت فروشندگان، تاریخچهٔ قیمت دیجی‌کالا، بازرس تخفیف، واچ‌لیست و هشدار قیمت
 // @author       GHAFEL_com (Original Creator)
 // @contributor  RealMahdi_a (Upgrade & Development)
@@ -22,7 +22,7 @@
 // @noframes
 // @run-at       document-idle
 // ==/UserScript==
-/* تخفیف‌سنج 15.2.35 — Original Creator: GHAFEL_com (https://t.me/GHAFEL_com) · Upgrade & Development: RealMahdi_a (https://t.me/RealMahdi_a) · Website: https://aqilistudio.ir/
+/* تخفیف‌سنج 15.2.37 — Original Creator: GHAFEL_com (https://t.me/GHAFEL_com) · Upgrade & Development: RealMahdi_a (https://t.me/RealMahdi_a) · Website: https://aqilistudio.ir/
    Built from readable modules in /src. The 8.7 engine logic is preserved in src/06-extract.js (extraction),
    src/07-match.js (baseline rule) and src/08-sources.js (Torob flow). */
 (function () {
@@ -605,6 +605,7 @@ const Match = (() => {
   const UNITS = [['gb', /گیگابایت|گیگ|gb/], ['tb', /ترابایت|tb/], ['ml', /میلی ?لیتر|ml/], ['l', /لیتر/], ['kg', /کیلوگرم|کیلو|kg/], ['g', /گرم|gr|(?<![a-z])g(?![a-z])/], ['mah', /mah|میلی ?آمپر/], ['w', /وات|(?<![a-z])w(?![a-z])/], ['inch', /اینچ|inch/], ['cm', /سانتی ?متر|cm/], ['mm', /میلی ?متر|mm/]];
   const BRAND_FAMILIES = [
     ['romoss', ['romoss', 'روموس', 'رومس']], ['baseus', ['baseus', 'باسئوس', 'بیسوس']],
+    ['sadoer', ['sadoer', 'سادور', 'سادوئر']],
     ['hiska', ['hiska', 'هیسکا']], ['onikuma', ['onikuma', 'اونیکوما', 'آنیکوما']],
     ['mcdodo', ['mcdodo', 'مک دودو', 'مک‌دودو']], ['anker', ['anker', 'انکر']],
     ['xiaomi', ['xiaomi', 'شیائومی', 'شیاومی']], ['samsung', ['samsung', 'سامسونگ']],
@@ -708,6 +709,11 @@ const Sources = (() => {
   const TOROB_REF = 'https://torob.com/';
   const DK_REF = 'https://www.digikala.com/';
   const SEARCH_QUERY_NOISE = new Set(['مخصوص', 'مدل', 'قیمت', 'خرید', 'ارزان', 'ارزانترین', 'اورجینال', 'اصل', 'مناسب', 'و', 'با', 'از', 'برای', 'در', 'به']);
+  // Torob appends VAR-* catalog identifiers to some titles. These identify
+  // Torob records, not shopper-facing models or variants, so ignore them in
+  // matching, deduplication, and the visible candidate title.
+  const candidateTitle = r => [r?.name1, r?.name2].filter(Boolean).join(' ')
+    .replace(/\bVAR[\s._-]*\d+\b/gi, ' ').replace(/\s+/g, ' ').trim();
   // Origin is a forbidden header for GM requests; cookies are sent (anonymous:false) so Digikala's CDN accepts the call; page fetch is the fallback.
   const DK_OPTS = { referer: DK_REF, headers: { 'x-web-client': 'desktop', 'x-web-client-id': 'web' }, anonymous: false, pageFetchFallback: true };
   // Torob can attach an unrelated marketplace page to an otherwise relevant base product.
@@ -752,8 +758,9 @@ const Sources = (() => {
         : [core, U.tokens(core).slice(0, 5).join(' '), shortEnglish];
       return [...new Set(candidates.map(x => String(x || '').trim()).filter(Boolean))].slice(0, 4);
     },
+    candidateTitle,
     candidateProfile(r) {
-      const title = [r?.name1, r?.name2].filter(Boolean).join(' ');
+      const title = torob.candidateTitle(r);
       const normalized = U.normalize(title), codes = Match.modelCodes(title);
       const tokens = [...new Set(normalized.split(' ').filter(token => token && !U.STOP.has(token)))];
       const codeParts = new Set(tokens.filter(token => {
@@ -827,7 +834,7 @@ const Sources = (() => {
     },
     // Evaluate against every known title of the product (page title + Digikala official titles) and keep the best verdict.
     evalCand(prod, r) {
-      const ct = r.name1 + ' ' + (r.name2 || '');
+      const ct = torob.candidateTitle(r);
       // Check model/spec contradictions before token coverage: long page headings may have low overlap.
       const titles = torob.titles(prod);
       const aliases = Array.isArray(prod.brandAliases) ? prod.brandAliases : [prod.brandAliases];
@@ -840,7 +847,7 @@ const Sources = (() => {
       return [primary, ...alternatives].filter(ev => ev.ok).sort((a, b) => b.score - a.score)[0] || primary;
     },
     async sellers(prod, base, ev, searchId) {
-      const baseTitle = base.name1 + ' ' + (base.name2 || '');
+      const baseTitle = torob.candidateTitle(base);
       const params = new URLSearchParams({ source: 'next_mobile', discover_method: 'direct', prk: base.random_key, list_type: 'products_info' });
       if (searchId) params.set('search_id', searchId);
       const res = await Net.json('https://api.torob.com/v4/base-product/sellers/?' + params, { referer: TOROB_REF, timeout: 15000, anonymous: true });
@@ -895,7 +902,7 @@ const Sources = (() => {
           const candidate = { r, ev: torob.evalCand(prod, r), searchId: res.searchId, q: item.q, queryIndex: item.index };
           if (!candidate.ev.ok || candidate.ev.level === 'low') {
             rejected.add(r.random_key);
-            if (candidate.ev.flags.some(flag => ['model-mismatch', 'spec-mismatch', 'brand-mismatch', 'category-mismatch', 'category-unverified', 'low-context', 'low-coverage'].includes(flag)) && nearMiss.size < 8 && !nearMiss.has(r.random_key)) nearMiss.set(r.random_key, { title: r.name1 + ' ' + (r.name2 || ''), reason: candidate.ev.reasons[0] });
+            if (candidate.ev.flags.some(flag => ['model-mismatch', 'spec-mismatch', 'brand-mismatch', 'category-mismatch', 'category-unverified', 'low-context', 'low-coverage'].includes(flag)) && nearMiss.size < 8 && !nearMiss.has(r.random_key)) nearMiss.set(r.random_key, { title: torob.candidateTitle(r), reason: candidate.ev.reasons[0] });
             continue;
           }
           const current = byKey.get(r.random_key);
@@ -910,10 +917,10 @@ const Sources = (() => {
       const misses = [...nearMiss.values()].slice(0, 3);
       if (!ok.length) return { status: 'no-match', offers: [], note: 'محصول مطابقی در ترب با اطمینان کافی پیدا نشد (' + tried.length + ' جست‌وجو)', nearMiss: misses, rejected: rejected.size, tried, candidates: [], query: tried[0] || '' };
       const pick = (pickKey && ok.find(x => x.r.random_key === pickKey)) || ok[0], base = pick.r;
-      const baseTitle = base.name1 + ' ' + (base.name2 || '');
+      const baseTitle = torob.candidateTitle(base);
       Log.info('torob', `محصول انتخاب‌شده: ${baseTitle} [${pick.ev.level} ${pick.ev.score}]`);
       const offers = await torob.sellers(prod, base, pick.ev, pick.searchId);
-      const candidates = ok.slice(0, 6).map(x => ({ key: x.r.random_key, title: x.r.name1 + ' ' + (x.r.name2 || ''), price: Number(x.r.price), level: x.ev.level }));
+      const candidates = ok.slice(0, 6).map(x => ({ key: x.r.random_key, title: torob.candidateTitle(x.r), price: Number(x.r.price), level: x.ev.level }));
       return { status: offers.length ? 'ok' : 'empty', offers, note: baseTitle, nearMiss: misses, rejected: rejected.size, tried, candidates, chosenKey: base.random_key, query: pick.q };
     }
   };
@@ -1520,7 +1527,7 @@ const Exporter = (() => {
     for (const x of (p?.local || [])) rows.push([key, p?.title || '', new Date(x.t).toISOString(), x.p, 'local', x.src || 'local']);
     return rows.map(r => r.map(q).join(',')).join('\n');
   }
-  const jsonAll = extra => JSON.stringify({ app: 'تخفیف‌سنج 15.2.35', exportedAt: new Date().toISOString(), db: Store.get(), ...extra }, null, 2);
+  const jsonAll = extra => JSON.stringify({ app: 'تخفیف‌سنج 15.2.37', exportedAt: new Date().toISOString(), db: Store.get(), ...extra }, null, 2);
   function parseCsv(text) {
     const out = []; const lines = String(text || '').replace(/^\uFEFF/, '').split(/\r?\n/).filter(Boolean); if (!lines.length) return out;
     const head = lines[0].toLowerCase().split(',').map(s => s.trim().replace(/"/g, ''));
@@ -2540,7 +2547,7 @@ const Main = (() => {
     };
     const run = () => { try { check(); } catch (e) { Log.error('main', e.message); } };
     setTimeout(run, 600); setInterval(run, 1500);
-    Log.info('main', 'تخفیف‌سنج 15.2.35 آماده شد');
+    Log.info('main', 'تخفیف‌سنج 15.2.37 آماده شد');
   }
   return { init };
 })();
