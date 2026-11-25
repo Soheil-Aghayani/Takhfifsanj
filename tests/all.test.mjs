@@ -129,6 +129,14 @@ test('extract (8.7 port) on Digikala-like buy box: price from buy bar, struck pr
   assert.ok(p.title.includes('YRB/22')); assert.equal(api.Extract.looksLikeProductPage(), true);
 });
 
+test('extract: ignores the cheaper-price banner and keeps the product price', () => {
+  const html = BUYBOX.replace('<div><span>۲,۲۰۰,۰۰۰</span>', '<div>این کالا را «۲۳۷,۰۰۰ تومان» ارزان‌تر بخرید</div><div><span>۱۱,۲۳۷,۰۰۰</span>');
+  const { api, w } = makeEnv(html);
+  const p = api.Extract.product(w.document);
+  assert.equal(p.price, 11237000);
+  assert.equal(p.priceSource, 'نوار خرید');
+});
+
 test('extract: JSON-LD unit reconciliation (rial vs toman) like 8.7', () => {
   const { api } = makeEnv();
   const R = (a, b) => JSON.stringify(api.Extract.reconcileJsonLd(a, b));
@@ -438,6 +446,20 @@ test('torob: searches every query, deduplicates product candidates and reports t
   const identity = api.Sources.torob.candidateIdentity;
   assert.equal(identity({ name1: 'اسپیکر JBL Clip 5', name2: '' }), identity({ name1: 'JBL Clip5', name2: 'اسپیکر' }));
   assert.notEqual(identity({ name1: 'محصول مدل 5', name2: '' }), identity({ name1: 'محصول مدل 6', name2: '' }));
+  const sameJbl = { name1: 'اسپیکر بلوتوثی قابل حمل جی بی ال مدل JBL Clip 5', name2: 'مشکی' };
+  const duplicateJbl = { name1: 'JBL Clip5 Portable Bluetooth Speaker', name2: 'اسپیکر بلوتوثی مشکی' };
+  assert.equal(api.Sources.torob.sameCandidateProduct(sameJbl, duplicateJbl), true);
+  assert.equal(api.Sources.torob.sameCandidateProduct(sameJbl, { ...duplicateJbl, name1: 'JBL Clip6 Portable Bluetooth Speaker' }), false);
+  assert.equal(api.Sources.torob.sameCandidateProduct(sameJbl, { ...duplicateJbl, name2: 'اسپیکر بلوتوثی سفید' }), false);
+  assert.equal(api.Sources.torob.sameCandidateProduct(sameJbl, { name1: 'JBL Clip5 Portable Bluetooth Speaker', name2: '' }), false);
+  assert.equal(api.Sources.torob.sameCandidateProduct(
+    { name1: 'اسپیکر بلوتوثی قابل حمل جی بی ال مدل Clip5 Pro', name2: '' },
+    { name1: 'اسپیکر بلوتوثی قابل حمل جی بی ال مدل Clip5', name2: '' }
+  ), false);
+  assert.equal(api.Sources.torob.sameCandidateProduct(
+    { name1: 'گوشی سامسونگ Galaxy A26 ظرفیت 128 گیگابایت', name2: '' },
+    { name1: 'گوشی سامسونگ Galaxy A26 ظرفیت 256 گیگابایت', name2: '' }
+  ), false);
   api.Store.load(); torobOnly(api); await api.App.refreshProduct(); await api.App.runCompare();
   const t = api.App.state.sources.torob; assert.equal(t.status, 'ok'); assert.ok(t.tried.length > 1); assert.equal(urls.filter(u => u.includes('base-product/search')).length, t.tried.length); assert.ok(t.tried.some(q => /آپولو|apollo/i.test(q))); assert.match(t.query, /yrb22/); assert.equal(t.candidates.length, 2); assert.equal(t.candidates.filter(c => c.title.includes('مشکی')).length, 1); assert.equal(t.candidates.filter(c => c.title.includes('سفید')).length, 1); assert.equal(api.App.state.offers.length, 3); w.close();
 });

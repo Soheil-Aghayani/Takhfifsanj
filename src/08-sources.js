@@ -47,18 +47,73 @@ const Sources = (() => {
         : [core, U.tokens(core).slice(0, 5).join(' '), shortEnglish];
       return [...new Set(candidates.map(x => String(x || '').trim()).filter(Boolean))].slice(0, 4);
     },
+    candidateProfile(r) {
+      const title = [r?.name1, r?.name2].filter(Boolean).join(' ');
+      const normalized = U.normalize(title), codes = Match.modelCodes(title);
+      const tokens = [...new Set(normalized.split(' ').filter(token => token && !U.STOP.has(token)))];
+      const codeParts = new Set(tokens.filter(token => {
+        const part = token.replace(/[^a-z0-9]/g, '');
+        return part && codes.some(code => code.includes(part));
+      }));
+      const colors = [
+        ['black', ['مشکی', 'black']], ['white', ['سفید', 'white']],
+        ['gray', ['طوسی', 'خاکستری', 'نقره ای', 'gray', 'grey', 'silver']],
+        ['red', ['قرمز', 'red']], ['blue', ['آبی', 'blue']],
+        ['navy', ['سرمه ای', 'navy']], ['green', ['سبز', 'green']],
+        ['olive', ['زیتونی', 'ارتشی', 'olive', 'army green']],
+        ['salmon', ['کالباسی', 'مرجانی', 'salmon', 'coral']],
+        ['pink', ['صورتی', 'pink']], ['purple', ['بنفش', 'purple']],
+        ['gold', ['طلایی', 'gold']], ['brown', ['قهوه ای', 'brown']],
+        ['beige', ['کرم', 'بژ', 'beige']]
+      ];
+      const suffixes = ['pro', 'plus', 'lite', 'max', 'ultra', 'mini', 'neo', 'air', 'se', 'fe', 'پرو', 'پلاس', 'لایت', 'مکس', 'اولترا', 'مینی', 'نیو', 'ایر'];
+      const hasPhrase = phrase => (' ' + normalized + ' ').includes(' ' + U.normalize(phrase) + ' ');
+      return {
+        title, codes,
+        tokens: new Set([...tokens.filter(token => !codeParts.has(token)), ...codes]),
+        plainTokens: new Set(tokens.filter(token => !codeParts.has(token))),
+        colors: new Set(colors.filter(([, aliases]) => aliases.some(hasPhrase)).map(([id]) => id)),
+        suffixes: new Set(suffixes.filter(hasPhrase)),
+        brands: new Set(Match.brandFamilies(title)),
+        types: new Set(Match.productTypes(title)),
+        specs: Match.specs(title)
+      };
+    },
     candidateIdentity(r) {
       // Torob may return the same base product under different random_keys and
       // title word order across the search ladder. Compare normalized token sets
       // so punctuation, duplicate words, and filler such as «مدل» do not create
       // duplicate choices; meaningful color/model/spec tokens remain distinct.
-      const title = [r?.name1, r?.name2].filter(Boolean).join(' '), codes = Match.modelCodes(title);
-      const tokens = [...new Set(U.normalize(title).split(' ').filter(token => token && !U.STOP.has(token)))];
-      const codeParts = new Set(tokens.filter(token => {
-        const part = token.replace(/[^a-z0-9]/g, '');
-        return part && codes.some(code => code.includes(part));
-      }));
-      return [...new Set([...tokens.filter(token => !codeParts.has(token)), ...codes])].sort().join(' ');
+      return [...torob.candidateProfile(r).tokens].sort().join(' ');
+    },
+    sameCandidateProduct(a, b) {
+      if (torob.candidateIdentity(a) === torob.candidateIdentity(b)) return true;
+      const x = torob.candidateProfile(a), y = torob.candidateProfile(b);
+      const overlaps = (left, right) => [...left].filter(value => right.has(value));
+      const compatibleCodes = (left, right) => left === right || (Math.min(left.length, right.length) >= 4 && (left.endsWith(right) || right.endsWith(left)));
+      const codeOverlap = x.codes.some(aCode => y.codes.some(bCode => compatibleCodes(aCode, bCode)));
+      if (x.codes.length && y.codes.length && !codeOverlap) return false;
+      if (x.brands.size && y.brands.size && !overlaps(x.brands, y.brands).length) return false;
+      if (x.types.size && y.types.size && !overlaps(x.types, y.types).length) return false;
+      if ((x.colors.size || y.colors.size) && !overlaps(x.colors, y.colors).length) return false;
+      if ((x.suffixes.size || y.suffixes.size) && !overlaps(x.suffixes, y.suffixes).length) return false;
+      for (const unit of new Set([...Object.keys(x.specs), ...Object.keys(y.specs)])) {
+        const aValues = x.specs[unit], bValues = y.specs[unit];
+        if (aValues && bValues && ![...aValues].some(value => bValues.has(value))) return false;
+      }
+
+      const shared = overlaps(x.plainTokens, y.plainTokens).length;
+      const smaller = Math.min(x.plainTokens.size, y.plainTokens.size);
+      const union = new Set([...x.plainTokens, ...y.plainTokens]).size;
+      const containment = smaller ? shared / smaller : 0;
+      const jaccard = union ? shared / union : 0;
+      const sameType = overlaps(x.types, y.types).length > 0;
+      // A compatible model code plus matching product type is stronger than
+      // small title wording changes between Torob's search queries.
+      if (codeOverlap && sameType && shared >= 2) return true;
+      // Without that anchor, require near two-way title similarity so unrelated
+      // products and vague short titles are not collapsed together.
+      return shared >= 3 && containment >= 0.9 && jaccard >= 0.78;
     },
     async search(q) {
       const e = encodeURIComponent(q);
@@ -143,13 +198,11 @@ const Sources = (() => {
         }
       }
       if (!successfulSearches && firstError) throw firstError;
-      const byIdentity = new Map();
-      for (const candidate of byKey.values()) {
-        const identity = torob.candidateIdentity(candidate.r);
-        const current = byIdentity.get(identity);
-        if (!current || compareCandidates(candidate, current) < 0) byIdentity.set(identity, candidate);
+      const ok = [];
+      for (const candidate of [...byKey.values()].sort(compareCandidates)) {
+        if (!ok.some(current => torob.sameCandidateProduct(current.r, candidate.r))) ok.push(candidate);
       }
-      const ok = [...byIdentity.values()].sort(compareCandidates), misses = [...nearMiss.values()].slice(0, 3);
+      const misses = [...nearMiss.values()].slice(0, 3);
       if (!ok.length) return { status: 'no-match', offers: [], note: 'محصول مطابقی در ترب با اطمینان کافی پیدا نشد (' + tried.length + ' جست‌وجو)', nearMiss: misses, rejected: rejected.size, tried, candidates: [], query: tried[0] || '' };
       const pick = (pickKey && ok.find(x => x.r.random_key === pickKey)) || ok[0], base = pick.r;
       const baseTitle = base.name1 + ' ' + (base.name2 || '');

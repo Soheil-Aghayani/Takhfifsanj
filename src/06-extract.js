@@ -99,6 +99,8 @@ const Extract = (() => {
 
   // ---- DOM price heuristics (same order & thresholds as 8.7) ----
   const SELLER_BLOCK = "[data-testid*='seller'], [class*='seller'], [class*='related'], [class*='similar']";
+  const NON_PRICE_CONTEXT = /ارزان|گران|صرفه.?جویی|تخفیف|پیشنهاد|قسط|اقساط|ماه|سود|بخرید|اعتبار|ارسال|تحویل|روز کاری/i;
+  const priceRelevantLines = text => String(text || '').split(/\r?\n/).filter(line => !NON_PRICE_CONTEXT.test(line)).join('\n');
   function buyBarPrice() {
     const btns = [...document.querySelectorAll('button, a, div, span')].filter(e => {
       if (e.children.length > 4) return false; const t = (e.innerText || '').trim(); return t.length > 0 && t.length < 30 && /افزودن به سبد/.test(t);
@@ -107,7 +109,11 @@ const Extract = (() => {
       let p = b.parentElement;
       for (let i = 0; i < 6 && p; i++, p = p.parentElement) {
         const txt = p.innerText || ''; if (txt.length > 500) break;
-        const struck = struckNumbers(p), cand = U.numbersIn(txt).filter(v => v >= 10000 && !struck.has(v));
+        // The buy box can include non-price notices (for example, "buy this
+        // product 237,000 toman cheaper"). Never let those smaller amounts
+        // win merely because this heuristic takes the minimum candidate.
+        const relevant = priceRelevantLines(txt), struck = struckNumbers(p);
+        const cand = U.numbersIn(relevant).filter(v => v >= 10000 && !struck.has(v));
         if (cand.length) return Math.min(...cand);
       }
     }
@@ -157,7 +163,7 @@ const Extract = (() => {
       let p = b;
       for (let i = 0; i < 8 && p; i++) {
         const t = p.innerText || '';
-        if (t.length < 400) { const a = U.pricesWithCurrency(t.split('\n').filter(l => !/ارزان|گران|تخفیف|پیشنهاد|قسط|ماه|سود|بخرید|اعتبار/.test(l)).join('\n')); if (a.length) return Math.min(...a); }
+        if (t.length < 400) { const a = U.pricesWithCurrency(priceRelevantLines(t)); if (a.length) return Math.min(...a); }
         p = p.parentElement;
       }
     }
