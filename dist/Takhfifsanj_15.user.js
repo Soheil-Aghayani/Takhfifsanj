@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         تخفیف‌سنج
 // @namespace    ghafel-com-pro
-// @version      15.2.34
+// @version      15.2.35
 // @description  مقایسهٔ قیمت فروشندگان، تاریخچهٔ قیمت دیجی‌کالا، بازرس تخفیف، واچ‌لیست و هشدار قیمت
 // @author       GHAFEL_com (Original Creator)
 // @contributor  RealMahdi_a (Upgrade & Development)
@@ -22,7 +22,7 @@
 // @noframes
 // @run-at       document-idle
 // ==/UserScript==
-/* تخفیف‌سنج 15.2.34 — Original Creator: GHAFEL_com (https://t.me/GHAFEL_com) · Upgrade & Development: RealMahdi_a (https://t.me/RealMahdi_a) · Website: https://aqilistudio.ir/
+/* تخفیف‌سنج 15.2.35 — Original Creator: GHAFEL_com (https://t.me/GHAFEL_com) · Upgrade & Development: RealMahdi_a (https://t.me/RealMahdi_a) · Website: https://aqilistudio.ir/
    Built from readable modules in /src. The 8.7 engine logic is preserved in src/06-extract.js (extraction),
    src/07-match.js (baseline rule) and src/08-sources.js (Torob flow). */
 (function () {
@@ -441,11 +441,29 @@ const Extract = (() => {
   const SELLER_BLOCK = "[data-testid*='seller'], [class*='seller'], [class*='related'], [class*='similar']";
   const NON_PRICE_CONTEXT = /ارزان|گران|صرفه.?جویی|تخفیف|پیشنهاد|قسط|اقساط|ماه|سود|بخرید|اعتبار|ارسال|تحویل|روز کاری/i;
   const priceRelevantLines = text => String(text || '').split(/\r?\n/).filter(line => !NON_PRICE_CONTEXT.test(line)).join('\n');
+  const cartButtons = () => [...document.querySelectorAll('button, a, div, span')].filter(e => {
+    if (e.children.length > 4) return false;
+    const text = (e.innerText || '').trim();
+    return text.length > 0 && text.length < 30 && /افزودن به سبد/.test(text);
+  });
+  function digikalaBuyBoxPrice() {
+    if (location.hostname.toLowerCase().replace(/^www\./, '') !== 'digikala.com') return null;
+    for (const button of cartButtons()) {
+      let parent = button;
+      for (let i = 0; i < 6 && parent; i++, parent = parent.parentElement) {
+        if ((parent.innerText || '').length > 500) break;
+        const marker = parent.querySelector('[data-testid="price-final"], [data-testid="price-current"]');
+        if (!marker) continue;
+        const text = marker.innerText || marker.textContent || '';
+        const candidates = U.pricesWithCurrency(text + ' تومان');
+        const price = candidates[0] || Number(U.digits(text).replace(/\D/g, ''));
+        if (price >= 10000) return price;
+      }
+    }
+    return null;
+  }
   function buyBarPrice() {
-    const btns = [...document.querySelectorAll('button, a, div, span')].filter(e => {
-      if (e.children.length > 4) return false; const t = (e.innerText || '').trim(); return t.length > 0 && t.length < 30 && /افزودن به سبد/.test(t);
-    });
-    for (const b of btns) {
+    for (const b of cartButtons()) {
       let p = b.parentElement;
       for (let i = 0; i < 6 && p; i++, p = p.parentElement) {
         const txt = p.innerText || ''; if (txt.length > 500) break;
@@ -461,8 +479,7 @@ const Extract = (() => {
   }
   // The struck-through "old price" inside the buy box (claimed pre-discount price)
   function claimedOldPrice(current) {
-    const btns = [...document.querySelectorAll('button, a, div, span')].filter(e => e.children.length <= 4 && /افزودن به سبد/.test((e.innerText || '').trim()) && (e.innerText || '').trim().length < 30);
-    for (const b of btns) {
+    for (const b of cartButtons()) {
       let p = b.parentElement;
       for (let i = 0; i < 6 && p; i++, p = p.parentElement) {
         const txt = p.innerText || ''; if (txt.length > 500) break;
@@ -530,8 +547,10 @@ const Extract = (() => {
     for (const c of cands) { const cn = U.normalize(c); if (nn && cn.length > nn.length && cn.includes(nn) && c.length <= 120) { name = c; break; } }
 
     let price = null, src = '';
-    const visible = buyBarPrice(), rec = reconcileJsonLd(ld, visible);
-    if (rec) { price = rec.price; src = 'JSON-LD' + rec.note; }
+    const buyBoxPrice = digikalaBuyBoxPrice();
+    const visible = buyBoxPrice || buyBarPrice(), rec = reconcileJsonLd(ld, visible);
+    if (buyBoxPrice) { price = buyBoxPrice; src = 'data-testid'; }
+    else if (rec) { price = rec.price; src = 'JSON-LD' + rec.note; }
     if (!price && visible) { price = visible; src = 'نوار خرید'; }
     if (!price) { const v = Number(meta('meta[property="product:price:amount"]').replace(/[^\d]/g, '')); if (v > 0) { price = v; src = 'متای صفحه'; } }
     if (!price) { const v = testIdPrice(); if (v) { price = v; src = 'data-testid'; } }
@@ -1501,7 +1520,7 @@ const Exporter = (() => {
     for (const x of (p?.local || [])) rows.push([key, p?.title || '', new Date(x.t).toISOString(), x.p, 'local', x.src || 'local']);
     return rows.map(r => r.map(q).join(',')).join('\n');
   }
-  const jsonAll = extra => JSON.stringify({ app: 'تخفیف‌سنج 15.2.34', exportedAt: new Date().toISOString(), db: Store.get(), ...extra }, null, 2);
+  const jsonAll = extra => JSON.stringify({ app: 'تخفیف‌سنج 15.2.35', exportedAt: new Date().toISOString(), db: Store.get(), ...extra }, null, 2);
   function parseCsv(text) {
     const out = []; const lines = String(text || '').replace(/^\uFEFF/, '').split(/\r?\n/).filter(Boolean); if (!lines.length) return out;
     const head = lines[0].toLowerCase().split(',').map(s => s.trim().replace(/"/g, ''));
@@ -2521,7 +2540,7 @@ const Main = (() => {
     };
     const run = () => { try { check(); } catch (e) { Log.error('main', e.message); } };
     setTimeout(run, 600); setInterval(run, 1500);
-    Log.info('main', 'تخفیف‌سنج 15.2.34 آماده شد');
+    Log.info('main', 'تخفیف‌سنج 15.2.35 آماده شد');
   }
   return { init };
 })();

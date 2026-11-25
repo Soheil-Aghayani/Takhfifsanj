@@ -137,6 +137,21 @@ test('extract: ignores the cheaper-price banner and keeps the product price', ()
   assert.equal(p.priceSource, 'نوار خرید');
 });
 
+test('extract: Digikala nested savings banner cannot replace the current buy-box price', () => {
+  const html = `<html><body><h1>اسپیکر بلوتوثی قابل حمل جی بی ال مدل Clip5</h1>
+  <div id="buy">
+    <div class="savings"><span>این کالا را «<div>۲۳۷,۰۰۰ تومان</div>» ارزان‌تر بخرید</span></div>
+    <div class="prices"><span class="line-through" data-testid="price-no-discount">۱۲,۷۶۹,۳۰۰</span>
+      <span>۱۲٪</span><span data-testid="price-final"><div>۱۱,۲۳۷,۰۰۰</div></span></div>
+    <button>افزودن به سبد خرید</button>
+  </div></body></html>`;
+  const { api, w } = makeEnv(html);
+  const p = api.Extract.product(w.document);
+  assert.equal(p.price, 11237000);
+  assert.equal(p.oldPrice, 12769300);
+  assert.equal(p.priceSource, 'data-testid');
+});
+
 test('extract: JSON-LD unit reconciliation (rial vs toman) like 8.7', () => {
   const { api } = makeEnv();
   const R = (a, b) => JSON.stringify(api.Extract.reconcileJsonLd(a, b));
