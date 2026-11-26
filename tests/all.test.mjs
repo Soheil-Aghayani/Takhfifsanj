@@ -337,7 +337,7 @@ test('UI: exactly ONE panel host, mount is idempotent, every tab renders, legacy
   assert.ok(root.querySelectorAll('#snappCity option').length >= 15);
   assert.doesNotMatch([...root.querySelectorAll('.settings-section')].map(section => section.textContent).join(' '), /قیمت اسنپ‌شاپ با توجه به شهر انتخابی محاسبه می‌شود/);
   assert.ok(root.querySelector('input[data-src="emalls"]')?.closest('.switch-row').querySelector('.brand-logo'));
-  assert.match(root.querySelector('#body').textContent, /دربارهٔ تخفیف‌سنج/);
+  assert.match(root.querySelector('#body').textContent, /درباره، تماس و داده‌ها/);
   assert.equal(root.querySelectorAll('.contact-links a').length, 2);
   assert.equal(root.querySelector('.contact-links a[href^="mailto:"]')?.getAttribute('href'), 'mailto:soheyl.aghayani@gmail.com');
   assert.equal(root.querySelector('.contact-links a[href*="t.me"]')?.getAttribute('href'), 'https://t.me/env_soh');
@@ -489,6 +489,44 @@ test('torob: candidate switch replaces only Torob offers; manual query overrides
   let st = api.App.state; assert.equal(st.sources.torob.candidates.length, 2); assert.equal(st.sources.torob.chosenKey, 'k1'); assert.equal(st.offers[0].seller, 'A');
   await api.App.pickCandidate('k2'); assert.equal(st.offers.length, 1); assert.equal(st.offers[0].seller, 'B'); assert.equal(st.sources.torob.chosenKey, 'k2');
   searches.length = 0; await api.App.runCompare({ query: 'yrb22 apolo' }); assert.equal(searches.length, 1); assert.match(searches[0], /query=yrb22 apolo/); assert.deepEqual([...st.sources.torob.tried], ['yrb22 apolo']); w.close();
+});
+
+test('torob: merges same-code catalog records and sellers, while preserving explicit pack counts', async () => {
+  const title = 'خودکار شیائومی مدل jel ink کد MJZXBO1WC';
+  const exact = { name1: title, name2: '', price: 239990, random_key: 'pen-exact', is_adv: false };
+  const alternate = { name1: 'خودکار شیائومی مدل MJZXBO1WC قطر نوشتاری ۰.۵ میلیمتر', name2: '', price: 300000, random_key: 'pen-spec', is_adv: false };
+  const multiPack = { name1: 'خودکار شیائومی مدل MJZXBO1WC بسته ۳ عددی', name2: '', price: 690000, random_key: 'pen-pack', is_adv: false };
+  const sellers = {
+    'pen-exact': { results: [
+      { shop_name: 'فروشگاه الف', price: 260000, page_url: 'https://torob.com/r/a' },
+      { shop_name: 'فروشگاه ب', price: 245000, page_url: 'https://torob.com/r/b' }
+    ] },
+    'pen-spec': { results: [
+      { shop_name: 'فروشگاه الف', price: 239990, page_url: 'https://torob.com/r/a' },
+      { shop_name: 'فروشگاه ج', price: 300000, page_url: 'https://torob.com/r/c' }
+    ] }
+  };
+  const sellerCalls = [];
+  const gm = routeBy(u => {
+    if (u.includes('base-product/search')) return { body: { search_id: 'pen-search', results: [exact, alternate, multiPack] } };
+    if (u.includes('/sellers/')) {
+      const key = new URL(u).searchParams.get('prk'); sellerCalls.push(key);
+      return { body: sellers[key] || { results: [] } };
+    }
+    return null;
+  });
+  const { api, w } = makeEnv('<html><body></body></html>', 'https://www.digikala.com/product/dkp-2511188/', { GM_xmlhttpRequest: gm });
+  const prod = api.Model.product({ id: '2511188', title, url: 'https://www.digikala.com/product/dkp-2511188/' });
+  assert.equal(api.Sources.torob.sameCandidateProduct(exact, alternate), true);
+  assert.equal(api.Sources.torob.sameCandidateProduct(exact, multiPack), false);
+  const result = await api.Sources.torob.fetch(prod, { query: 'خودکار شیائومی jel ink کد mjzxbo1wc' });
+  assert.equal(result.candidates.filter(candidate => ['pen-exact', 'pen-spec'].includes(candidate.key)).length, 1);
+  assert.deepEqual(new Set(sellerCalls), new Set(['pen-exact', 'pen-spec']));
+  assert.equal(result.offers.length, 3);
+  const lowest = result.offers.find(offer => offer.seller === 'فروشگاه الف');
+  assert.equal(lowest.price, 239990);
+  assert.ok(lowest.flags.includes('dedup:2'));
+  w.close();
 });
 
 test('UI v14: tab memory, table view, edge snap, shortcut, manual search and viewport-scaled panel', async () => {

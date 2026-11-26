@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         تخفیف‌سنج
 // @namespace    ghafel-com-pro
-// @version      15.2.42
+// @version      15.2.43
 // @description  مقایسهٔ قیمت فروشندگان، تاریخچهٔ قیمت دیجی‌کالا، بازرس تخفیف، واچ‌لیست و هشدار قیمت
 // @author       GHAFEL_com (Original Creator)
 // @contributor  RealMahdi_a (Upgrade & Development)
@@ -22,7 +22,7 @@
 // @noframes
 // @run-at       document-idle
 // ==/UserScript==
-/* تخفیف‌سنج 15.2.42 — Original Creator: GHAFEL_com (https://t.me/GHAFEL_com) · Upgrade & Development: RealMahdi_a (https://t.me/RealMahdi_a) · Website: https://aqilistudio.ir/
+/* تخفیف‌سنج 15.2.43 — Original Creator: GHAFEL_com (https://t.me/GHAFEL_com) · Upgrade & Development: RealMahdi_a (https://t.me/RealMahdi_a) · Website: https://aqilistudio.ir/
    Built from readable modules in /src. The 8.7 engine logic is preserved in src/06-extract.js (extraction),
    src/07-match.js (baseline rule) and src/08-sources.js (Torob flow). */
 (function () {
@@ -711,6 +711,7 @@ const Sources = (() => {
   const SEARCH_QUERY_NOISE = new Set(['مخصوص', 'مدل', 'قیمت', 'خرید', 'ارزان', 'ارزانترین', 'اورجینال', 'اصل', 'مناسب', 'و', 'با', 'از', 'برای', 'در', 'به']);
   const TOROB_FREE_SEARCH_PRODUCT_LIMIT = 10;
   const TOROB_FREE_SEARCH_BATCH_SIZE = 4;
+  const TOROB_PRODUCT_RECORD_LIMIT = 6;
   // Torob appends VAR-* catalog identifiers to some titles. These identify
   // Torob records, not shopper-facing models or variants, so ignore them in
   // matching, deduplication, and the visible candidate title.
@@ -783,8 +784,27 @@ const Sources = (() => {
       ];
       const suffixes = ['pro', 'plus', 'lite', 'max', 'ultra', 'mini', 'neo', 'air', 'se', 'fe', 'پرو', 'پلاس', 'لایت', 'مکس', 'اولترا', 'مینی', 'نیو', 'ایر'];
       const hasPhrase = phrase => (' ' + normalized + ' ').includes(' ' + U.normalize(phrase) + ' ');
+      const packageInfo = (() => {
+        const text = U.normalize(U.digits(title));
+        const packageWords = '(?:^|\\s)(?:بسته|پک|ست|مجموعه|pack|set|bundle)(?=\\s|$)';
+        const number = '(\\d+|یک|یکی|دو|سه|چهار|پنج|شش|هفت|هشت|نه|ده)';
+        const countPatterns = [
+          new RegExp(packageWords + '\\s*(?:از\\s*)?' + number + '\\s*(?:عدد(?:ی)?|تایی|pcs?|pieces?)', 'i'),
+          new RegExp('(?<![a-z0-9])' + number + '\\s*(?:عدد(?:ی)?|تایی|pcs?|pieces?)(?=\\s|$)', 'i'),
+          new RegExp('(?:pack|set)\\s*(?:of\\s*)?' + number + '(?=\\s|$)', 'i')
+        ];
+        for (const pattern of countPatterns) {
+          const match = text.match(pattern);
+          if (match) {
+            const wordCounts = { یک: 1, یکی: 1, دو: 2, سه: 3, چهار: 4, پنج: 5, شش: 6, هفت: 7, هشت: 8, نه: 9, ده: 10 };
+            return 'count:' + (wordCounts[match[1]] || Number(match[1]));
+          }
+        }
+        return new RegExp(packageWords, 'i').test(text) ? 'package:unspecified' : '';
+      })();
       return {
         title, codes,
+        packageInfo,
         tokens: new Set([...tokens.filter(token => !codeParts.has(token)), ...codes]),
         plainTokens: new Set(tokens.filter(token => !codeParts.has(token))),
         colors: new Set(colors.filter(([, aliases]) => aliases.some(hasPhrase)).map(([id]) => id)),
@@ -808,13 +828,18 @@ const Sources = (() => {
       return [...new Set(tokens)].sort().join(' ');
     },
     sameCandidateProduct(a, b) {
-      if (torob.candidateIdentity(a) === torob.candidateIdentity(b)) return true;
       const x = torob.candidateProfile(a), y = torob.candidateProfile(b);
       const overlaps = (left, right) => [...left].filter(value => right.has(value));
+      // A stated bundle/count is part of the product identity. Do not merge a
+      // single item with a multi-pack, or an unknown pack with an explicit one.
+      if ((x.packageInfo || y.packageInfo) && x.packageInfo !== y.packageInfo) return false;
+      if (torob.candidateIdentity(a) === torob.candidateIdentity(b)) return true;
       const compatibleCodes = (left, right) => left === right || (Math.min(left.length, right.length) >= 4 && (left.endsWith(right) || right.endsWith(left)));
       const codeOverlap = x.codes.some(aCode => y.codes.some(bCode => compatibleCodes(aCode, bCode)));
+      const exactCodeOverlap = x.codes.some(aCode => y.codes.includes(aCode));
+      const brandOverlap = overlaps(x.brands, y.brands).length > 0;
       if (x.codes.length && y.codes.length && !codeOverlap) return false;
-      if (x.brands.size && y.brands.size && !overlaps(x.brands, y.brands).length) return false;
+      if (x.brands.size && y.brands.size && !brandOverlap) return false;
       if (x.types.size && y.types.size && !overlaps(x.types, y.types).length) return false;
       if ((x.colors.size || y.colors.size) && !overlaps(x.colors, y.colors).length) return false;
       if ((x.suffixes.size || y.suffixes.size) && !overlaps(x.suffixes, y.suffixes).length) return false;
@@ -829,9 +854,15 @@ const Sources = (() => {
       const containment = smaller ? shared / smaller : 0;
       const jaccard = union ? shared / union : 0;
       const sameType = overlaps(x.types, y.types).length > 0;
+      const sharedIdentityTerms = overlaps(x.plainTokens, y.plainTokens).filter(token =>
+        !Match.brandFamilies(token).length && !SEARCH_QUERY_NOISE.has(token) && !['کد', 'code', 'original', 'genuine'].includes(token));
       // A compatible model code plus matching product type is stronger than
       // small title wording changes between Torob's search queries.
       if (codeOverlap && sameType && shared >= 2) return true;
+      // Some categories (for example stationery) are not in the type taxonomy.
+      // An exact model code, matching known brand, and one shared product word
+      // can merge alternate catalog titles without masking known spec conflicts.
+      if (exactCodeOverlap && x.brands.size && y.brands.size && brandOverlap && sharedIdentityTerms.length >= 1) return true;
       // Without that anchor, require near two-way title similarity so unrelated
       // products and vague short titles are not collapsed together.
       return shared >= 3 && containment >= 0.9 && jaccard >= 0.78;
@@ -920,14 +951,18 @@ const Sources = (() => {
         }
       }
       if (!successfulSearches && firstError) throw firstError;
-      const ok = [], searchIdentities = new Set();
+      const ok = [], searchIdentities = new Set(), productGroups = [];
       for (const candidate of [...byKey.values()].sort(compareCandidates)) {
         if (freeSearch) {
           const identity = torob.searchIdentity(candidate.r) || String(candidate.r.random_key || '');
           if (searchIdentities.has(identity)) continue;
           searchIdentities.add(identity);
           ok.push(candidate);
-        } else if (!ok.some(current => torob.sameCandidateProduct(current.r, candidate.r))) ok.push(candidate);
+        } else {
+          const group = productGroups.find(current => torob.sameCandidateProduct(current[0].r, candidate.r));
+          if (group) group.push(candidate);
+          else { productGroups.push([candidate]); ok.push(candidate); }
+        }
       }
       const misses = [...nearMiss.values()].slice(0, 3);
       if (!ok.length) return { status: 'no-match', offers: [], note: freeSearch ? `در ترب نتیجه‌ای برای «${query}» پیدا نشد` : 'محصول مطابقی در ترب با اطمینان کافی پیدا نشد (' + tried.length + ' جست‌وجو)', nearMiss: freeSearch ? [] : misses, rejected: rejected.size, tried, candidates: [], query: tried[0] || '' };
@@ -961,9 +996,30 @@ const Sources = (() => {
         return { status: offers.length ? 'ok' : 'empty', offers, note, nearMiss: [], rejected: rejected.size, tried, candidates: [], chosenKey: '', query };
       }
       const pick = (pickKey && ok.find(x => x.r.random_key === pickKey)) || ok[0], base = pick.r;
+      const selectedGroup = productGroups.find(group => group.some(candidate => candidate.r.random_key === pick.r.random_key)) || [pick];
       const baseTitle = torob.candidateTitle(base);
       Log.info('torob', `محصول انتخاب‌شده: ${baseTitle} [${pick.ev.level} ${pick.ev.score}]`);
-      const offers = await torob.sellers(prod, base, pick.ev, pick.searchId);
+      const records = selectedGroup.slice(0, TOROB_PRODUCT_RECORD_LIMIT);
+      if (selectedGroup.length > 1) Log.info('torob', `${U.toFa(selectedGroup.length)} رکورد هم‌محصول؛ بررسی ${U.toFa(records.length)} رکورد فروش`);
+      if (selectedGroup.length > records.length) Log.warn('torob', `برای جلوگیری از درخواست زیاد، ${U.toFa(selectedGroup.length - records.length)} رکورد هم‌محصول بررسی نشد`);
+      const sellerResults = await Promise.allSettled(records.map(candidate => torob.sellers(prod, candidate.r, candidate.ev, candidate.searchId)));
+      const sellerErrors = sellerResults.filter(result => result.status === 'rejected');
+      const successfulSellerResults = sellerResults.filter(result => result.status === 'fulfilled').map(result => result.value);
+      if (!successfulSellerResults.length && sellerErrors.length) throw sellerErrors[0].reason;
+      if (sellerErrors.length) Log.warn('torob', `دریافت فهرست فروش ${U.toFa(sellerErrors.length)} رکورد هم‌محصول ناموفق بود`);
+      const bySeller = new Map(), sellerCopies = new Map();
+      for (const offer of successfulSellerResults.flat()) {
+        const key = offer.sellerKey || offer.seller;
+        const prior = bySeller.get(key);
+        const duplicateFlag = offer.flags.find(flag => /^dedup:\d+$/.test(flag));
+        sellerCopies.set(key, (sellerCopies.get(key) || 0) + (duplicateFlag ? Number(duplicateFlag.slice(6)) : 1));
+        if (!prior || offer.price < prior.price) bySeller.set(key, offer);
+      }
+      const offers = [...bySeller.values()].map(offer => {
+        const key = offer.sellerKey || offer.seller, count = sellerCopies.get(key) || 1;
+        if (count <= 1) return offer;
+        return { ...offer, flags: [...offer.flags.filter(flag => !/^dedup:\d+$/.test(flag)), 'dedup:' + count] };
+      });
       const candidates = ok.slice(0, 6).map(x => ({ key: x.r.random_key, title: torob.candidateTitle(x.r), price: Number(x.r.price), level: x.ev.level }));
       return { status: offers.length ? 'ok' : 'empty', offers, note: baseTitle, nearMiss: misses, rejected: rejected.size, tried, candidates, chosenKey: base.random_key, query: pick.q };
     }
@@ -2290,7 +2346,7 @@ svg text{font-family:inherit}
   function tabLog() {
     const legacy = ['ghpro12-host', 'ghafel-pc-btn', 'ghafel-pc-panel'].filter(id => document.getElementById(id));
     let h = legacy.length ? `<div class="banner">نسخه‌های قدیمی هم‌زمان فعال‌اند (${legacy.join('، ')}). در Tampermonkey آن‌ها را غیرفعال کنید تا فقط یک پنل بماند.</div>` : '';
-    h += `<div class="diagnostics-actions"><button type="button" class="btn sec icon-btn" data-tab="settings">${iconText('settings', 'بازگشت به تنظیمات')}</button><div class="diagnostics-copy-group"><button type="button" class="btn sec icon-btn" data-act="copyDiagnostics" title="کپی گزارش عیب‌یابی">${iconText('clipboardCopy', 'کپی گزارش')}</button><span class="diagnostics-copy-status" id="diagnosticsCopyStatus" role="status" aria-live="polite"></span></div></div>`;
+    h += `<div class="diagnostics-actions"><button type="button" class="btn sec icon-btn diagnostics-back" data-tab="settings">${iconText('settings', 'بازگشت به تنظیمات')}</button><div class="diagnostics-copy-group"><button type="button" class="btn sec icon-btn" data-act="copyDiagnostics" title="کپی گزارش عیب‌یابی">${iconText('clipboardCopy', 'کپی گزارش')}</button><span class="diagnostics-copy-status" id="diagnosticsCopyStatus" role="status" aria-live="polite"></span></div></div>`;
     h += `<div class="card muted">${U.esc(diagnosticsSummary())}</div>`;
     const rows = diagnosticsLogRows();
     h += `<div class="card log">${rows.map(row => `<div class="${row.className}">${U.esc(row.text)}</div>`).join('') || 'بدون رویداد'}</div>`;
@@ -2729,7 +2785,7 @@ const Main = (() => {
     };
     const run = () => { try { check(); } catch (e) { Log.error('main', e.message); } };
     setTimeout(run, 600); setInterval(run, 1500);
-    Log.info('main', 'تخفیف‌سنج 15.2.42 آماده شد');
+    Log.info('main', 'تخفیف‌سنج 15.2.43 آماده شد');
   }
   return { init };
 })();

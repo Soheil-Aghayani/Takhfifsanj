@@ -608,7 +608,7 @@ svg text{font-family:inherit}
   function tabLog() {
     const legacy = ['ghpro12-host', 'ghafel-pc-btn', 'ghafel-pc-panel'].filter(id => document.getElementById(id));
     let h = legacy.length ? `<div class="banner">نسخه‌های قدیمی هم‌زمان فعال‌اند (${legacy.join('، ')}). در Tampermonkey آن‌ها را غیرفعال کنید تا فقط یک پنل بماند.</div>` : '';
-    h += `<div class="diagnostics-actions"><button type="button" class="btn sec icon-btn" data-tab="settings">${iconText('settings', 'بازگشت به تنظیمات')}</button><div class="diagnostics-copy-group"><button type="button" class="btn sec icon-btn" data-act="copyDiagnostics" title="کپی گزارش عیب‌یابی">${iconText('clipboardCopy', 'کپی گزارش')}</button><span class="diagnostics-copy-status" id="diagnosticsCopyStatus" role="status" aria-live="polite"></span></div></div>`;
+    h += `<div class="diagnostics-actions"><button type="button" class="btn sec icon-btn diagnostics-back" data-tab="settings">${iconText('settings', 'بازگشت به تنظیمات')}</button><div class="diagnostics-copy-group"><button type="button" class="btn sec icon-btn" data-act="copyDiagnostics" title="کپی گزارش عیب‌یابی">${iconText('clipboardCopy', 'کپی گزارش')}</button><span class="diagnostics-copy-status" id="diagnosticsCopyStatus" role="status" aria-live="polite"></span></div></div>`;
     h += `<div class="card muted">${U.esc(diagnosticsSummary())}</div>`;
     const rows = diagnosticsLogRows();
     h += `<div class="card log">${rows.map(row => `<div class="${row.className}">${U.esc(row.text)}</div>`).join('') || 'بدون رویداد'}</div>`;
