@@ -76,10 +76,16 @@ details.card summary{cursor:pointer;list-style:none}details.card summary::-webki
 .manual-search input[type=text]{flex:1;min-width:0;height:36px;padding:5px 9px;border:0;background:transparent;box-shadow:none}
 .manual-search .btn{width:38px;height:38px;padding:0;flex:0 0 38px}
 .source-row{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
-.source-chip{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:999px;border:1px solid var(--line);color:var(--mut);font-size:10.5px;line-height:1.4}
+.source-chip{all:unset;box-sizing:border-box;display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:999px;border:1px solid var(--line);color:var(--mut);font-size:10.5px;line-height:1.4;cursor:pointer;transition:color .16s ease,border-color .16s ease,background-color .16s ease,opacity .16s ease}
 .source-chip .icon{width:14px;height:14px}
 .source-chip-icon{display:grid;place-items:center;flex:0 0 16px;width:16px;height:16px;color:var(--acc2)}
 .source-chip.good{color:var(--good)}.source-chip.warn{color:var(--warn)}.source-chip.bad{color:var(--bad)}
+.source-chip:hover,.source-chip:focus-visible{border-color:var(--acc2);color:var(--ink)}
+.source-chip:focus-visible,.source-filter-reset:focus-visible{outline:2px solid var(--acc2);outline-offset:2px}
+.source-chip.filter-selected{border-color:var(--acc2);background:var(--warn-soft);color:var(--ink);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--acc2) 24%,transparent)}
+.source-chip.filter-excluded{opacity:.48}
+.source-filter-reset{all:unset;box-sizing:border-box;display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border:1px solid var(--line);border-radius:999px;color:var(--mut);font-size:10px;cursor:pointer}
+.source-filter-reset:hover{border-color:var(--acc2);color:var(--ink)}.source-filter-reset .icon{width:13px;height:13px}
 .empty-state{display:grid;grid-template-columns:36px minmax(0,1fr);align-items:start;gap:10px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--card);margin-block-end:10px}
 .body-content > .card + .card,.body-content > .card + .empty-state,.body-content > .empty-state + .card,.body-content > .empty-state + .empty-state{margin-block-start:12px}
 .empty-state-icon{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;color:var(--warn);background:var(--warn-soft)}
@@ -336,29 +342,35 @@ svg text{font-family:inherit}
 
   function tabCompare() {
     const p = S.product || {}, srcs = S.sources; let h = '';
+    const filterIdentity = S.freeSearch ? `search:${S.searchQuery}` : `product:${S.key}`;
+    if (sourceFilterIdentity !== filterIdentity) { sourceFilterIdentity = filterIdentity; sourceFilter = null; }
     h += `<div class="compare-actions"><button class="btn primary-action" data-act="compare" ${S.running ? 'disabled' : ''}>${icon('search')}<span>${S.running ? 'در حال جست‌وجو…' : 'مقایسهٔ قیمت‌ها'}</span></button><button class="btn sec icon-btn icon-only" data-act="reread" title="بازخوانی محصول" aria-label="بازخوانی محصول">${icon('refresh')}</button><button class="btn sec icon-btn icon-only" data-act="manual" title="ثبت قیمت دستی" aria-label="ثبت قیمت دستی">${icon('wallet')}</button></div>`;
     h += `<div class="manual-search"><input type="text" id="q" aria-label="جست‌وجوی آزاد در منابع فعال" placeholder="نام هر محصولی را برای دیدن قیمت فروشگاه‌ها جست‌وجو کنید" value="${U.esc(S.manualQuery || '')}"><button class="btn sec icon-btn" data-act="manualSearch" title="جست‌وجوی آزاد در منابع فعال" aria-label="جست‌وجوی آزاد در منابع فعال">${icon('search')}</button></div>`;
     const chips = Object.keys(Sources.registry).map(id => {
       const r = Sources.registry[id], st = srcs[id] || { status: Store.get().settings.sources[id] && r.implemented ? 'idle' : (r.implemented ? 'off' : 'unavailable') };
       const [lbl, cl] = STATUS[st.status] || ['آماده', ''];
-      return `<span class="source-chip ${cl} source-${U.esc(id)}" title="${U.esc(st.error || st.note || r.note)}"><span class="source-chip-icon">${icon(r.icon || 'global')}</span><b>${U.esc(r.label)}</b><span>${lbl}${st.count ? ' · ' + U.toFa(st.count) : ''}</span></span>`;
+      const included = !sourceFilter || sourceFilter.has(id), filterClass = sourceFilter ? (included ? 'filter-selected' : 'filter-excluded') : '';
+      const title = [st.error || st.note || r.note, 'برای فیلتر نتیجه‌ها کلیک کنید'].filter(Boolean).join(' · ');
+      return `<button type="button" class="source-chip ${cl} source-${U.esc(id)} ${filterClass}" data-source-filter="${U.esc(id)}" aria-pressed="${included}" title="${U.esc(title)}"><span class="source-chip-icon">${icon(r.icon || 'global')}</span><b>${U.esc(r.label)}</b><span>${lbl}${st.count ? ' · ' + U.toFa(st.count) : ''}</span></button>`;
     }).join('');
-    h += `<div class="source-row" aria-label="وضعیت منابع">${chips}</div>`;
-    const tr = srcs.torob; if (!S.freeSearch && tr && tr.candidates && tr.candidates.length > 1) h += `<div class="card"><div class="muted" style="margin-bottom:4px">محصول تطبیق‌یافته در ترب — اگر رنگ/مدل دیگری مدنظر است تغییر دهید</div><select data-sel="cand" style="width:100%">${tr.candidates.map(c => `<option value="${U.esc(c.key)}" ${c.key === tr.chosenKey ? 'selected' : ''}>${U.esc(c.title)}</option>`).join('')}</select></div>`;
-    if (tr && tr.tried && tr.tried.length > 1) h += `<div class="muted" style="margin-bottom:6px">جست‌وجوی چندمرحله‌ای: ${U.toFa(tr.tried.length)} عبارت امتحان شد؛ عبارت موفق: «${U.esc(tr.query)}»</div>`;
-    const sourceErrors = Object.entries(srcs).filter(([, st]) => st.error);
-    const offers = S.offers.slice();
+    h += `<div class="source-row" role="group" aria-label="وضعیت و فیلتر فروشگاه‌ها">${chips}${sourceFilter ? `<button type="button" class="source-filter-reset" data-act="resetSourceFilter" title="نمایش همهٔ فروشگاه‌ها">${iconText('refresh', 'همه')}</button>` : ''}</div>`;
+    const showTorob = !sourceFilter || sourceFilter.has('torob'), tr = srcs.torob;
+    if (showTorob && !S.freeSearch && tr && tr.candidates && tr.candidates.length > 1) h += `<div class="card"><div class="muted" style="margin-bottom:4px">محصول تطبیق‌یافته در ترب — اگر رنگ/مدل دیگری مدنظر است تغییر دهید</div><select data-sel="cand" style="width:100%">${tr.candidates.map(c => `<option value="${U.esc(c.key)}" ${c.key === tr.chosenKey ? 'selected' : ''}>${U.esc(c.title)}</option>`).join('')}</select></div>`;
+    if (showTorob && tr && tr.tried && tr.tried.length > 1) h += `<div class="muted" style="margin-bottom:6px">جست‌وجوی چندمرحله‌ای: ${U.toFa(tr.tried.length)} عبارت امتحان شد؛ عبارت موفق: «${U.esc(tr.query)}»</div>`;
+    const sourceErrors = Object.entries(srcs).filter(([id, st]) => (!sourceFilter || sourceFilter.has(id)) && st.error);
+    const offers = S.offers.filter(offer => !sourceFilter || sourceFilter.has(offer.sourceId));
     offers.sort((a, b) => S.sort === 'name' ? a.seller.localeCompare(b.seller, 'fa') : S.sort === 'desc' ? b.price - a.price : a.price - b.price);
-    if (S.offers.length) {
+    if (offers.length) {
       h += `<div class="row" style="margin-bottom:8px"><span class="select-shell"><select data-sel="sort" aria-label="مرتب‌سازی فروشندگان"><option value="price" ${S.sort === 'price' ? 'selected' : ''}>ارزان‌ترین</option><option value="desc" ${S.sort === 'desc' ? 'selected' : ''}>گران‌ترین</option><option value="name" ${S.sort === 'name' ? 'selected' : ''}>نام فروشنده</option></select></span><button class="btn sec icon-btn" data-act="toggleTable" title="${S.table ? 'نمای کارتی' : 'نمای جدول'}" aria-label="${S.table ? 'نمای کارتی' : 'نمای جدول'}">${icon(S.table ? 'layers' : 'compare')}</button></div>`;
       if (S.freeSearch) h += `<div class="card"><b>${icon('search', 15)} نتایج جست‌وجوی «${U.esc(S.searchQuery)}»</b><div class="muted" style="margin-top:5px">عنوان هر کالا در کارت خودش آمده؛ قیمت‌ها بین کالاهای متفاوت با هم مقایسه نشده‌اند.</div></div>`;
-      else {
+      else if (!sourceFilter) {
         const a = App.advice();
         h += `<div class="card"><b class="${a.tone === 'good' ? 'good' : a.tone === 'warn' ? 'warn' : ''}">مشاور خرید: ${U.esc(a.headline)}</b><ul>${a.points.map(x => `<li class="${x.k === 'good' ? 'good' : x.k === 'warn' ? 'warn' : ''}">${textWithCurrency(x.text)}</li>`).join('')}</ul><div class="muted" style="margin-top:6px">${a.caveats.map(U.esc).join('<br>')}</div></div>`;
       }
-      const comparablePrices = S.freeSearch ? [] : [...new Set(S.offers.filter(o => o.matchLevel !== 'low' && o.price > 0).map(o => o.price))];
+      else h += `<div class="muted" style="margin:0 2px 8px">نمایش فقط برای فروشگاه‌های انتخاب‌شده</div>`;
+      const comparablePrices = S.freeSearch ? [] : [...new Set(offers.filter(o => o.matchLevel !== 'low' && o.price > 0).map(o => o.price))];
       const comparableMedian = comparablePrices.length >= 3 ? U.median(comparablePrices) : null;
-      const bestPrice = S.freeSearch ? null : Math.min(...S.offers.filter(o => o.matchLevel !== 'low').map(o => o.price));
+      const bestPrice = S.freeSearch ? null : Math.min(...offers.filter(o => o.matchLevel !== 'low').map(o => o.price));
       const shown = S.showAll ? offers : offers.slice(0, 5);
       if (S.table) {
         if (S.freeSearch) h += '<table class="tb"><thead><tr><th>کالا</th><th>فروشنده</th><th>قیمت</th><th></th></tr></thead><tbody>' + shown.map(o => `<tr><td>${U.esc(o.matchTitle || S.searchQuery)}</td><td>${U.esc(o.seller)}</td><td><b>${money(o.price, 12)}</b></td><td>${o.sellerUrl ? `<a style="color:var(--acc)" href="${U.esc(o.sellerUrl)}" target="_blank" rel="noopener noreferrer" title="بازکردن صفحهٔ فروشنده" aria-label="بازکردن صفحهٔ فروشنده">${icon('link', 14, 'icon-sm')}</a>` : ''}</td></tr>`).join('') + '</tbody></table>';
@@ -380,8 +392,23 @@ svg text{font-family:inherit}
     } else if (!S.running && sourceErrors.length) {
       const [sourceId, sourceError] = sourceErrors[0], sourceName = Sources.registry[sourceId]?.label || sourceId;
       h += `<div class="empty-state" role="status"><span class="empty-state-icon">${icon('shield', 18)}</span><div class="empty-state-copy"><b>پاسخ قیمت‌ها دریافت نشد</b><p>${U.esc(sourceName)} خطا داد: ${U.esc(sourceError.error)}. پس از رفع محدودیت سرویس، دوباره تلاش کنید.</p></div><button class="btn sec icon-btn empty-state-action" data-act="${S.freeSearch ? 'manualSearch' : 'compare'}">${iconText('refresh', 'تلاش دوباره')}</button></div>`;
-    } else if (!S.running && Object.keys(srcs).length) h += `<div class="empty-state" role="status"><span class="empty-state-icon">${icon('search', 18)}</span><div class="empty-state-copy"><b>${S.freeSearch ? 'نتیجه‌ای برای عبارت جست‌وجو پیدا نشد' : 'فروشندهٔ مطابق پیدا نشد'}</b><p>${S.freeSearch ? `در منابع فعال کالای مرتبطی با «${U.esc(S.searchQuery)}» و قیمت قابل‌نمایش پیدا نشد. عبارت کوتاه‌تر یا دقیق‌تری امتحان کنید.` : 'برای این محصول نتیجهٔ قابل‌اتکایی در منابع فعال پیدا نشد. مدل یا عبارت جست‌وجو را بررسی کنید؛ قیمت حدسی نمایش داده نمی‌شود.'}</p></div>${S.freeSearch ? '' : `<button class="btn sec icon-btn empty-state-action" data-act="manual">${iconText('wallet', 'ثبت قیمت دستی')}</button>`}</div>`;
-    const rejectedGroups = S.freeSearch ? [] : Object.entries(srcs).filter(([, st]) => st.nearMiss?.length);
+    } else if (S.offers.length && sourceFilter) {
+      const selectedNames = Object.keys(Sources.registry).filter(id => sourceFilter.has(id)).map(id => Sources.registry[id].label).join('، ');
+      h += `<div class="empty-state" role="status"><span class="empty-state-icon">${icon('search', 18)}</span><div class="empty-state-copy"><b>نتیجه‌ای از فروشگاه‌های انتخاب‌شده نیست</b><p>برای «${U.esc(selectedNames)}» قیمت قابل‌نمایشی پیدا نشد. همهٔ فروشگاه‌ها را ببینید یا منبع دیگری را انتخاب کنید.</p></div><button type="button" class="btn sec icon-btn empty-state-action" data-act="resetSourceFilter">${iconText('refresh', 'نمایش همه')}</button></div>`;
+    } else if (!S.running && Object.keys(srcs).length) {
+      const selectedNames = sourceFilter ? Object.keys(Sources.registry).filter(id => sourceFilter.has(id)).map(id => Sources.registry[id].label).join('، ') : '';
+      const title = S.freeSearch ? 'نتیجه‌ای برای عبارت جست‌وجو پیدا نشد' : sourceFilter ? 'در فروشگاه‌های انتخاب‌شده نتیجه‌ای پیدا نشد' : 'فروشندهٔ مطابق پیدا نشد';
+      const detail = S.freeSearch
+        ? `در منابع فعال کالای مرتبطی با «${U.esc(S.searchQuery)}» و قیمت قابل‌نمایش پیدا نشد. عبارت کوتاه‌تر یا دقیق‌تری امتحان کنید.`
+        : sourceFilter
+          ? `در ${U.esc(selectedNames)} قیمت قابل‌اتکایی پیدا نشد. همهٔ فروشگاه‌ها را ببینید یا منبع دیگری را انتخاب کنید.`
+          : 'برای این محصول نتیجهٔ قابل‌اتکایی در منابع فعال پیدا نشد. مدل یا عبارت جست‌وجو را بررسی کنید؛ قیمت حدسی نمایش داده نمی‌شود.';
+      const action = sourceFilter
+        ? `<button class="btn sec icon-btn empty-state-action" data-act="resetSourceFilter">${iconText('refresh', 'نمایش همه')}</button>`
+        : S.freeSearch ? '' : `<button class="btn sec icon-btn empty-state-action" data-act="manual">${iconText('wallet', 'ثبت قیمت دستی')}</button>`;
+      h += `<div class="empty-state" role="status"><span class="empty-state-icon">${icon('search', 18)}</span><div class="empty-state-copy"><b>${title}</b><p>${detail}</p></div>${action}</div>`;
+    }
+    const rejectedGroups = S.freeSearch ? [] : Object.entries(srcs).filter(([id, st]) => (!sourceFilter || sourceFilter.has(id)) && st.nearMiss?.length);
     if (rejectedGroups.length) {
       const rejectedCount = rejectedGroups.reduce((sum, [, st]) => sum + st.nearMiss.length, 0);
       h += `<details class="card rejected-results"><summary><b>نتایج دیگر محصولات</b><small>${U.toFa(rejectedCount)} مورد</small></summary>${rejectedGroups.map(([id, st]) => { const source = Sources.registry[id]; return `<div class="rejected-provider"><div class="rejected-provider-title">${icon(source?.icon || 'global', 15)}<span>${U.esc(source?.label || id)}</span></div><ul>${st.nearMiss.map(item => `<li>${U.esc(item.title)} — ${U.esc(item.reason)}</li>`).join('')}</ul></div>`; }).join('')}</details>`;
@@ -590,6 +617,7 @@ svg text{font-family:inherit}
 
   const TABS = [['compare', 'compare', 'مقایسه', 'مقایسهٔ قیمت'], ['history', 'history', 'تاریخچه', 'تاریخچهٔ قیمت'], ['inspect', 'search', 'بازرس', 'بازرس تخفیف'], ['watch', 'heart', 'واچ‌لیست', 'واچ‌لیست قیمت'], ['settings', 'settings', 'تنظیمات', 'تنظیمات افزونه']];
   let lastIndicatorTarget = null;
+  let sourceFilter = null, sourceFilterIdentity = '';
   const tabScrollPositions = Object.create(null);
   let watchCollectionFilter = 'all';
   let collectionFormOpen = false;
@@ -841,11 +869,20 @@ svg text{font-family:inherit}
     $('#body').addEventListener('scroll', () => { const t = $('#body').scrollTop, pn = $('#panel'); if (t > 60) pn.classList.add('compact'); else if (t < 8) pn.classList.remove('compact'); });
     $('#min').onclick = () => setOpen(false); $('#close').onclick = () => { Store.get().settings.open = false; Store.save(); host.style.display = 'none'; };
     root.addEventListener('click', async e => {
-      const t = e.target.closest('[data-tab],[data-act],[data-range],[data-rm],[data-collection-icon]'); if (!t) return;
+      const t = e.target.closest('[data-tab],[data-act],[data-range],[data-rm],[data-collection-icon],[data-source-filter]'); if (!t) return;
       if (t.dataset.collectionIcon) {
         e.preventDefault();
         root.querySelectorAll('[data-collection-icon]').forEach(button => { const selected = button === t; button.setAttribute('aria-pressed', String(selected)); });
         return;
+      }
+      if (t.dataset.sourceFilter) {
+        if (!sourceFilter) sourceFilter = new Set([t.dataset.sourceFilter]);
+        else if (sourceFilter.has(t.dataset.sourceFilter)) {
+          sourceFilter.delete(t.dataset.sourceFilter);
+          if (!sourceFilter.size) sourceFilter = null;
+        } else sourceFilter.add(t.dataset.sourceFilter);
+        S.showAll = false;
+        return render();
       }
       const db = Store.get();
       if (t.dataset.tab) {
@@ -865,6 +902,7 @@ svg text{font-family:inherit}
       if (t.dataset.rm) { const p = db.products[t.dataset.rm]; if (p) p.watch = false; Store.save(); return render(); }
       const a = t.dataset.act;
       if (a === 'copyDiagnostics') return copyDiagnostics();
+      else if (a === 'resetSourceFilter') { sourceFilter = null; S.showAll = false; return render(); }
       else if (a === 'compare') App.runCompare();
       else if (a === 'toggleTable') { S.table = !S.table; db.settings.table = S.table; Store.save(); render(); }
       else if (a === 'manualSearch') { S.manualQuery = ($('#q').value || '').trim(); App.runCompare(S.manualQuery ? { query: S.manualQuery, freeSearch: true } : {}); }

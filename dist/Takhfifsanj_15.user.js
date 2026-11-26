@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         تخفیف‌سنج
 // @namespace    ghafel-com-pro
-// @version      15.2.41
+// @version      15.2.42
 // @description  مقایسهٔ قیمت فروشندگان، تاریخچهٔ قیمت دیجی‌کالا، بازرس تخفیف، واچ‌لیست و هشدار قیمت
 // @author       GHAFEL_com (Original Creator)
 // @contributor  RealMahdi_a (Upgrade & Development)
@@ -22,7 +22,7 @@
 // @noframes
 // @run-at       document-idle
 // ==/UserScript==
-/* تخفیف‌سنج 15.2.41 — Original Creator: GHAFEL_com (https://t.me/GHAFEL_com) · Upgrade & Development: RealMahdi_a (https://t.me/RealMahdi_a) · Website: https://aqilistudio.ir/
+/* تخفیف‌سنج 15.2.42 — Original Creator: GHAFEL_com (https://t.me/GHAFEL_com) · Upgrade & Development: RealMahdi_a (https://t.me/RealMahdi_a) · Website: https://aqilistudio.ir/
    Built from readable modules in /src. The 8.7 engine logic is preserved in src/06-extract.js (extraction),
    src/07-match.js (baseline rule) and src/08-sources.js (Torob flow). */
 (function () {
@@ -1670,10 +1670,10 @@ const SolarIcons = {
   cart: "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\"><path d=\"M9.6851 21H14.3158C16.5656 21 17.6906 21 18.5044 20.3646C19.3181 19.7292 19.591 18.6379 20.1366 16.4552C20.9946 13.0234 21.4236 11.3075 20.5227 10.1538C19.6219 9 17.8532 9 14.3158 9H9.6851C6.14769 9 4.37899 9 3.47816 10.1538C2.57733 11.3075 3.0063 13.0234 3.86425 16.4552C4.40992 18.6379 4.68275 19.7292 5.49654 20.3646C6.31032 21 7.43525 21 9.6851 21Z\"/><path d=\"M10 5H14C14.5523 5 15 4.55228 15 4C15 3.44772 14.5523 3 14 3H10C9.44772 3 9 3.44772 9 4C9 4.55228 9.44772 5 10 5Z\"/><path stroke-linejoin=\"round\" d=\"M4.5 18L7.5 14.4L12 9M7.5 14.4L4.5 10M7.5 14.4L12 21L16.516 14.3766L19.5 18M16.516 14.3766L12.5 9.5M16.516 14.3766L19.5 10\"/><path d=\"M19.4601 9.39865L18.7892 6.89465C18.5152 5.89005 18.3783 5.38775 18.0974 5.00946C17.8176 4.63273 17.4374 4.34234 17.0003 4.17152C16.5615 4 16.0408 4 14.9996 4M4.53897 9.39861L5.20996 6.89465C5.48389 5.89005 5.62085 5.38775 5.90178 5.00946C6.18156 4.63273 6.56172 4.34234 6.99879 4.17152C7.43765 4 7.95829 4 8.99957 4\"/></g>",
 };
 
-// Official favicons cached locally so source logos load without remote requests.
+// Marketplace marks cached locally; Emalls SVG is from https://emalls.ir/src/icon.svg.
 const ProviderLogoData = Object.freeze({
   torob: "data:image/png;base64,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",
-  emalls: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAADqElEQVR42s1XTYhbVRg95977XpxMU+vfzFBBdO3PoosuKphB/BltiwvNIOi2K4W6UlemcaVQqKAulK5E8SdUioKIVpi4caFStVBc6LIuUmaGoUwyeXn3HheTTDJjMnnJjOiFywt5730/9zvf+c4D/uPFLA8JIKTJnZCTvaxy2agMs9csd7PB3ZyzUgkAoPPnC7g9X4DPjZeJtcT16xs8dWplrAC6zlV67CjoTntjH4IxBwGFrGUDIBIAmKjZPOc+/+YNASSgXQPoOk9LT7xIY88ayxxSD02AAQEwJCAhuf+BI7nX3rzcf7IA4AY7f/J5G9m3g0+9T7kBwIGcqP4+SNYZF…73 tokens truncated…SpuPmSh+ya/O/uCAz1QqWVSrPnsA1Q46DxbuxnLdCyb4IJsdfkpdkAPCPQDwjzKMDKCXTSrQ9vLKyjdk55KOA063Aw+CTw1JQWgjQw373k5BRN0RlJkmtn6VSgQArSxXQdJGbsrGUZRpR1Fk43gqJOmqJb/uID9MrIjapcePO5pigAkZAUBjlCDwAqtf/aJy2aBSUZ8TjaWC9p2EdrHJoRLq6sJtN5xToekyR78WNaRkKgDAoTjWWqNhbs7nN1itNkcG0OVpHX/4Tp/PfQjgPpAJNE4n9I56q4Ucm0qSc+7Ct+92yW5wFxSLFrVa6g2etTfF876VeEvavUwGQSAIGfdO6/VXvid5Zbgi6oxj0f8aWu0AmNRDfpwTGLhSH6w1cXygcBeAKzsV0RY4WK16lcsm+qJ2SdKXNnY5SGlfqSbdBpKgUYoIAM6ckQC2YF4ISft3G8f57rwDkE60iRTGGHg/mopJShKnyWt6buHR0Gq/ReIp42xu4hJYC7++/kdjffWnzaGXQRFt+yhZPHHE56IHmZ+egzFm3I8y+HbLrDU+4KcX/8ykiPrEFfdTHY2tiLax2NJSJ/NaZodLAOZnINSLxHwtsIKA/+P6Gz+8xYli3gWnAAAAAElFTkSuQmCC",
+  emalls: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAiIGhlaWdodD0iMzMiIHZpZXdCb3g9IjAgMCAzMCAzMyIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4NCjxwYXRoIG9wYWNpdHk9IjAuOTg4IiBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsaXAtcnVsZT0iZXZlbm9kZCIgZD0iTTguMjUwODkgMC4yNTU0OTNIMjYuMzAxNkMyNy44NTUzIDAuMjU1NDkzIDI5LjExMTkgMS41MTIxMSAyOS4xMTE5IDMuMDY1ODVWNS45MjU3NEMyOS4xMTE5IDcuNDc5NDggMjcuODU1MyA4LjczNjEgMjYuMzAxNiA4LjczNjFIMy4yMzY4MkMxLjc2MzU0IDguNzM2MSAwLjczNTk2NSA3LjI4MTQgMS4yMjQ5OSA1Ljg4ODZDMS44NzQ5NyA0LjAxOTE1IDMuMTI1MzkgMi41MDI1NCA0Ljk3MDA4IDEuMzM4NzhDNS45OTc2NSAwLjc0NDUyMSA3LjA4NzEzIDAuMzg1NDg4IDguMjUwODkgMC4yNTU0OTNaIiBmaWxsPSIjRkQ1NjRBIi8+DQo8cGF0aCBvcGFjaXR5PSIwLjk5NiIgZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik0zLjU3MTM1IDExLjk1NUgxOC44MTE3QzIwLjM2NTQgMTEuOTU1IDIxLjYyMiAxMy4yMTE2IDIxLjYyMiAxNC43NjU0VjE3LjU2MzRDMjEuNjIyIDE5LjExNzEgMjAuMzY1NCAyMC4zNzM3IDE4LjgxMTcgMjAuMzczN0gzLjU3MTM1QzIuMDE3NiAyMC4zNzM3IDAuNzYwOTg2IDE5LjExNzEgMC43NjA5ODYgMTcuNTYzNFYxNC43NjU0QzAuNzYwOTg2IDEzLjIxMTYgMi4wMTc2IDExLjk1NSAzLjU3MTM1IDExLjk1NVoiIGZpbGw9IiNGRDU2NEEiLz4NCjxwYXRoIG9wYWNpdHk9IjAuOTg2IiBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsaXAtcnVsZT0iZXZlbm9kZCIgZD0iTTYuMDIzIDIzLjU5MjZIMjYuMzAyMkMyNy44NTU5IDIzLjU5MjYgMjkuMTEyNSAyNC44NDkyIDI5LjExMjUgMjYuNDAyOVYyOS4yNjI4QzI5LjExMjUgMzAuODE2NSAyNy44NTU5IDMyLjA3MzIgMjYuMzAyMiAzMi4wNzMyQzIwLjc2MTkgMzIuMDc5MyAxNS4yMTU1IDMyLjA2NyA5LjY3NTIzIDMyLjAzNkM1LjYwMjA2IDMyLjA5MTcgMi43ODU1MSAzMC4yNDA5IDEuMjI1NTcgMjYuNDk1OEMxLjIxOTM4IDI2LjQ4OTYgMS4yMTkzOSAyNi40NzcyIDEuMjEzMiAyNi40NzFDMC42ODA4MzcgMjUuMDc4MiAxLjcyNjk4IDIzLjU4NjQgMy4yMTI2MyAyMy41ODY0SDYuMDIzVjIzLjU5MjZaIiBmaWxsPSIjRkQ1NjRBIi8+DQo8L3N2Zz4=",
   basalam: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAADvElEQVR42sWXT2wbRRjFfzu768Q2jruOHXCLkAW0RCQFGhUXOBGLqBfEXympRDlUgBAS5MApRYQCPTQXKhSBKLRwQCBapVI4pEWVwBWIRgVUrEKqtolAQUDNXxmTNnHteJdDJk5MdtdrE+CdRjvfznvzzcw3bxQ8IpsywsDdQDewCUgAYdmdB6aBDHAcGIunc3kv4yoeiDcAO4E+wO9R7xxwEBiKp3OTDQnIpowAsBvoBzQawzwwDAzG07lZzwKyKWM9MAp0sDo4A9wfT+emagrIpowu4BgQZXXxG7A1ns59ufyjsJn5CnKlOYCi+7zRCIEIR+x6osAxybFSgFzz0b+Tq21XE3vva6JvnUS0RGryr3lmP22HJ/H39DmJGJVcKzKw227Nm7sfQLQYqGsTBO7Z4T75kEHznfeBEFzxyLNOYR2Sa0mAPGr9trs02FJpa9dtdD/TgSAoC9tKja1DhAyn0H7JWcnAgNNRm586XWmbM7mqPv36jVUCy79ewMz9AoBVKmIVLjkJ0GRtQcgKt80psjD+AcXMJ1iFWeaOvF35Hnr8BVpf/5jogRMogZBUaDKz7zmYLzH7/n6sUtEtYX3ZlBFWsinjIeAd99wqKHoTVrFQ+dT6Whp9wy0A/LHrYQqfHlkK1321yBexXcja7g7LqiIHKJ3PLC1F523V4d7IAbqFvFjqRmnis0rb17ml0eK0SchbrW4UzywJ0NbfjNLkb2SYhFh2pdaFcvY7zN9/WlhzTUdv72pkmLBoKHGqhhpby/z3U/94GTRpJiJefwg9totg71MgqrXrHQ0JyAvpZDwjcO+jK8gXBCRBqTuh00LaKM+4+O5LWMXLmBfzlC9MUzqf4fIXaYqff4hoMeoVkPFWiP49bBfAmPRwqwKxJkb0zXHaRs6i39BVyzeOCeleD60GuaL7CO/ch5ZoR0SuxN/T6xZ+MJ7O5Rd3zR5pIN2PTKKdpuRdtptNveoajKHDNG2Wld0sM/fRiJtZHVo8hsTTuclsyhgGnnb6Q7/xVlpfPgqqSvnHbymcOEo5O43iD+Lr3IIv2YOi6ZX4mTeep3T2lNNww4t2fbkHGAS2OjlhYcRAVRdmu+5agr1P2g9tmswceJFLI6+6OeRBW1csDeO4rSNWFIIPPkGwrx8RabPP6zcT/PnKAMWvxt2c8R3L7Xn9tlzT8d10O3r7ZtRoHMwy5Z9/oHTuFMWJk2BZddny//1hYls7ZWAS2OvldNR4mu0Fknbk9TxOB6RvrOdxegjY0/Dj9L96nv8FWAEu9vkyA6MAAAAASUVORK5CYII=",
   snappshop: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABe0lEQVR42mPcwrDuP8MAAiaGAQajDhh1AAtFrmdnYnB7683AzI0w5vG8hwyXks/RJwQErYVRLGdgYGB4vesl/aJA1E0Mhf//33+GN3tf088BIq6oDvh47gPD7ze/6OMANlE2Bj4DfhSxN7tf0S8XiLiIMTAyMaLFPz0dgBb8f778Yfhw7B2dHMDIwCCK5oB3B98w/Pv1jz4O4NHiZeCQ4UQNfjLin2wHoPue3ARItgPQ4//r7S8MX65/po8DmNiZGITtReD8X29/QYre/3SqCxiZGBlOehyDlHx//jN8vvSR4e+3v/SrjP5+/8vw/sjbgasNJYKkGJQr1BjYRNkZ3u59xXC9/CrD77e/6OMAUQ8xBqPVZvASkCtZgYFHk5fhmM0hstMASYlQLlURo/gVtBJm4NXlo0+LiJEVu3ImVib6OODp0kcYYp+vfGL4dOEjfRzwfOVThis5Fxl+PP7O8O/nP4ZXW18wnPY5zvD/L/l9G8bRntGoA0a8AwD4cHddERDDRQAAAABJRU5ErkJggg=="
 });
@@ -1758,10 +1758,16 @@ details.card summary{cursor:pointer;list-style:none}details.card summary::-webki
 .manual-search input[type=text]{flex:1;min-width:0;height:36px;padding:5px 9px;border:0;background:transparent;box-shadow:none}
 .manual-search .btn{width:38px;height:38px;padding:0;flex:0 0 38px}
 .source-row{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
-.source-chip{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:999px;border:1px solid var(--line);color:var(--mut);font-size:10.5px;line-height:1.4}
+.source-chip{all:unset;box-sizing:border-box;display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:999px;border:1px solid var(--line);color:var(--mut);font-size:10.5px;line-height:1.4;cursor:pointer;transition:color .16s ease,border-color .16s ease,background-color .16s ease,opacity .16s ease}
 .source-chip .icon{width:14px;height:14px}
 .source-chip-icon{display:grid;place-items:center;flex:0 0 16px;width:16px;height:16px;color:var(--acc2)}
 .source-chip.good{color:var(--good)}.source-chip.warn{color:var(--warn)}.source-chip.bad{color:var(--bad)}
+.source-chip:hover,.source-chip:focus-visible{border-color:var(--acc2);color:var(--ink)}
+.source-chip:focus-visible,.source-filter-reset:focus-visible{outline:2px solid var(--acc2);outline-offset:2px}
+.source-chip.filter-selected{border-color:var(--acc2);background:var(--warn-soft);color:var(--ink);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--acc2) 24%,transparent)}
+.source-chip.filter-excluded{opacity:.48}
+.source-filter-reset{all:unset;box-sizing:border-box;display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border:1px solid var(--line);border-radius:999px;color:var(--mut);font-size:10px;cursor:pointer}
+.source-filter-reset:hover{border-color:var(--acc2);color:var(--ink)}.source-filter-reset .icon{width:13px;height:13px}
 .empty-state{display:grid;grid-template-columns:36px minmax(0,1fr);align-items:start;gap:10px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--card);margin-block-end:10px}
 .body-content > .card + .card,.body-content > .card + .empty-state,.body-content > .empty-state + .card,.body-content > .empty-state + .empty-state{margin-block-start:12px}
 .empty-state-icon{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;color:var(--warn);background:var(--warn-soft)}
@@ -2018,29 +2024,35 @@ svg text{font-family:inherit}
 
   function tabCompare() {
     const p = S.product || {}, srcs = S.sources; let h = '';
+    const filterIdentity = S.freeSearch ? `search:${S.searchQuery}` : `product:${S.key}`;
+    if (sourceFilterIdentity !== filterIdentity) { sourceFilterIdentity = filterIdentity; sourceFilter = null; }
     h += `<div class="compare-actions"><button class="btn primary-action" data-act="compare" ${S.running ? 'disabled' : ''}>${icon('search')}<span>${S.running ? 'در حال جست‌وجو…' : 'مقایسهٔ قیمت‌ها'}</span></button><button class="btn sec icon-btn icon-only" data-act="reread" title="بازخوانی محصول" aria-label="بازخوانی محصول">${icon('refresh')}</button><button class="btn sec icon-btn icon-only" data-act="manual" title="ثبت قیمت دستی" aria-label="ثبت قیمت دستی">${icon('wallet')}</button></div>`;
     h += `<div class="manual-search"><input type="text" id="q" aria-label="جست‌وجوی آزاد در منابع فعال" placeholder="نام هر محصولی را برای دیدن قیمت فروشگاه‌ها جست‌وجو کنید" value="${U.esc(S.manualQuery || '')}"><button class="btn sec icon-btn" data-act="manualSearch" title="جست‌وجوی آزاد در منابع فعال" aria-label="جست‌وجوی آزاد در منابع فعال">${icon('search')}</button></div>`;
     const chips = Object.keys(Sources.registry).map(id => {
       const r = Sources.registry[id], st = srcs[id] || { status: Store.get().settings.sources[id] && r.implemented ? 'idle' : (r.implemented ? 'off' : 'unavailable') };
       const [lbl, cl] = STATUS[st.status] || ['آماده', ''];
-      return `<span class="source-chip ${cl} source-${U.esc(id)}" title="${U.esc(st.error || st.note || r.note)}"><span class="source-chip-icon">${icon(r.icon || 'global')}</span><b>${U.esc(r.label)}</b><span>${lbl}${st.count ? ' · ' + U.toFa(st.count) : ''}</span></span>`;
+      const included = !sourceFilter || sourceFilter.has(id), filterClass = sourceFilter ? (included ? 'filter-selected' : 'filter-excluded') : '';
+      const title = [st.error || st.note || r.note, 'برای فیلتر نتیجه‌ها کلیک کنید'].filter(Boolean).join(' · ');
+      return `<button type="button" class="source-chip ${cl} source-${U.esc(id)} ${filterClass}" data-source-filter="${U.esc(id)}" aria-pressed="${included}" title="${U.esc(title)}"><span class="source-chip-icon">${icon(r.icon || 'global')}</span><b>${U.esc(r.label)}</b><span>${lbl}${st.count ? ' · ' + U.toFa(st.count) : ''}</span></button>`;
     }).join('');
-    h += `<div class="source-row" aria-label="وضعیت منابع">${chips}</div>`;
-    const tr = srcs.torob; if (!S.freeSearch && tr && tr.candidates && tr.candidates.length > 1) h += `<div class="card"><div class="muted" style="margin-bottom:4px">محصول تطبیق‌یافته در ترب — اگر رنگ/مدل دیگری مدنظر است تغییر دهید</div><select data-sel="cand" style="width:100%">${tr.candidates.map(c => `<option value="${U.esc(c.key)}" ${c.key === tr.chosenKey ? 'selected' : ''}>${U.esc(c.title)}</option>`).join('')}</select></div>`;
-    if (tr && tr.tried && tr.tried.length > 1) h += `<div class="muted" style="margin-bottom:6px">جست‌وجوی چندمرحله‌ای: ${U.toFa(tr.tried.length)} عبارت امتحان شد؛ عبارت موفق: «${U.esc(tr.query)}»</div>`;
-    const sourceErrors = Object.entries(srcs).filter(([, st]) => st.error);
-    const offers = S.offers.slice();
+    h += `<div class="source-row" role="group" aria-label="وضعیت و فیلتر فروشگاه‌ها">${chips}${sourceFilter ? `<button type="button" class="source-filter-reset" data-act="resetSourceFilter" title="نمایش همهٔ فروشگاه‌ها">${iconText('refresh', 'همه')}</button>` : ''}</div>`;
+    const showTorob = !sourceFilter || sourceFilter.has('torob'), tr = srcs.torob;
+    if (showTorob && !S.freeSearch && tr && tr.candidates && tr.candidates.length > 1) h += `<div class="card"><div class="muted" style="margin-bottom:4px">محصول تطبیق‌یافته در ترب — اگر رنگ/مدل دیگری مدنظر است تغییر دهید</div><select data-sel="cand" style="width:100%">${tr.candidates.map(c => `<option value="${U.esc(c.key)}" ${c.key === tr.chosenKey ? 'selected' : ''}>${U.esc(c.title)}</option>`).join('')}</select></div>`;
+    if (showTorob && tr && tr.tried && tr.tried.length > 1) h += `<div class="muted" style="margin-bottom:6px">جست‌وجوی چندمرحله‌ای: ${U.toFa(tr.tried.length)} عبارت امتحان شد؛ عبارت موفق: «${U.esc(tr.query)}»</div>`;
+    const sourceErrors = Object.entries(srcs).filter(([id, st]) => (!sourceFilter || sourceFilter.has(id)) && st.error);
+    const offers = S.offers.filter(offer => !sourceFilter || sourceFilter.has(offer.sourceId));
     offers.sort((a, b) => S.sort === 'name' ? a.seller.localeCompare(b.seller, 'fa') : S.sort === 'desc' ? b.price - a.price : a.price - b.price);
-    if (S.offers.length) {
+    if (offers.length) {
       h += `<div class="row" style="margin-bottom:8px"><span class="select-shell"><select data-sel="sort" aria-label="مرتب‌سازی فروشندگان"><option value="price" ${S.sort === 'price' ? 'selected' : ''}>ارزان‌ترین</option><option value="desc" ${S.sort === 'desc' ? 'selected' : ''}>گران‌ترین</option><option value="name" ${S.sort === 'name' ? 'selected' : ''}>نام فروشنده</option></select></span><button class="btn sec icon-btn" data-act="toggleTable" title="${S.table ? 'نمای کارتی' : 'نمای جدول'}" aria-label="${S.table ? 'نمای کارتی' : 'نمای جدول'}">${icon(S.table ? 'layers' : 'compare')}</button></div>`;
       if (S.freeSearch) h += `<div class="card"><b>${icon('search', 15)} نتایج جست‌وجوی «${U.esc(S.searchQuery)}»</b><div class="muted" style="margin-top:5px">عنوان هر کالا در کارت خودش آمده؛ قیمت‌ها بین کالاهای متفاوت با هم مقایسه نشده‌اند.</div></div>`;
-      else {
+      else if (!sourceFilter) {
         const a = App.advice();
         h += `<div class="card"><b class="${a.tone === 'good' ? 'good' : a.tone === 'warn' ? 'warn' : ''}">مشاور خرید: ${U.esc(a.headline)}</b><ul>${a.points.map(x => `<li class="${x.k === 'good' ? 'good' : x.k === 'warn' ? 'warn' : ''}">${textWithCurrency(x.text)}</li>`).join('')}</ul><div class="muted" style="margin-top:6px">${a.caveats.map(U.esc).join('<br>')}</div></div>`;
       }
-      const comparablePrices = S.freeSearch ? [] : [...new Set(S.offers.filter(o => o.matchLevel !== 'low' && o.price > 0).map(o => o.price))];
+      else h += `<div class="muted" style="margin:0 2px 8px">نمایش فقط برای فروشگاه‌های انتخاب‌شده</div>`;
+      const comparablePrices = S.freeSearch ? [] : [...new Set(offers.filter(o => o.matchLevel !== 'low' && o.price > 0).map(o => o.price))];
       const comparableMedian = comparablePrices.length >= 3 ? U.median(comparablePrices) : null;
-      const bestPrice = S.freeSearch ? null : Math.min(...S.offers.filter(o => o.matchLevel !== 'low').map(o => o.price));
+      const bestPrice = S.freeSearch ? null : Math.min(...offers.filter(o => o.matchLevel !== 'low').map(o => o.price));
       const shown = S.showAll ? offers : offers.slice(0, 5);
       if (S.table) {
         if (S.freeSearch) h += '<table class="tb"><thead><tr><th>کالا</th><th>فروشنده</th><th>قیمت</th><th></th></tr></thead><tbody>' + shown.map(o => `<tr><td>${U.esc(o.matchTitle || S.searchQuery)}</td><td>${U.esc(o.seller)}</td><td><b>${money(o.price, 12)}</b></td><td>${o.sellerUrl ? `<a style="color:var(--acc)" href="${U.esc(o.sellerUrl)}" target="_blank" rel="noopener noreferrer" title="بازکردن صفحهٔ فروشنده" aria-label="بازکردن صفحهٔ فروشنده">${icon('link', 14, 'icon-sm')}</a>` : ''}</td></tr>`).join('') + '</tbody></table>';
@@ -2062,8 +2074,23 @@ svg text{font-family:inherit}
     } else if (!S.running && sourceErrors.length) {
       const [sourceId, sourceError] = sourceErrors[0], sourceName = Sources.registry[sourceId]?.label || sourceId;
       h += `<div class="empty-state" role="status"><span class="empty-state-icon">${icon('shield', 18)}</span><div class="empty-state-copy"><b>پاسخ قیمت‌ها دریافت نشد</b><p>${U.esc(sourceName)} خطا داد: ${U.esc(sourceError.error)}. پس از رفع محدودیت سرویس، دوباره تلاش کنید.</p></div><button class="btn sec icon-btn empty-state-action" data-act="${S.freeSearch ? 'manualSearch' : 'compare'}">${iconText('refresh', 'تلاش دوباره')}</button></div>`;
-    } else if (!S.running && Object.keys(srcs).length) h += `<div class="empty-state" role="status"><span class="empty-state-icon">${icon('search', 18)}</span><div class="empty-state-copy"><b>${S.freeSearch ? 'نتیجه‌ای برای عبارت جست‌وجو پیدا نشد' : 'فروشندهٔ مطابق پیدا نشد'}</b><p>${S.freeSearch ? `در منابع فعال کالای مرتبطی با «${U.esc(S.searchQuery)}» و قیمت قابل‌نمایش پیدا نشد. عبارت کوتاه‌تر یا دقیق‌تری امتحان کنید.` : 'برای این محصول نتیجهٔ قابل‌اتکایی در منابع فعال پیدا نشد. مدل یا عبارت جست‌وجو را بررسی کنید؛ قیمت حدسی نمایش داده نمی‌شود.'}</p></div>${S.freeSearch ? '' : `<button class="btn sec icon-btn empty-state-action" data-act="manual">${iconText('wallet', 'ثبت قیمت دستی')}</button>`}</div>`;
-    const rejectedGroups = S.freeSearch ? [] : Object.entries(srcs).filter(([, st]) => st.nearMiss?.length);
+    } else if (S.offers.length && sourceFilter) {
+      const selectedNames = Object.keys(Sources.registry).filter(id => sourceFilter.has(id)).map(id => Sources.registry[id].label).join('، ');
+      h += `<div class="empty-state" role="status"><span class="empty-state-icon">${icon('search', 18)}</span><div class="empty-state-copy"><b>نتیجه‌ای از فروشگاه‌های انتخاب‌شده نیست</b><p>برای «${U.esc(selectedNames)}» قیمت قابل‌نمایشی پیدا نشد. همهٔ فروشگاه‌ها را ببینید یا منبع دیگری را انتخاب کنید.</p></div><button type="button" class="btn sec icon-btn empty-state-action" data-act="resetSourceFilter">${iconText('refresh', 'نمایش همه')}</button></div>`;
+    } else if (!S.running && Object.keys(srcs).length) {
+      const selectedNames = sourceFilter ? Object.keys(Sources.registry).filter(id => sourceFilter.has(id)).map(id => Sources.registry[id].label).join('، ') : '';
+      const title = S.freeSearch ? 'نتیجه‌ای برای عبارت جست‌وجو پیدا نشد' : sourceFilter ? 'در فروشگاه‌های انتخاب‌شده نتیجه‌ای پیدا نشد' : 'فروشندهٔ مطابق پیدا نشد';
+      const detail = S.freeSearch
+        ? `در منابع فعال کالای مرتبطی با «${U.esc(S.searchQuery)}» و قیمت قابل‌نمایش پیدا نشد. عبارت کوتاه‌تر یا دقیق‌تری امتحان کنید.`
+        : sourceFilter
+          ? `در ${U.esc(selectedNames)} قیمت قابل‌اتکایی پیدا نشد. همهٔ فروشگاه‌ها را ببینید یا منبع دیگری را انتخاب کنید.`
+          : 'برای این محصول نتیجهٔ قابل‌اتکایی در منابع فعال پیدا نشد. مدل یا عبارت جست‌وجو را بررسی کنید؛ قیمت حدسی نمایش داده نمی‌شود.';
+      const action = sourceFilter
+        ? `<button class="btn sec icon-btn empty-state-action" data-act="resetSourceFilter">${iconText('refresh', 'نمایش همه')}</button>`
+        : S.freeSearch ? '' : `<button class="btn sec icon-btn empty-state-action" data-act="manual">${iconText('wallet', 'ثبت قیمت دستی')}</button>`;
+      h += `<div class="empty-state" role="status"><span class="empty-state-icon">${icon('search', 18)}</span><div class="empty-state-copy"><b>${title}</b><p>${detail}</p></div>${action}</div>`;
+    }
+    const rejectedGroups = S.freeSearch ? [] : Object.entries(srcs).filter(([id, st]) => (!sourceFilter || sourceFilter.has(id)) && st.nearMiss?.length);
     if (rejectedGroups.length) {
       const rejectedCount = rejectedGroups.reduce((sum, [, st]) => sum + st.nearMiss.length, 0);
       h += `<details class="card rejected-results"><summary><b>نتایج دیگر محصولات</b><small>${U.toFa(rejectedCount)} مورد</small></summary>${rejectedGroups.map(([id, st]) => { const source = Sources.registry[id]; return `<div class="rejected-provider"><div class="rejected-provider-title">${icon(source?.icon || 'global', 15)}<span>${U.esc(source?.label || id)}</span></div><ul>${st.nearMiss.map(item => `<li>${U.esc(item.title)} — ${U.esc(item.reason)}</li>`).join('')}</ul></div>`; }).join('')}</details>`;
@@ -2272,6 +2299,7 @@ svg text{font-family:inherit}
 
   const TABS = [['compare', 'compare', 'مقایسه', 'مقایسهٔ قیمت'], ['history', 'history', 'تاریخچه', 'تاریخچهٔ قیمت'], ['inspect', 'search', 'بازرس', 'بازرس تخفیف'], ['watch', 'heart', 'واچ‌لیست', 'واچ‌لیست قیمت'], ['settings', 'settings', 'تنظیمات', 'تنظیمات افزونه']];
   let lastIndicatorTarget = null;
+  let sourceFilter = null, sourceFilterIdentity = '';
   const tabScrollPositions = Object.create(null);
   let watchCollectionFilter = 'all';
   let collectionFormOpen = false;
@@ -2523,11 +2551,20 @@ svg text{font-family:inherit}
     $('#body').addEventListener('scroll', () => { const t = $('#body').scrollTop, pn = $('#panel'); if (t > 60) pn.classList.add('compact'); else if (t < 8) pn.classList.remove('compact'); });
     $('#min').onclick = () => setOpen(false); $('#close').onclick = () => { Store.get().settings.open = false; Store.save(); host.style.display = 'none'; };
     root.addEventListener('click', async e => {
-      const t = e.target.closest('[data-tab],[data-act],[data-range],[data-rm],[data-collection-icon]'); if (!t) return;
+      const t = e.target.closest('[data-tab],[data-act],[data-range],[data-rm],[data-collection-icon],[data-source-filter]'); if (!t) return;
       if (t.dataset.collectionIcon) {
         e.preventDefault();
         root.querySelectorAll('[data-collection-icon]').forEach(button => { const selected = button === t; button.setAttribute('aria-pressed', String(selected)); });
         return;
+      }
+      if (t.dataset.sourceFilter) {
+        if (!sourceFilter) sourceFilter = new Set([t.dataset.sourceFilter]);
+        else if (sourceFilter.has(t.dataset.sourceFilter)) {
+          sourceFilter.delete(t.dataset.sourceFilter);
+          if (!sourceFilter.size) sourceFilter = null;
+        } else sourceFilter.add(t.dataset.sourceFilter);
+        S.showAll = false;
+        return render();
       }
       const db = Store.get();
       if (t.dataset.tab) {
@@ -2547,6 +2584,7 @@ svg text{font-family:inherit}
       if (t.dataset.rm) { const p = db.products[t.dataset.rm]; if (p) p.watch = false; Store.save(); return render(); }
       const a = t.dataset.act;
       if (a === 'copyDiagnostics') return copyDiagnostics();
+      else if (a === 'resetSourceFilter') { sourceFilter = null; S.showAll = false; return render(); }
       else if (a === 'compare') App.runCompare();
       else if (a === 'toggleTable') { S.table = !S.table; db.settings.table = S.table; Store.save(); render(); }
       else if (a === 'manualSearch') { S.manualQuery = ($('#q').value || '').trim(); App.runCompare(S.manualQuery ? { query: S.manualQuery, freeSearch: true } : {}); }
@@ -2691,7 +2729,7 @@ const Main = (() => {
     };
     const run = () => { try { check(); } catch (e) { Log.error('main', e.message); } };
     setTimeout(run, 600); setInterval(run, 1500);
-    Log.info('main', 'تخفیف‌سنج 15.2.41 آماده شد');
+    Log.info('main', 'تخفیف‌سنج 15.2.42 آماده شد');
   }
   return { init };
 })();
