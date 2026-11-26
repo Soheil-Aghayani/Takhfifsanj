@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         تخفیف‌سنج
 // @namespace    ghafel-com-pro
-// @version      15.2.38
+// @version      15.2.39
 // @description  مقایسهٔ قیمت فروشندگان، تاریخچهٔ قیمت دیجی‌کالا، بازرس تخفیف، واچ‌لیست و هشدار قیمت
 // @author       GHAFEL_com (Original Creator)
 // @contributor  RealMahdi_a (Upgrade & Development)
@@ -22,7 +22,7 @@
 // @noframes
 // @run-at       document-idle
 // ==/UserScript==
-/* تخفیف‌سنج 15.2.38 — Original Creator: GHAFEL_com (https://t.me/GHAFEL_com) · Upgrade & Development: RealMahdi_a (https://t.me/RealMahdi_a) · Website: https://aqilistudio.ir/
+/* تخفیف‌سنج 15.2.39 — Original Creator: GHAFEL_com (https://t.me/GHAFEL_com) · Upgrade & Development: RealMahdi_a (https://t.me/RealMahdi_a) · Website: https://aqilistudio.ir/
    Built from readable modules in /src. The 8.7 engine logic is preserved in src/06-extract.js (extraction),
    src/07-match.js (baseline rule) and src/08-sources.js (Torob flow). */
 (function () {
@@ -709,6 +709,8 @@ const Sources = (() => {
   const TOROB_REF = 'https://torob.com/';
   const DK_REF = 'https://www.digikala.com/';
   const SEARCH_QUERY_NOISE = new Set(['مخصوص', 'مدل', 'قیمت', 'خرید', 'ارزان', 'ارزانترین', 'اورجینال', 'اصل', 'مناسب', 'و', 'با', 'از', 'برای', 'در', 'به']);
+  const TOROB_FREE_SEARCH_PRODUCT_LIMIT = 10;
+  const TOROB_FREE_SEARCH_BATCH_SIZE = 4;
   // Torob appends VAR-* catalog identifiers to some titles. These identify
   // Torob records, not shopper-facing models or variants, so ignore them in
   // matching, deduplication, and the visible candidate title.
@@ -797,6 +799,12 @@ const Sources = (() => {
       // so punctuation, duplicate words, and filler such as «مدل» do not create
       // duplicate choices; meaningful color/model/spec tokens remain distinct.
       return [...torob.candidateProfile(r).tokens].sort().join(' ');
+    },
+    searchIdentity(r) {
+      // Search results must retain package counts and other one-digit variants;
+      // the strict-comparison identity intentionally ignores some of those.
+      const tokens = U.normalize(torob.candidateTitle(r)).split(' ').filter(token => token && !U.STOP.has(token) && !SEARCH_QUERY_NOISE.has(token));
+      return [...new Set(tokens)].sort().join(' ');
     },
     sameCandidateProduct(a, b) {
       if (torob.candidateIdentity(a) === torob.candidateIdentity(b)) return true;
@@ -911,9 +919,14 @@ const Sources = (() => {
         }
       }
       if (!successfulSearches && firstError) throw firstError;
-      const ok = [];
+      const ok = [], searchIdentities = new Set();
       for (const candidate of [...byKey.values()].sort(compareCandidates)) {
-        if (!ok.some(current => torob.sameCandidateProduct(current.r, candidate.r))) ok.push(candidate);
+        if (freeSearch) {
+          const identity = torob.searchIdentity(candidate.r) || String(candidate.r.random_key || '');
+          if (searchIdentities.has(identity)) continue;
+          searchIdentities.add(identity);
+          ok.push(candidate);
+        } else if (!ok.some(current => torob.sameCandidateProduct(current.r, candidate.r))) ok.push(candidate);
       }
       const misses = [...nearMiss.values()].slice(0, 3);
       if (!ok.length) return { status: 'no-match', offers: [], note: freeSearch ? `در ترب نتیجه‌ای برای «${query}» پیدا نشد` : 'محصول مطابقی در ترب با اطمینان کافی پیدا نشد (' + tried.length + ' جست‌وجو)', nearMiss: freeSearch ? [] : misses, rejected: rejected.size, tried, candidates: [], query: tried[0] || '' };
@@ -921,15 +934,30 @@ const Sources = (() => {
         // A free-text search can describe several products. Fetch seller lists for
         // a small set of distinct, relevant Torob results instead of comparing
         // only the first result with the product open in the browser.
-        const selected = ok.slice(0, 4);
-        const groups = await Promise.all(selected.map(candidate => torob.sellers(prod, candidate.r, candidate.ev, candidate.searchId, { freeSearch: true })));
+        const selected = ok.slice(0, TOROB_FREE_SEARCH_PRODUCT_LIMIT), groups = [];
+        let successfulSellerLookups = 0, failedSellerLookups = 0, firstSellerError = null;
+        for (let i = 0; i < selected.length; i += TOROB_FREE_SEARCH_BATCH_SIZE) {
+          const batch = selected.slice(i, i + TOROB_FREE_SEARCH_BATCH_SIZE);
+          const results = await Promise.allSettled(batch.map(candidate => torob.sellers(prod, candidate.r, candidate.ev, candidate.searchId, { freeSearch: true })));
+          for (const result of results) {
+            if (result.status === 'fulfilled') { successfulSellerLookups++; groups.push(result.value); }
+            else {
+              failedSellerLookups++;
+              const error = result.reason instanceof Error ? result.reason : new Error(String(result.reason || 'خطای نامشخص'));
+              firstSellerError ||= error;
+              Log.warn('torob', 'دریافت فهرست فروشندگان یک نتیجه ناموفق بود: ' + error.message);
+            }
+          }
+        }
+        if (!successfulSellerLookups && firstSellerError) throw firstSellerError;
         const unique = new Map();
         for (const offer of groups.flat()) {
           const key = `${offer.sellerKey || offer.seller}|${offer.price}|${offer.sellerUrl}|${U.normalize(offer.matchTitle)}`;
           if (!unique.has(key)) unique.set(key, offer);
         }
         const offers = [...unique.values()];
-        return { status: offers.length ? 'ok' : 'empty', offers, note: `${U.toFa(selected.length)} محصول مرتبط با «${query}» در ترب بررسی شد`, nearMiss: [], rejected: rejected.size, tried, candidates: [], chosenKey: '', query };
+        const note = `${U.toFa(selected.length)} محصول مرتبط با «${query}» در ترب بررسی شد${failedSellerLookups ? `؛ دریافت قیمت ${U.toFa(failedSellerLookups)} مورد ناموفق بود` : ''}`;
+        return { status: offers.length ? 'ok' : 'empty', offers, note, nearMiss: [], rejected: rejected.size, tried, candidates: [], chosenKey: '', query };
       }
       const pick = (pickKey && ok.find(x => x.r.random_key === pickKey)) || ok[0], base = pick.r;
       const baseTitle = torob.candidateTitle(base);
@@ -2605,7 +2633,7 @@ const Main = (() => {
     };
     const run = () => { try { check(); } catch (e) { Log.error('main', e.message); } };
     setTimeout(run, 600); setInterval(run, 1500);
-    Log.info('main', 'تخفیف‌سنج 15.2.38 آماده شد');
+    Log.info('main', 'تخفیف‌سنج 15.2.39 آماده شد');
   }
   return { init };
 })();
