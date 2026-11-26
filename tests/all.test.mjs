@@ -38,6 +38,43 @@ test('differential: normalize / price parsers / title cleaner identical to 8.7',
   for (const d of ['digikala.com', 'ترب', 'www.emalls.ir', 'foo.com', 'Technolife', 'باسلام']) assert.equal(api.Extract.matchKnownSite(d), old.known(d));
 });
 
+test('extract: strips the Torob SEO prefix "خرید و قیمت" without leaving "و قیمت"', () => {
+  const { api } = makeEnv();
+  assert.equal(api.Extract.cleanTitle('خرید و قیمت ضد آفتاب فلوئیدی بی رنگ مای اسمارت دیفنس SPF50 | ترب'), 'ضد آفتاب فلوئیدی بی رنگ مای اسمارت دیفنس SPF50');
+});
+
+test('extract: Torob listing cards are not a page product, while /p/ details are', () => {
+  const html = `<html><head><title>محصولات محبوب من</title><script type="application/ld+json">{"@type":"Product","name":"ضد آفتاب نمونه SPF50","offers":{"price":"250000"}}</script></head><body><h1>محصولات محبوب من</h1><article>ضد آفتاب نمونه SPF50</article></body></html>`;
+  const listing = makeEnv(html, 'https://torob.com/browse7037d8aad8a7d9bed988d8/');
+  assert.equal(listing.api.Extract.looksLikeProductPage(), false);
+  const listingProduct = listing.api.Extract.product(listing.w.document);
+  assert.equal(listingProduct.title, ''); assert.equal(listingProduct.price, null);
+  const detail = makeEnv(html, 'https://torob.com/p/12345678/product-name/');
+  assert.equal(detail.api.Extract.looksLikeProductPage(), true);
+});
+
+test('main: rapid SPA URL changes debounce automatic product refresh', () => {
+  const html = `<html><head><script type="application/ld+json">{"@type":"Product","name":"محصول آزمایشی"}</script></head><body><h1>محصول آزمایشی</h1></body></html>`;
+  const { api, w } = makeEnv(html, 'https://shop.example.com/product/1');
+  api.Store.load();
+  const timers = [], intervals = [];
+  w.setTimeout = (fn, ms) => { const timer = { fn, ms, cancelled: false }; timers.push(timer); return timer; };
+  w.clearTimeout = timer => { if (timer) timer.cancelled = true; };
+  w.setInterval = fn => { intervals.push(fn); return intervals.length; };
+  api.UI.mount = () => { const host = w.document.createElement('div'); host.id = api.UI.HOST_ID; w.document.body.append(host); };
+  api.UI.unmount = () => w.document.getElementById(api.UI.HOST_ID)?.remove();
+  let refreshes = 0; api.App.refreshProduct = () => { refreshes++; };
+  api.Main.init();
+  timers.find(t => t.ms === 600).fn();
+  w.history.pushState({}, '', '/product/2'); intervals[0]();
+  w.history.pushState({}, '', '/product/3'); intervals[0]();
+  const pending = timers.filter(t => t.ms === 1200 && !t.cancelled);
+  assert.equal(pending.length, 1);
+  pending[0].fn();
+  assert.equal(refreshes, 1);
+  w.close();
+});
+
 test('differential: baseline match rule identical to 8.7 on a grid of pairs', () => {
   const { api, old } = makeEnv();
   const names = ['هدفون بلوتوثی موزیک آپولو مدل YRB/22', 'هدفون بلوتوث موزیک آپولو مدل TWSDX C22', 'گوشی سامسونگ Galaxy A07 64GB', 'Samsung Galaxy A07 64 GB گوشی موبایل', 'شیر کم چرب ۱ لیتری', 'شیر پرچرب ۲ لیتری', 'ماگ سرامیکی', 'هدفون آپولو YRB22 مشکی'];

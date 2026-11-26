@@ -4,7 +4,7 @@ const body = files.map(f => `\n// ---- ${f} ----\n` + fs.readFileSync(path.join(
 const HEADER = `// ==UserScript==
 // @name         تخفیف‌سنج
 // @namespace    ghafel-com-pro
-// @version      15.2.43
+// @version      15.2.44
 // @description  مقایسهٔ قیمت فروشندگان، تاریخچهٔ قیمت دیجی‌کالا، بازرس تخفیف، واچ‌لیست و هشدار قیمت
 // @author       GHAFEL_com (Original Creator)
 // @contributor  RealMahdi_a (Upgrade & Development)
@@ -25,7 +25,7 @@ const HEADER = `// ==UserScript==
 // @noframes
 // @run-at       document-idle
 // ==/UserScript==
-/* تخفیف‌سنج 15.2.43 — Original Creator: GHAFEL_com (https://t.me/GHAFEL_com) · Upgrade & Development: RealMahdi_a (https://t.me/RealMahdi_a) · Website: https://aqilistudio.ir/
+/* تخفیف‌سنج 15.2.44 — Original Creator: GHAFEL_com (https://t.me/GHAFEL_com) · Upgrade & Development: RealMahdi_a (https://t.me/RealMahdi_a) · Website: https://aqilistudio.ir/
    Built from readable modules in /src. The 8.7 engine logic is preserved in src/06-extract.js (extraction),
    src/07-match.js (baseline rule) and src/08-sources.js (Torob flow). */
 `;

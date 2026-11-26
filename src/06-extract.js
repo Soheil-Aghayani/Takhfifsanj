@@ -17,7 +17,9 @@ const Extract = (() => {
     return null;
   };
   const hasUnit = s => { const t = U.digits(s); return /\d/.test(t) && /گرم|کیلو|میلی|لیتر|عدد|بسته|سانتی|متر|سی.?سی|\b(ml|kg|g|l|gr|cm|mm)\b/i.test(t); };
-  const NAME_JUNK = [/^\s*قیمت\s*و\s*خرید\s+/, /^\s*خرید\s+/, /\s*(با|در)\s*قیمت\s*(روز|مناسب|ارزان|عمده)?.*$/, /\s*خرید\s*(آنلاین|اینترنتی|قسطی|اقساطی).*$/, /\s*(ارسال\s*رایگان|تخفیف|گارانتی|اصل|اورجینال).*$/];
+  const NAME_JUNK = [/^\s*خرید\s+و\s+قیمت\s+/, /^\s*قیمت\s*و\s*خرید\s+/, /^\s*خرید\s+/, /\s*(با|در)\s*قیمت\s*(روز|مناسب|ارزان|عمده)?.*$/, /\s*خرید\s*(آنلاین|اینترنتی|قسطی|اقساطی).*$/, /\s*(ارسال\s*رایگان|تخفیف|گارانتی|اصل|اورجینال).*$/];
+  const isTorobHost = () => location.hostname.toLowerCase().replace(/^www\./, '') === 'torob.com';
+  const isTorobProductPath = () => /^\/p\/[^/]+(?:\/|$)/i.test(location.pathname);
   function cleanTitle(raw) {
     const parts = String(raw || '').split(/\s*[|—–]\s*|\s+-\s+/).map(s => s.trim()).filter(Boolean);
     let t = parts.filter((p, i) => i === 0 || (!isStoreName(p) && hasUnit(p))).join(' - ').replace(/\d[\d٬,،\s]*\s*(تومان|تومن|ت)\b.*$/u, '').replace(/\s+/g, ' ').trim();
@@ -197,6 +199,12 @@ const Extract = (() => {
 
   // Main entry: returns Model.product-compatible plain data.
   function product(root = document) {
+    // Torob listing/category pages contain many product cards and their JSON-LD.
+    // They are not a single product page; never pick one card as the page product.
+    if (isTorobHost() && !isTorobProductPath()) {
+      return { title: '', price: null, priceSource: '', oldPrice: null, nameCandidates: [], color: '',
+        host: 'torob.com', url: location.href, id: '', variantId: '' };
+    }
     const ld = jsonLd(root) || {};
     const meta = sel => root.querySelector(sel)?.getAttribute('content') || '';
     const h1 = root.querySelector('h1')?.textContent?.trim() || '';
@@ -225,6 +233,7 @@ const Extract = (() => {
   }
   function looksLikeProductPage() {
     if (/dkp-\d+/i.test(location.pathname)) return true;
+    if (isTorobHost()) return isTorobProductPath();
     if (document.querySelector('meta[property="og:type"][content*="product"]')) return true;
     if (jsonLd(document)) return true;
     return !!([...document.querySelectorAll('button')].some(b => /افزودن به سبد/.test(b.textContent || '')) && document.querySelector('h1'));

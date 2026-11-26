@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         تخفیف‌سنج
 // @namespace    ghafel-com-pro
-// @version      15.2.43
+// @version      15.2.44
 // @description  مقایسهٔ قیمت فروشندگان، تاریخچهٔ قیمت دیجی‌کالا، بازرس تخفیف، واچ‌لیست و هشدار قیمت
 // @author       GHAFEL_com (Original Creator)
 // @contributor  RealMahdi_a (Upgrade & Development)
@@ -22,7 +22,7 @@
 // @noframes
 // @run-at       document-idle
 // ==/UserScript==
-/* تخفیف‌سنج 15.2.43 — Original Creator: GHAFEL_com (https://t.me/GHAFEL_com) · Upgrade & Development: RealMahdi_a (https://t.me/RealMahdi_a) · Website: https://aqilistudio.ir/
+/* تخفیف‌سنج 15.2.44 — Original Creator: GHAFEL_com (https://t.me/GHAFEL_com) · Upgrade & Development: RealMahdi_a (https://t.me/RealMahdi_a) · Website: https://aqilistudio.ir/
    Built from readable modules in /src. The 8.7 engine logic is preserved in src/06-extract.js (extraction),
    src/07-match.js (baseline rule) and src/08-sources.js (Torob flow). */
 (function () {
@@ -357,7 +357,9 @@ const Extract = (() => {
     return null;
   };
   const hasUnit = s => { const t = U.digits(s); return /\d/.test(t) && /گرم|کیلو|میلی|لیتر|عدد|بسته|سانتی|متر|سی.?سی|\b(ml|kg|g|l|gr|cm|mm)\b/i.test(t); };
-  const NAME_JUNK = [/^\s*قیمت\s*و\s*خرید\s+/, /^\s*خرید\s+/, /\s*(با|در)\s*قیمت\s*(روز|مناسب|ارزان|عمده)?.*$/, /\s*خرید\s*(آنلاین|اینترنتی|قسطی|اقساطی).*$/, /\s*(ارسال\s*رایگان|تخفیف|گارانتی|اصل|اورجینال).*$/];
+  const NAME_JUNK = [/^\s*خرید\s+و\s+قیمت\s+/, /^\s*قیمت\s*و\s*خرید\s+/, /^\s*خرید\s+/, /\s*(با|در)\s*قیمت\s*(روز|مناسب|ارزان|عمده)?.*$/, /\s*خرید\s*(آنلاین|اینترنتی|قسطی|اقساطی).*$/, /\s*(ارسال\s*رایگان|تخفیف|گارانتی|اصل|اورجینال).*$/];
+  const isTorobHost = () => location.hostname.toLowerCase().replace(/^www\./, '') === 'torob.com';
+  const isTorobProductPath = () => /^\/p\/[^/]+(?:\/|$)/i.test(location.pathname);
   function cleanTitle(raw) {
     const parts = String(raw || '').split(/\s*[|—–]\s*|\s+-\s+/).map(s => s.trim()).filter(Boolean);
     let t = parts.filter((p, i) => i === 0 || (!isStoreName(p) && hasUnit(p))).join(' - ').replace(/\d[\d٬,،\s]*\s*(تومان|تومن|ت)\b.*$/u, '').replace(/\s+/g, ' ').trim();
@@ -537,6 +539,12 @@ const Extract = (() => {
 
   // Main entry: returns Model.product-compatible plain data.
   function product(root = document) {
+    // Torob listing/category pages contain many product cards and their JSON-LD.
+    // They are not a single product page; never pick one card as the page product.
+    if (isTorobHost() && !isTorobProductPath()) {
+      return { title: '', price: null, priceSource: '', oldPrice: null, nameCandidates: [], color: '',
+        host: 'torob.com', url: location.href, id: '', variantId: '' };
+    }
     const ld = jsonLd(root) || {};
     const meta = sel => root.querySelector(sel)?.getAttribute('content') || '';
     const h1 = root.querySelector('h1')?.textContent?.trim() || '';
@@ -565,6 +573,7 @@ const Extract = (() => {
   }
   function looksLikeProductPage() {
     if (/dkp-\d+/i.test(location.pathname)) return true;
+    if (isTorobHost()) return isTorobProductPath();
     if (document.querySelector('meta[property="og:type"][content*="product"]')) return true;
     if (jsonLd(document)) return true;
     return !!([...document.querySelectorAll('button')].some(b => /افزودن به سبد/.test(b.textContent || '')) && document.querySelector('h1'));
@@ -2775,17 +2784,33 @@ const Main = (() => {
     document.addEventListener('keydown', e => { if (e.altKey && e.shiftKey && e.code === 'KeyG') { e.preventDefault(); UI.toggle(); } });
     const isDk = /(^|\.)digikala\.com$/.test(location.hostname);
     if (isDk) Alerts.start();
-    let lastHref = '';
+    let lastHref = '', refreshTimer = null;
+    const cancelRefresh = () => { if (refreshTimer !== null) { clearTimeout(refreshTimer); refreshTimer = null; } };
+    const scheduleRefresh = href => {
+      cancelRefresh();
+      refreshTimer = setTimeout(() => {
+        refreshTimer = null;
+        const should = !Store.get().settings.productPageOnly || Extract.looksLikeProductPage();
+        if (location.href === href && should && document.getElementById(UI.HOST_ID)) App.refreshProduct();
+      }, 1200);
+    };
     const check = () => {
       const should = !Store.get().settings.productPageOnly || Extract.looksLikeProductPage();
       const mounted = !!document.getElementById(UI.HOST_ID);
-      if (should && !mounted) { UI.mount(); App.refreshProduct(); }
-      if (!should && mounted) UI.unmount();
-      if (location.href !== lastHref) { lastHref = location.href; if (should) { setTimeout(() => App.refreshProduct(), 1500); setTimeout(() => App.refreshProduct(), 5000); } }
+      const justMounted = should && !mounted;
+      if (justMounted) UI.mount();
+      if (!should && mounted) { UI.unmount(); cancelRefresh(); }
+      const href = location.href, changed = href !== lastHref;
+      if (changed) lastHref = href;
+      if (should && (changed || justMounted)) {
+        // setOpen(true) refreshes immediately when the panel mounts already open.
+        if (justMounted && Store.get().settings.open) cancelRefresh();
+        else scheduleRefresh(href);
+      } else if (!should && changed) cancelRefresh();
     };
     const run = () => { try { check(); } catch (e) { Log.error('main', e.message); } };
     setTimeout(run, 600); setInterval(run, 1500);
-    Log.info('main', 'تخفیف‌سنج 15.2.43 آماده شد');
+    Log.info('main', 'تخفیف‌سنج 15.2.44 آماده شد');
   }
   return { init };
 })();
