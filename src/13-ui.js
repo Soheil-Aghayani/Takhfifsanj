@@ -16,7 +16,7 @@ const UI = (() => {
 #panel.open{display:flex}
 #panel.wide{width:min(560px,calc(100vw - 20px))}
 header,.hero{flex-shrink:0}
-.tb{width:100%;border-collapse:collapse;font-size:12px}.tb td{padding:5px 3px;border-bottom:1px solid var(--line);vertical-align:middle}.tb tr.best td{background:rgba(52,211,153,.08)}.dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-left:4px}.dot.high{background:var(--acc2)}.dot.medium{background:var(--warn)}.dot.low{background:var(--bad)}
+.tb{width:100%;border-collapse:collapse;font-size:12px}.tb td{padding:5px 3px;border-bottom:1px solid var(--line);vertical-align:middle}.tb th{padding:4px 3px;color:var(--mut);font-size:10px;font-weight:600;text-align:right;border-bottom:1px solid var(--line)}.tb tr.best td{background:rgba(52,211,153,.08)}.dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-left:4px}.dot.high{background:var(--acc2)}.dot.medium{background:var(--warn)}.dot.low{background:var(--bad)}
 input[type=text]{min-width:0}#q{flex:1}
 .tabs{position:relative;z-index:2;background:var(--panel)}
 .body{min-height:0;overscroll-behavior:contain;position:relative}
@@ -218,6 +218,7 @@ details.card summary{cursor:pointer;list-style:none}details.card summary::-webki
 .offer-link .icon{width:16px;height:16px}.offer-price{flex:0 0 auto;text-align:left;font-size:15px;font-weight:800;white-space:nowrap}
 .offer-source{display:inline-flex;align-items:center;gap:5px;color:var(--mut);font-size:10px}.offer-source .brand-logo{width:15px;height:15px}
 .offer-source-score .match-score{font-size:10px}
+.free-search-product-title{padding-block-end:5px;border-bottom:1px solid var(--line);font-size:11px;line-height:1.55;font-weight:700;overflow-wrap:anywhere;color:var(--ink)}
 .offer a{color:var(--acc);text-decoration:none;font-size:11px}
 .pv{font-weight:800;font-size:15px;white-space:nowrap}
 select,input[type=number],input[type=text]{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:5px 8px;font-family:inherit;font-size:12px}
@@ -327,45 +328,51 @@ svg text{font-family:inherit}
   function tabCompare() {
     const p = S.product || {}, srcs = S.sources; let h = '';
     h += `<div class="compare-actions"><button class="btn primary-action" data-act="compare" ${S.running ? 'disabled' : ''}>${icon('search')}<span>${S.running ? 'در حال جست‌وجو…' : 'مقایسهٔ قیمت‌ها'}</span></button><button class="btn sec icon-btn icon-only" data-act="reread" title="بازخوانی محصول" aria-label="بازخوانی محصول">${icon('refresh')}</button><button class="btn sec icon-btn icon-only" data-act="manual" title="ثبت قیمت دستی" aria-label="ثبت قیمت دستی">${icon('wallet')}</button></div>`;
-    h += `<div class="manual-search"><input type="text" id="q" aria-label="جست‌وجوی دستی در منابع فعال" placeholder="نام یا مدل محصول را در منابع فعال جست‌وجو کنید" value="${U.esc(S.manualQuery || '')}"><button class="btn sec icon-btn" data-act="manualSearch" title="جست‌وجو در منابع فعال" aria-label="جست‌وجو در منابع فعال">${icon('search')}</button></div>`;
+    h += `<div class="manual-search"><input type="text" id="q" aria-label="جست‌وجوی آزاد در منابع فعال" placeholder="نام هر محصولی را برای دیدن قیمت فروشگاه‌ها جست‌وجو کنید" value="${U.esc(S.manualQuery || '')}"><button class="btn sec icon-btn" data-act="manualSearch" title="جست‌وجوی آزاد در منابع فعال" aria-label="جست‌وجوی آزاد در منابع فعال">${icon('search')}</button></div>`;
     const chips = Object.keys(Sources.registry).map(id => {
       const r = Sources.registry[id], st = srcs[id] || { status: Store.get().settings.sources[id] && r.implemented ? 'idle' : (r.implemented ? 'off' : 'unavailable') };
       const [lbl, cl] = STATUS[st.status] || ['آماده', ''];
       return `<span class="source-chip ${cl} source-${U.esc(id)}" title="${U.esc(st.error || st.note || r.note)}"><span class="source-chip-icon">${icon(r.icon || 'global')}</span><b>${U.esc(r.label)}</b><span>${lbl}${st.count ? ' · ' + U.toFa(st.count) : ''}</span></span>`;
     }).join('');
     h += `<div class="source-row" aria-label="وضعیت منابع">${chips}</div>`;
-    const tr = srcs.torob; if (tr && tr.candidates && tr.candidates.length > 1) h += `<div class="card"><div class="muted" style="margin-bottom:4px">محصول تطبیق‌یافته در ترب — اگر رنگ/مدل دیگری مدنظر است تغییر دهید</div><select data-sel="cand" style="width:100%">${tr.candidates.map(c => `<option value="${U.esc(c.key)}" ${c.key === tr.chosenKey ? 'selected' : ''}>${U.esc(c.title)}</option>`).join('')}</select></div>`;
+    const tr = srcs.torob; if (!S.freeSearch && tr && tr.candidates && tr.candidates.length > 1) h += `<div class="card"><div class="muted" style="margin-bottom:4px">محصول تطبیق‌یافته در ترب — اگر رنگ/مدل دیگری مدنظر است تغییر دهید</div><select data-sel="cand" style="width:100%">${tr.candidates.map(c => `<option value="${U.esc(c.key)}" ${c.key === tr.chosenKey ? 'selected' : ''}>${U.esc(c.title)}</option>`).join('')}</select></div>`;
     if (tr && tr.tried && tr.tried.length > 1) h += `<div class="muted" style="margin-bottom:6px">جست‌وجوی چندمرحله‌ای: ${U.toFa(tr.tried.length)} عبارت امتحان شد؛ عبارت موفق: «${U.esc(tr.query)}»</div>`;
     const sourceErrors = Object.entries(srcs).filter(([, st]) => st.error);
     const offers = S.offers.slice();
     offers.sort((a, b) => S.sort === 'name' ? a.seller.localeCompare(b.seller, 'fa') : S.sort === 'desc' ? b.price - a.price : a.price - b.price);
     if (S.offers.length) {
       h += `<div class="row" style="margin-bottom:8px"><span class="select-shell"><select data-sel="sort" aria-label="مرتب‌سازی فروشندگان"><option value="price" ${S.sort === 'price' ? 'selected' : ''}>ارزان‌ترین</option><option value="desc" ${S.sort === 'desc' ? 'selected' : ''}>گران‌ترین</option><option value="name" ${S.sort === 'name' ? 'selected' : ''}>نام فروشنده</option></select></span><button class="btn sec icon-btn" data-act="toggleTable" title="${S.table ? 'نمای کارتی' : 'نمای جدول'}" aria-label="${S.table ? 'نمای کارتی' : 'نمای جدول'}">${icon(S.table ? 'layers' : 'compare')}</button></div>`;
-      const a = App.advice();
-      h += `<div class="card"><b class="${a.tone === 'good' ? 'good' : a.tone === 'warn' ? 'warn' : ''}">مشاور خرید: ${U.esc(a.headline)}</b><ul>${a.points.map(x => `<li class="${x.k === 'good' ? 'good' : x.k === 'warn' ? 'warn' : ''}">${textWithCurrency(x.text)}</li>`).join('')}</ul><div class="muted" style="margin-top:6px">${a.caveats.map(U.esc).join('<br>')}</div></div>`;
-      const comparablePrices = [...new Set(S.offers.filter(o => o.matchLevel !== 'low' && o.price > 0).map(o => o.price))];
+      if (S.freeSearch) h += `<div class="card"><b>${icon('search', 15)} نتایج جست‌وجوی «${U.esc(S.searchQuery)}»</b><div class="muted" style="margin-top:5px">عنوان هر کالا در کارت خودش آمده؛ قیمت‌ها بین کالاهای متفاوت با هم مقایسه نشده‌اند.</div></div>`;
+      else {
+        const a = App.advice();
+        h += `<div class="card"><b class="${a.tone === 'good' ? 'good' : a.tone === 'warn' ? 'warn' : ''}">مشاور خرید: ${U.esc(a.headline)}</b><ul>${a.points.map(x => `<li class="${x.k === 'good' ? 'good' : x.k === 'warn' ? 'warn' : ''}">${textWithCurrency(x.text)}</li>`).join('')}</ul><div class="muted" style="margin-top:6px">${a.caveats.map(U.esc).join('<br>')}</div></div>`;
+      }
+      const comparablePrices = S.freeSearch ? [] : [...new Set(S.offers.filter(o => o.matchLevel !== 'low' && o.price > 0).map(o => o.price))];
       const comparableMedian = comparablePrices.length >= 3 ? U.median(comparablePrices) : null;
-      const bestPrice = Math.min(...S.offers.filter(o => o.matchLevel !== 'low').map(o => o.price));
+      const bestPrice = S.freeSearch ? null : Math.min(...S.offers.filter(o => o.matchLevel !== 'low').map(o => o.price));
       const shown = S.showAll ? offers : offers.slice(0, 5);
       if (S.table) {
-        h += '<table class="tb">' + shown.map(o => { const diff = p.price ? (o.price - p.price) / p.price * 100 : null, pct = matchPercent(o), lv = LV[o.matchLevel] || ['', '']; return `<tr class="${o.price === bestPrice && o.matchLevel !== 'low' ? 'best' : ''}"><td>${pct ? `<span class="chip ${lv[1]} match-score" title="${pct}" aria-label="${pct}">${pct}</span> ` : ''}${U.esc(o.seller)}</td><td><b>${money(o.price, 12)}</b></td><td class="${diff != null && diff < -0.5 ? 'good' : diff > 0.5 ? 'bad' : 'muted'}">${diff == null ? '' : (diff < 0 ? '−' : diff > 0 ? '+' : '') + U.fmtPct(Math.abs(diff))}</td><td>${o.sellerUrl ? `<a style="color:var(--acc)" href="${U.esc(o.sellerUrl)}" target="_blank" rel="noopener noreferrer" title="بازکردن صفحهٔ فروشنده" aria-label="بازکردن صفحهٔ فروشنده">${icon('link', 14, 'icon-sm')}</a>` : ''}</td></tr>`; }).join('') + '</table>';
+        if (S.freeSearch) h += '<table class="tb"><thead><tr><th>کالا</th><th>فروشنده</th><th>قیمت</th><th></th></tr></thead><tbody>' + shown.map(o => `<tr><td>${U.esc(o.matchTitle || S.searchQuery)}</td><td>${U.esc(o.seller)}</td><td><b>${money(o.price, 12)}</b></td><td>${o.sellerUrl ? `<a style="color:var(--acc)" href="${U.esc(o.sellerUrl)}" target="_blank" rel="noopener noreferrer" title="بازکردن صفحهٔ فروشنده" aria-label="بازکردن صفحهٔ فروشنده">${icon('link', 14, 'icon-sm')}</a>` : ''}</td></tr>`).join('') + '</tbody></table>';
+        else h += '<table class="tb">' + shown.map(o => { const diff = p.price ? (o.price - p.price) / p.price * 100 : null, pct = matchPercent(o), lv = LV[o.matchLevel] || ['', '']; return `<tr class="${o.price === bestPrice && o.matchLevel !== 'low' ? 'best' : ''}"><td>${pct ? `<span class="chip ${lv[1]} match-score" title="${pct}" aria-label="${pct}">${pct}</span> ` : ''}${U.esc(o.seller)}</td><td><b>${money(o.price, 12)}</b></td><td class="${diff != null && diff < -0.5 ? 'good' : diff > 0.5 ? 'bad' : 'muted'}">${diff == null ? '' : (diff < 0 ? '−' : diff > 0 ? '+' : '') + U.fmtPct(Math.abs(diff))}</td><td>${o.sellerUrl ? `<a style="color:var(--acc)" href="${U.esc(o.sellerUrl)}" target="_blank" rel="noopener noreferrer" title="بازکردن صفحهٔ فروشنده" aria-label="بازکردن صفحهٔ فروشنده">${icon('link', 14, 'icon-sm')}</a>` : ''}</td></tr>`; }).join('') + '</table>';
       }
       else for (const o of shown) {
-        const diff = p.price ? (o.price - p.price) / p.price * 100 : null, lv = LV[o.matchLevel] || ['', ''];
+        const diff = !S.freeSearch && p.price ? (o.price - p.price) / p.price * 100 : null, lv = LV[o.matchLevel] || ['', ''];
         const dd = diff == null ? '' : Math.abs(diff) < 0.5 ? '<span class="muted">هم‌قیمت با این صفحه</span>' : diff < 0 ? `<span class="good">${U.fmtPct(-diff)} ارزان‌تر · صرفه‌جویی ${money(p.price - o.price, 12)}</span>` : `<span class="bad">${U.fmtPct(diff)} گران‌تر</span>`;
         const pct = matchPercent(o), source = Sources.registry[o.sourceId], checked = new Date(o.ts).toLocaleTimeString('fa-IR');
         const infoTags = [offerInfoTag('روش ارسال', 'bag', o.shippingInfo), offerInfoTag('گارانتی', 'shield', o.warrantyInfo)].filter(Boolean).join('');
-        const lowPrice = comparableMedian && o.matchLevel !== 'low' && o.price <= comparableMedian * .65;
+        const lowPrice = !S.freeSearch && comparableMedian && o.matchLevel !== 'low' && o.price <= comparableMedian * .65;
         const priceSignal = lowPrice ? `<span class="chip warn" title="${U.toFa(Math.round((1 - o.price / comparableMedian) * 100))}٪ پایین‌تر از میانهٔ قیمت‌های همسان؛ شرایط فروش و موجودی را بررسی کنید.">قیمت غیرمعمول</span>` : '';
         const offerLink = o.sellerUrl ? `<a class="offer-link" href="${U.esc(o.sellerUrl)}" target="_blank" rel="noopener noreferrer" title="بازکردن صفحهٔ فروشنده" aria-label="بازکردن صفحهٔ فروشنده">${icon('link')}</a>` : '';
-        h += `<article class="card offer ${o.price === bestPrice && o.matchLevel !== 'low' ? 'best' : ''}"><div class="offer-top-row"><div class="offer-seller-group"><b>${U.esc(o.seller)}</b>${o.price === bestPrice && o.matchLevel !== 'low' ? '<span class="chip good">ارزان‌ترین</span>' : ''}<span class="offer-diff">${dd}</span>${priceSignal}${infoTags}</div>${offerLink}</div><div class="offer-bottom-row"><div class="offer-source-score"><span class="offer-source">${icon(source?.icon || 'global', 15)}<span>${U.esc(source?.label || o.sourceId)} · ${checked}</span></span>${pct ? `<span class="chip ${lv[1]} match-score" title="${pct}" aria-label="${pct}">${pct}</span>` : ''}</div><strong class="offer-price">${money(o.price, 14)}</strong></div></article>`;
+        const productTitle = S.freeSearch ? `<div class="free-search-product-title">${U.esc(o.matchTitle || S.searchQuery)}</div>` : '';
+        const bestBadge = !S.freeSearch && o.price === bestPrice && o.matchLevel !== 'low' ? '<span class="chip good">ارزان‌ترین</span>' : '';
+        h += `<article class="card offer ${bestBadge ? 'best' : ''}">${productTitle}<div class="offer-top-row"><div class="offer-seller-group"><b>${U.esc(o.seller)}</b>${bestBadge}<span class="offer-diff">${dd}</span>${priceSignal}${infoTags}</div>${offerLink}</div><div class="offer-bottom-row"><div class="offer-source-score"><span class="offer-source">${icon(source?.icon || 'global', 15)}<span>${U.esc(source?.label || o.sourceId)} · ${checked}</span></span>${pct ? `<span class="chip ${lv[1]} match-score" title="${pct}" aria-label="${pct}">${pct}</span>` : ''}</div><strong class="offer-price">${money(o.price, 14)}</strong></div></article>`;
       }
       if (offers.length > 5) h += `<div class="btns"><button class="btn sec" data-act="toggleAll">${S.showAll ? 'نمایش کمتر' : 'نمایش همهٔ ' + U.toFa(offers.length) + ' مورد'}</button></div>`;
     } else if (!S.running && sourceErrors.length) {
       const [sourceId, sourceError] = sourceErrors[0], sourceName = Sources.registry[sourceId]?.label || sourceId;
-      h += `<div class="empty-state" role="status"><span class="empty-state-icon">${icon('shield', 18)}</span><div class="empty-state-copy"><b>پاسخ قیمت‌ها دریافت نشد</b><p>${U.esc(sourceName)} خطا داد: ${U.esc(sourceError.error)}. پس از رفع محدودیت سرویس، دوباره تلاش کنید.</p></div><button class="btn sec icon-btn empty-state-action" data-act="compare">${iconText('refresh', 'تلاش دوباره')}</button></div>`;
-    } else if (!S.running && Object.keys(srcs).length) h += `<div class="empty-state" role="status"><span class="empty-state-icon">${icon('search', 18)}</span><div class="empty-state-copy"><b>فروشندهٔ مطابق پیدا نشد</b><p>برای این محصول نتیجهٔ قابل‌اتکایی در منابع فعال پیدا نشد. مدل یا عبارت جست‌وجو را بررسی کنید؛ قیمت حدسی نمایش داده نمی‌شود.</p></div><button class="btn sec icon-btn empty-state-action" data-act="manual">${iconText('wallet', 'ثبت قیمت دستی')}</button></div>`;
-    const rejectedGroups = Object.entries(srcs).filter(([, st]) => st.nearMiss?.length);
+      h += `<div class="empty-state" role="status"><span class="empty-state-icon">${icon('shield', 18)}</span><div class="empty-state-copy"><b>پاسخ قیمت‌ها دریافت نشد</b><p>${U.esc(sourceName)} خطا داد: ${U.esc(sourceError.error)}. پس از رفع محدودیت سرویس، دوباره تلاش کنید.</p></div><button class="btn sec icon-btn empty-state-action" data-act="${S.freeSearch ? 'manualSearch' : 'compare'}">${iconText('refresh', 'تلاش دوباره')}</button></div>`;
+    } else if (!S.running && Object.keys(srcs).length) h += `<div class="empty-state" role="status"><span class="empty-state-icon">${icon('search', 18)}</span><div class="empty-state-copy"><b>${S.freeSearch ? 'نتیجه‌ای برای عبارت جست‌وجو پیدا نشد' : 'فروشندهٔ مطابق پیدا نشد'}</b><p>${S.freeSearch ? `در منابع فعال کالای مرتبطی با «${U.esc(S.searchQuery)}» و قیمت قابل‌نمایش پیدا نشد. عبارت کوتاه‌تر یا دقیق‌تری امتحان کنید.` : 'برای این محصول نتیجهٔ قابل‌اتکایی در منابع فعال پیدا نشد. مدل یا عبارت جست‌وجو را بررسی کنید؛ قیمت حدسی نمایش داده نمی‌شود.'}</p></div>${S.freeSearch ? '' : `<button class="btn sec icon-btn empty-state-action" data-act="manual">${iconText('wallet', 'ثبت قیمت دستی')}</button>`}</div>`;
+    const rejectedGroups = S.freeSearch ? [] : Object.entries(srcs).filter(([, st]) => st.nearMiss?.length);
     if (rejectedGroups.length) {
       const rejectedCount = rejectedGroups.reduce((sum, [, st]) => sum + st.nearMiss.length, 0);
       h += `<details class="card rejected-results"><summary><b>نتایج دیگر محصولات</b><small>${U.toFa(rejectedCount)} مورد</small></summary>${rejectedGroups.map(([id, st]) => { const source = Sources.registry[id]; return `<div class="rejected-provider"><div class="rejected-provider-title">${icon(source?.icon || 'global', 15)}<span>${U.esc(source?.label || id)}</span></div><ul>${st.nearMiss.map(item => `<li>${U.esc(item.title)} — ${U.esc(item.reason)}</li>`).join('')}</ul></div>`; }).join('')}</details>`;
@@ -704,16 +711,18 @@ svg text{font-family:inherit}
     if (appRenderFrame) { cancelFrame(appRenderFrame); appRenderFrame = 0; }
     queuedAppRender = false;
     if (tabMorphActive) cancelTabMorph();
-    const st = Store.get().settings, p = S.product || {};
+    const st = Store.get().settings, p = S.product || {}, freeSearchView = S.freeSearch && S.tab === 'compare';
     const pn = $('#panel'); if (!pn) return;
     pn.classList.toggle('wide', !!st.wide);
     const wideLabel = st.wide ? 'باریک‌کردن پنل' : 'عریض‌کردن پنل'; $('#wide').title = wideLabel; $('#wide').setAttribute('aria-label', wideLabel);
     pn.style.width = pn.style.height = pn.style.maxHeight = '';
     $('.wrap').className = 'wrap ' + (st.theme === 'light' ? 'light' : 'dark');
-    $('#name').textContent = Extract.coreTitle(p.title) || p.title || 'نام محصول شناسایی نشد';
-    $('#name').setAttribute('title', p.title || '');
-    $('#price').innerHTML = p.price ? money(p.price, 20) : '<span class="warn" style="font-size:16px">قیمت شناسایی نشد — «ثبت دستی قیمت»</span>';
-    $('#meta').innerHTML = [p.seller ? 'فروشنده: ' + U.esc(p.seller) : '', p.warranty ? 'گارانتی: ' + U.esc(p.warranty) : ''].filter(Boolean).join(' · ');
+    $('#name').textContent = freeSearchView ? S.searchQuery : Extract.coreTitle(p.title) || p.title || 'نام محصول شناسایی نشد';
+    $('#name').setAttribute('title', freeSearchView ? S.searchQuery : p.title || '');
+    $('#price').hidden = freeSearchView;
+    $('#price').innerHTML = freeSearchView ? '' : p.price ? money(p.price, 20) : '<span class="warn" style="font-size:16px">قیمت شناسایی نشد — «ثبت دستی قیمت»</span>';
+    $('#meta').hidden = freeSearchView;
+    $('#meta').innerHTML = freeSearchView ? '' : [p.seller ? 'فروشنده: ' + U.esc(p.seller) : '', p.warranty ? 'گارانتی: ' + U.esc(p.warranty) : ''].filter(Boolean).join(' · ');
     const indicatorTargetRect = renderTabs(transition.indicatorRect || null);
     const morphOriginRect = transition.originRect || indicatorTargetRect;
     const body = { compare: tabCompare, history: tabHistory, inspect: tabInspector, watch: tabWatch, settings: tabSettings, log: tabLog }[S.tab]();
@@ -802,7 +811,7 @@ svg text{font-family:inherit}
       const a = t.dataset.act;
       if (a === 'compare') App.runCompare();
       else if (a === 'toggleTable') { S.table = !S.table; db.settings.table = S.table; Store.save(); render(); }
-      else if (a === 'manualSearch') { S.manualQuery = ($('#q').value || '').trim(); App.runCompare(S.manualQuery ? { query: S.manualQuery } : {}); }
+      else if (a === 'manualSearch') { S.manualQuery = ($('#q').value || '').trim(); App.runCompare(S.manualQuery ? { query: S.manualQuery, freeSearch: true } : {}); }
       else if (a === 'toggleAll') { S.showAll = !S.showAll; render(); }
       else if (a === 'reread') App.refreshProduct();
       else if (a === 'manual') { const v = Number(U.digits(prompt('قیمت فعلی محصول (تومان):', '') || '').replace(/\D/g, '')); if (v > 0) App.setManualPrice(v); }
@@ -871,7 +880,7 @@ svg text{font-family:inherit}
       }
     });
     root.addEventListener('keydown', e => {
-      if (e.target.id === 'q' && e.key === 'Enter') { e.preventDefault(); S.manualQuery = e.target.value.trim(); App.runCompare(S.manualQuery ? { query: S.manualQuery } : {}); }
+      if (e.target.id === 'q' && e.key === 'Enter') { e.preventDefault(); S.manualQuery = e.target.value.trim(); App.runCompare(S.manualQuery ? { query: S.manualQuery, freeSearch: true } : {}); }
       else if (e.target.id === 'tgt' && e.key === 'Enter') { e.preventDefault(); root.querySelector('[data-act="setTarget"]')?.click(); }
       else if ((e.target.id === 'collectionName' || e.target.id === 'collectionEditName') && e.key === 'Enter') {
         e.preventDefault(); root.querySelector(`[data-act="${e.target.id === 'collectionName' ? 'createCollection' : 'saveCollection'}"]`)?.click();

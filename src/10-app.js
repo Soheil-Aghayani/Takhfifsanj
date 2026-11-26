@@ -7,7 +7,7 @@ const App = (() => {
     sources: {},              // id -> {status, count, note, error, ts, nearMiss}
     dk: null,                 // parsed Digikala product record
     chart: null, chartError: '', chartLoading: false, chartFromCache: false, chartFetchedAt: 0, chartStale: false, historyNotice: '', variantIdx: 0, variantExact: false, variantManual: false,
-    range: 90, tab: 'compare', running: false, sort: 'price', banner: '',
+    range: 90, tab: 'compare', running: false, sort: 'price', banner: '', freeSearch: false, searchQuery: '',
     dkFetching: false, dkTs: 0, historyCooldownUntil: 0, historyCooldownNote: ''
   };
   const subs = new Set(); const emit = () => subs.forEach(f => { try { f(state); } catch (e) { Log.error('ui', e.message); } });
@@ -122,15 +122,21 @@ const App = (() => {
 
   async function runCompare(opts = {}) {
     if (state.running) return;
-    const p = state.product || await refreshProduct();
-    if (!p.title) { state.banner = 'نام محصول در این صفحه پیدا نشد.'; emit(); return; }
+    const pageProduct = state.product || await refreshProduct();
+    const searchQuery = String(opts.query || '').trim();
+    const freeSearch = opts.freeSearch === true && !!searchQuery;
+    state.freeSearch = freeSearch; state.searchQuery = freeSearch ? searchQuery : '';
+    if (!pageProduct.title && !freeSearch) { state.offers = []; state.sources = {}; state.banner = 'نام محصول در این صفحه پیدا نشد.'; emit(); return; }
+    const p = freeSearch
+      ? Model.product({ id: `manual-search:${U.compact(searchQuery)}`, key: `manual-search:${U.compact(searchQuery)}`, host: 'manual-search', title: searchQuery })
+      : pageProduct;
     state.banner = ''; state.running = true; state.offers = []; state.sources = {};
     const reg = Sources.registry, cfg = settings().sources;
     for (const id of Object.keys(reg)) state.sources[id] = { status: reg[id].implemented ? (cfg[id] ? 'loading' : 'off') : 'unavailable', count: 0, note: reg[id].implemented ? '' : reg[id].note };
     emit();
     await Promise.all(Object.keys(reg).filter(id => reg[id].implemented && cfg[id]).map(async id => {
       try {
-        const r = await reg[id].fetch(p, opts);
+        const r = await reg[id].fetch(p, { ...opts, query: freeSearch ? searchQuery : opts.query, freeSearch });
         state.sources[id] = { status: r.status, count: r.offers.length, note: r.note || '', error: r.error || '', nearMiss: r.nearMiss || [], candidates: r.candidates || [], chosenKey: r.chosenKey || '', query: r.query || '', tried: r.tried || [], ts: Date.now() };
         state.offers.push(...r.offers);
       } catch (e) { state.sources[id] = { status: 'error', count: 0, error: e.message, ts: Date.now() }; Log.error(id, e.message); }

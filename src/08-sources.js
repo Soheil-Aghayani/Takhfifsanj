@@ -140,7 +140,7 @@ const Sources = (() => {
       const alternatives = titles.filter(title => title !== primaryTitle).map(title => Match.evaluate(title, ct, { brandAliases }));
       return [primary, ...alternatives].filter(ev => ev.ok).sort((a, b) => b.score - a.score)[0] || primary;
     },
-    async sellers(prod, base, ev, searchId) {
+    async sellers(prod, base, ev, searchId, { freeSearch = false } = {}) {
       const baseTitle = torob.candidateTitle(base);
       const params = new URLSearchParams({ source: 'next_mobile', discover_method: 'direct', prk: base.random_key, list_type: 'products_info' });
       if (searchId) params.set('search_id', searchId);
@@ -165,7 +165,7 @@ const Sources = (() => {
           ...badges.filter(value => /گارانتی|ضمانت/.test(value))
         ].map(value => value.trim()).filter(Boolean))];
         return Model.offer({ sourceId: 'torob', productId: prod.id, seller: key ? (Extract.KNOWN[key][0] || key) : shop, sellerKey: key || '', sellerUrl: String(s.page_url || s.redirect_url || s.product_url || s.url || ''), price: Number(s.price ?? s.price_value),
-          ts, dataSource: 'torob:base-product/sellers', matchConfidence: ev.score, matchLevel: ev.level, matchTitle: baseTitle, flags: ev.flags, shippingInfo, warrantyInfo });
+          ts, dataSource: 'torob:base-product/sellers', matchConfidence: freeSearch ? null : ev.score, matchLevel: freeSearch ? '' : ev.level, matchTitle: baseTitle, flags: freeSearch ? [] : ev.flags, shippingInfo, warrantyInfo });
       });
       if (excluded) Log.info('torob', `${excluded} صفحهٔ فروش نامرتبط حذف شد`);
       const raw = mapped.filter(o => o.seller && o.price > 0);
@@ -175,7 +175,7 @@ const Sources = (() => {
       Log.info('torob', `${raw.length} فروشنده → ${offers.length} پس از حذف تکراری`);
       return offers;
     },
-    async fetch(prod, { query, pickKey } = {}) {
+    async fetch(prod, { query, pickKey, freeSearch = false } = {}) {
       const tried = [], nearMiss = new Map(), rejected = new Set(), byKey = new Map();
       const qs = torob.queries(prod, query);
       const responses = await Promise.all(qs.map(async (q, index) => {
@@ -193,10 +193,11 @@ const Sources = (() => {
         Log.info('torob', `«${item.q}» → ${res.results.length} نتیجه`);
         const valid = res.results.filter(r => r && r.name1 && !r.is_adv && Number(r.price) > 0 && r.random_key);
         for (const r of valid) {
-          const candidate = { r, ev: torob.evalCand(prod, r), searchId: res.searchId, q: item.q, queryIndex: item.index };
+          const title = torob.candidateTitle(r);
+          const candidate = { r, ev: freeSearch ? freeSearchMatch(query, title) : torob.evalCand(prod, r), searchId: res.searchId, q: item.q, queryIndex: item.index };
           if (!candidate.ev.ok || candidate.ev.level === 'low') {
             rejected.add(r.random_key);
-            if (candidate.ev.flags.some(flag => ['model-mismatch', 'spec-mismatch', 'brand-mismatch', 'category-mismatch', 'category-unverified', 'low-context', 'low-coverage'].includes(flag)) && nearMiss.size < 8 && !nearMiss.has(r.random_key)) nearMiss.set(r.random_key, { title: torob.candidateTitle(r), reason: candidate.ev.reasons[0] });
+            if (!freeSearch && candidate.ev.flags.some(flag => ['model-mismatch', 'spec-mismatch', 'brand-mismatch', 'category-mismatch', 'category-unverified', 'low-context', 'low-coverage'].includes(flag)) && nearMiss.size < 8 && !nearMiss.has(r.random_key)) nearMiss.set(r.random_key, { title, reason: candidate.ev.reasons[0] });
             continue;
           }
           const current = byKey.get(r.random_key);
@@ -209,7 +210,21 @@ const Sources = (() => {
         if (!ok.some(current => torob.sameCandidateProduct(current.r, candidate.r))) ok.push(candidate);
       }
       const misses = [...nearMiss.values()].slice(0, 3);
-      if (!ok.length) return { status: 'no-match', offers: [], note: 'محصول مطابقی در ترب با اطمینان کافی پیدا نشد (' + tried.length + ' جست‌وجو)', nearMiss: misses, rejected: rejected.size, tried, candidates: [], query: tried[0] || '' };
+      if (!ok.length) return { status: 'no-match', offers: [], note: freeSearch ? `در ترب نتیجه‌ای برای «${query}» پیدا نشد` : 'محصول مطابقی در ترب با اطمینان کافی پیدا نشد (' + tried.length + ' جست‌وجو)', nearMiss: freeSearch ? [] : misses, rejected: rejected.size, tried, candidates: [], query: tried[0] || '' };
+      if (freeSearch) {
+        // A free-text search can describe several products. Fetch seller lists for
+        // a small set of distinct, relevant Torob results instead of comparing
+        // only the first result with the product open in the browser.
+        const selected = ok.slice(0, 4);
+        const groups = await Promise.all(selected.map(candidate => torob.sellers(prod, candidate.r, candidate.ev, candidate.searchId, { freeSearch: true })));
+        const unique = new Map();
+        for (const offer of groups.flat()) {
+          const key = `${offer.sellerKey || offer.seller}|${offer.price}|${offer.sellerUrl}|${U.normalize(offer.matchTitle)}`;
+          if (!unique.has(key)) unique.set(key, offer);
+        }
+        const offers = [...unique.values()];
+        return { status: offers.length ? 'ok' : 'empty', offers, note: `${U.toFa(selected.length)} محصول مرتبط با «${query}» در ترب بررسی شد`, nearMiss: [], rejected: rejected.size, tried, candidates: [], chosenKey: '', query };
+      }
       const pick = (pickKey && ok.find(x => x.r.random_key === pickKey)) || ok[0], base = pick.r;
       const baseTitle = torob.candidateTitle(base);
       Log.info('torob', `محصول انتخاب‌شده: ${baseTitle} [${pick.ev.level} ${pick.ev.score}]`);
@@ -272,19 +287,46 @@ const Sources = (() => {
     const matches = titles.map(source => Match.evaluate(source, title, { strict: true, brandAliases: aliases }));
     return matches.sort((a, b) => Number(b.ok) - Number(a.ok) || b.score - a.score)[0] || Match.evaluate(prod.title || '', title, { strict: true, brandAliases: aliases });
   }
+  function freeSearchMatch(query, title) {
+    const queryTokens = U.tokens(query), titleTokens = U.tokens(title);
+    if (!queryTokens.length || !titleTokens.length) return { ok: false, score: 0, level: 'low', flags: [], reasons: [] };
+    const queryCodes = Match.modelCodes(query), titleCodes = Match.modelCodes(title);
+    const codeCompatible = (a, b) => a === b || (Math.min(a.length, b.length) >= 4 && (a.endsWith(b) || b.endsWith(a)));
+    if (queryCodes.length && !queryCodes.every(a => titleCodes.some(b => codeCompatible(a, b)))) {
+      return { ok: false, score: 0, level: 'low', flags: ['model-mismatch'], reasons: ['کد مدل با عبارت جست‌وجو متفاوت است'] };
+    }
+    const queryBrands = Match.brandFamilies(query), titleBrands = Match.brandFamilies(title);
+    if (queryBrands.length && titleBrands.length && !queryBrands.some(brand => titleBrands.includes(brand))) {
+      return { ok: false, score: 0, level: 'low', flags: ['brand-mismatch'], reasons: ['برند با عبارت جست‌وجو متفاوت است'] };
+    }
+    const queryTypes = Match.productTypes(query), titleTypes = Match.productTypes(title);
+    if (queryTypes.length && titleTypes.length && !queryTypes.some(type => titleTypes.includes(type))) {
+      return { ok: false, score: 0, level: 'low', flags: ['category-mismatch'], reasons: ['نوع کالا با عبارت جست‌وجو متفاوت است'] };
+    }
+    const querySpecs = Match.specs(query), titleSpecs = Match.specs(title);
+    for (const unit of Object.keys(querySpecs)) if (titleSpecs[unit] && ![...querySpecs[unit]].some(value => titleSpecs[unit].has(value))) {
+      return { ok: false, score: 0, level: 'low', flags: ['spec-mismatch'], reasons: ['مشخصه با عبارت جست‌وجو متفاوت است'] };
+    }
+    const hasToken = queryToken => titleTokens.some(titleToken => titleToken === queryToken ||
+      (Math.min(queryToken.length, titleToken.length) >= 4 && (queryToken.startsWith(titleToken) || titleToken.startsWith(queryToken))));
+    const matched = queryTokens.filter(hasToken).length;
+    const required = queryTokens.length <= 2 ? queryTokens.length : Math.max(2, Math.ceil(queryTokens.length * 0.7));
+    const score = matched / queryTokens.length;
+    return { ok: matched >= required, score, level: matched >= required ? 'high' : 'low', flags: [], reasons: [] };
+  }
   function marketMatchReason(prod, title) {
     const ev = strictMatch(prod, title);
     return ev.reasons[0] || (ev.ok ? 'اطمینان تطبیق برای نمایش کافی نبود' : 'تطبیق دقیق مدل یا برند تأیید نشد');
   }
-  function mapMarketOffer(prod, row, { sourceId, title, price, seller, sellerUrl, allowedHosts, priceFactor = 1, dataSource, exclude } = {}) {
+  function mapMarketOffer(prod, row, { sourceId, title, price, seller, sellerUrl, allowedHosts, priceFactor = 1, dataSource, exclude, freeSearch = false, query = '' } = {}) {
     const name = String(title || '').trim(), url = safeMarketplaceUrl(sellerUrl, allowedHosts);
     if (!name || !url || (exclude && exclude(row, url))) return null;
-    const amount = parsePrice(price) * priceFactor, ev = strictMatch(prod, name);
-    if (!(amount > 0) || !ev.ok || ev.score < 0.65) return null;
+    const amount = parsePrice(price) * priceFactor, ev = freeSearch ? freeSearchMatch(query, name) : strictMatch(prod, name);
+    if (!(amount > 0) || !ev.ok || (!freeSearch && ev.score < 0.65)) return null;
     const storeName = String(seller || '').trim();
     const sellerKey = Extract.matchKnownSite(url) || Extract.matchKnownSite(storeName);
     return Model.offer({ sourceId, productId: prod.id, seller: storeName || sourceId, sellerKey: sellerKey || '', sellerUrl: url, price: amount,
-      ts: Date.now(), dataSource, matchConfidence: ev.score, matchLevel: ev.level, matchTitle: name, flags: ev.flags });
+      ts: Date.now(), dataSource, matchConfidence: freeSearch ? null : ev.score, matchLevel: freeSearch ? '' : ev.level, matchTitle: name, flags: freeSearch ? [] : ev.flags });
   }
   function marketResult(offers, tried, rejected, nearMiss = [], note = '', error = '') {
     const unique = new Map();
@@ -313,7 +355,7 @@ const Sources = (() => {
       return Net.json('https://emalls.ir/swservice/site_search', { method: 'POST', body: body.toString(), referer: EMALLS_REF, timeout: 18000, anonymous: true,
         headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8', 'X-Requested-With': 'XMLHttpRequest' } });
     },
-    async fetch(prod, { query } = {}) {
+    async fetch(prod, { query, freeSearch = false } = {}) {
       const tried = [], offers = [], nearMiss = [], failures = []; let rejected = 0;
       for (const q of searchTerms(prod, query)) {
         tried.push(q);
@@ -328,15 +370,15 @@ const Sources = (() => {
         for (const row of rows) {
           const name = row?.title || '', link = reverseEmallsLink(row?.buyLink);
           const seller = String(row?.buyTitle || '').replace(/^خرید[\u200c\u200e\s]*از[\u200c\u200e\s]*/u, '').trim();
-          const offer = mapMarketOffer(prod, row, { sourceId: 'emalls', title: name, price: row?.price, seller, sellerUrl: link, allowedHosts: ['click.emalls.ir'], dataSource: 'emalls:site_search/listitemv2', exclude: item => item?.agahi || item?.used === true });
-          if (offer) offers.push(offer); else { rejected++; if (name && nearMiss.length < 3) nearMiss.push({ title: name, reason: marketMatchReason(prod, name) }); }
+          const offer = mapMarketOffer(prod, row, { sourceId: 'emalls', title: name, price: row?.price, seller, sellerUrl: link, allowedHosts: ['click.emalls.ir'], dataSource: 'emalls:site_search/listitemv2', exclude: item => item?.agahi || item?.used === true, freeSearch, query });
+          if (offer) offers.push(offer); else { rejected++; if (!freeSearch && name && nearMiss.length < 3) nearMiss.push({ title: name, reason: marketMatchReason(prod, name) }); }
         }
       }
       const error = tried.length && failures.length === tried.length ? failures.join('؛ ') : '';
       const note = failures.length
         ? (error ? `تمام جست‌وجوهای ایمالز ناموفق بود: ${error}` : `یک یا چند عبارت ایمالز پاسخ نداد؛ ${offers.length ? `${offers.length} نتیجه از پاسخ‌های موفق` : 'در پاسخ‌های موفق نتیجهٔ همسانی پیدا نشد'}`)
         : '';
-      return marketResult(offers, tried, rejected, nearMiss, note, error);
+      return marketResult(offers, tried, rejected, freeSearch ? [] : nearMiss, note, error);
     }
   };
   const basalam = {
@@ -346,7 +388,7 @@ const Sources = (() => {
       const url = new URL(BASALAM_API); url.search = new URLSearchParams({ q, sort: 'rank', from: '0', size: '30' }).toString();
       return Net.json(url.href, { referer: 'https://basalam.com/', timeout: 18000, anonymous: true });
     },
-    async fetch(prod, { query } = {}) {
+    async fetch(prod, { query, freeSearch = false } = {}) {
       const tried = [], offers = [], nearMiss = []; let rejected = 0;
       for (const q of searchTerms(prod, query)) {
         tried.push(q);
@@ -355,18 +397,18 @@ const Sources = (() => {
           const slug = String(row?.vendor?.identifier || '').trim(), id = String(row?.id || '').trim();
           const url = slug && id ? `https://basalam.com/${encodeURIComponent(slug)}/product/${encodeURIComponent(id)}` : '';
           const offer = mapMarketOffer(prod, row, { sourceId: 'basalam', title: row?.name, price: row?.price, priceFactor: 0.1,
-            seller: row?.vendor?.name, sellerUrl: url, allowedHosts: ['basalam.com'], dataSource: 'basalam:guest-product-search', exclude: excludedBasalamProduct });
+            seller: row?.vendor?.name, sellerUrl: url, allowedHosts: ['basalam.com'], dataSource: 'basalam:guest-product-search', exclude: excludedBasalamProduct, freeSearch, query });
           if (offer && row?.IsSaleable !== false && row?.status?.title !== 'ناموجود') offers.push(offer);
-          else { rejected++; if (row?.name && nearMiss.length < 3) nearMiss.push({ title: row.name, reason: marketMatchReason(prod, row.name) }); }
+          else { rejected++; if (!freeSearch && row?.name && nearMiss.length < 3) nearMiss.push({ title: row.name, reason: marketMatchReason(prod, row.name) }); }
         }
       }
-      return marketResult(offers, tried, rejected, nearMiss);
+      return marketResult(offers, tried, rejected, freeSearch ? [] : nearMiss, freeSearch && !offers.length ? `در باسلام نتیجه‌ای برای «${query}» پیدا نشد` : '');
     }
   };
   const snappshop = {
     id: 'snappshop', label: 'اسنپ‌شاپ', icon: 'snappshop', kind: 'offers', implemented: true, hosts: ['apix.snappshop.ir'], cities: SNAPP_CITIES,
     note: 'جست‌وجوی زندهٔ قیمت در اسنپ‌شاپ',
-    async fetch(prod, { query, cityId } = {}) {
+    async fetch(prod, { query, cityId, freeSearch = false } = {}) {
       const savedCity = typeof Store !== 'undefined' ? Store.get()?.settings?.snappCity : '';
       const city = SNAPP_CITIES[cityId || savedCity] || SNAPP_CITIES.tehran;
       const coordinates = `lat=${encodeURIComponent(city.lat)}&lng=${encodeURIComponent(city.lng)}`;
@@ -384,12 +426,13 @@ const Sources = (() => {
           const rawPrice = row?.price?.discounted_price || row?.price?.price;
           const offer = mapMarketOffer(prod, row, { sourceId: 'snappshop', title: row?.title, price: rawPrice,
             seller: 'اسنپ‌شاپ', sellerUrl: url, allowedHosts: ['snappshop.ir'], dataSource: 'snappshop:search/v1',
-            exclude: item => item?.is_ads || item?.is_fake });
+            exclude: item => item?.is_ads || item?.is_fake, freeSearch, query });
           if (offer) offers.push(offer);
-          else { rejected++; if (row?.title && nearMiss.length < 3) nearMiss.push({ title: row.title, reason: marketMatchReason(prod, row.title) }); }
+          else { rejected++; if (!freeSearch && row?.title && nearMiss.length < 3) nearMiss.push({ title: row.title, reason: marketMatchReason(prod, row.title) }); }
         }
       }
-      return marketResult(offers, tried, rejected, nearMiss, offers.length ? `قیمت اسنپ‌شاپ · ${city.label}` : `برای این شهر (${city.label}) نتیجهٔ همسان با برند و کد مدل پیدا نشد`);
+      return marketResult(offers, tried, rejected, freeSearch ? [] : nearMiss,
+        freeSearch ? `قیمت‌های اسنپ‌شاپ · ${city.label}` : offers.length ? `قیمت اسنپ‌شاپ · ${city.label}` : `برای این شهر (${city.label}) نتیجهٔ همسان با برند و کد مدل پیدا نشد`);
     }
   };
 

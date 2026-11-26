@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         تخفیف‌سنج
 // @namespace    ghafel-com-pro
-// @version      15.2.37
+// @version      15.2.38
 // @description  مقایسهٔ قیمت فروشندگان، تاریخچهٔ قیمت دیجی‌کالا، بازرس تخفیف، واچ‌لیست و هشدار قیمت
 // @author       GHAFEL_com (Original Creator)
 // @contributor  RealMahdi_a (Upgrade & Development)
@@ -22,7 +22,7 @@
 // @noframes
 // @run-at       document-idle
 // ==/UserScript==
-/* تخفیف‌سنج 15.2.37 — Original Creator: GHAFEL_com (https://t.me/GHAFEL_com) · Upgrade & Development: RealMahdi_a (https://t.me/RealMahdi_a) · Website: https://aqilistudio.ir/
+/* تخفیف‌سنج 15.2.38 — Original Creator: GHAFEL_com (https://t.me/GHAFEL_com) · Upgrade & Development: RealMahdi_a (https://t.me/RealMahdi_a) · Website: https://aqilistudio.ir/
    Built from readable modules in /src. The 8.7 engine logic is preserved in src/06-extract.js (extraction),
    src/07-match.js (baseline rule) and src/08-sources.js (Torob flow). */
 (function () {
@@ -846,7 +846,7 @@ const Sources = (() => {
       const alternatives = titles.filter(title => title !== primaryTitle).map(title => Match.evaluate(title, ct, { brandAliases }));
       return [primary, ...alternatives].filter(ev => ev.ok).sort((a, b) => b.score - a.score)[0] || primary;
     },
-    async sellers(prod, base, ev, searchId) {
+    async sellers(prod, base, ev, searchId, { freeSearch = false } = {}) {
       const baseTitle = torob.candidateTitle(base);
       const params = new URLSearchParams({ source: 'next_mobile', discover_method: 'direct', prk: base.random_key, list_type: 'products_info' });
       if (searchId) params.set('search_id', searchId);
@@ -871,7 +871,7 @@ const Sources = (() => {
           ...badges.filter(value => /گارانتی|ضمانت/.test(value))
         ].map(value => value.trim()).filter(Boolean))];
         return Model.offer({ sourceId: 'torob', productId: prod.id, seller: key ? (Extract.KNOWN[key][0] || key) : shop, sellerKey: key || '', sellerUrl: String(s.page_url || s.redirect_url || s.product_url || s.url || ''), price: Number(s.price ?? s.price_value),
-          ts, dataSource: 'torob:base-product/sellers', matchConfidence: ev.score, matchLevel: ev.level, matchTitle: baseTitle, flags: ev.flags, shippingInfo, warrantyInfo });
+          ts, dataSource: 'torob:base-product/sellers', matchConfidence: freeSearch ? null : ev.score, matchLevel: freeSearch ? '' : ev.level, matchTitle: baseTitle, flags: freeSearch ? [] : ev.flags, shippingInfo, warrantyInfo });
       });
       if (excluded) Log.info('torob', `${excluded} صفحهٔ فروش نامرتبط حذف شد`);
       const raw = mapped.filter(o => o.seller && o.price > 0);
@@ -881,7 +881,7 @@ const Sources = (() => {
       Log.info('torob', `${raw.length} فروشنده → ${offers.length} پس از حذف تکراری`);
       return offers;
     },
-    async fetch(prod, { query, pickKey } = {}) {
+    async fetch(prod, { query, pickKey, freeSearch = false } = {}) {
       const tried = [], nearMiss = new Map(), rejected = new Set(), byKey = new Map();
       const qs = torob.queries(prod, query);
       const responses = await Promise.all(qs.map(async (q, index) => {
@@ -899,10 +899,11 @@ const Sources = (() => {
         Log.info('torob', `«${item.q}» → ${res.results.length} نتیجه`);
         const valid = res.results.filter(r => r && r.name1 && !r.is_adv && Number(r.price) > 0 && r.random_key);
         for (const r of valid) {
-          const candidate = { r, ev: torob.evalCand(prod, r), searchId: res.searchId, q: item.q, queryIndex: item.index };
+          const title = torob.candidateTitle(r);
+          const candidate = { r, ev: freeSearch ? freeSearchMatch(query, title) : torob.evalCand(prod, r), searchId: res.searchId, q: item.q, queryIndex: item.index };
           if (!candidate.ev.ok || candidate.ev.level === 'low') {
             rejected.add(r.random_key);
-            if (candidate.ev.flags.some(flag => ['model-mismatch', 'spec-mismatch', 'brand-mismatch', 'category-mismatch', 'category-unverified', 'low-context', 'low-coverage'].includes(flag)) && nearMiss.size < 8 && !nearMiss.has(r.random_key)) nearMiss.set(r.random_key, { title: torob.candidateTitle(r), reason: candidate.ev.reasons[0] });
+            if (!freeSearch && candidate.ev.flags.some(flag => ['model-mismatch', 'spec-mismatch', 'brand-mismatch', 'category-mismatch', 'category-unverified', 'low-context', 'low-coverage'].includes(flag)) && nearMiss.size < 8 && !nearMiss.has(r.random_key)) nearMiss.set(r.random_key, { title, reason: candidate.ev.reasons[0] });
             continue;
           }
           const current = byKey.get(r.random_key);
@@ -915,7 +916,21 @@ const Sources = (() => {
         if (!ok.some(current => torob.sameCandidateProduct(current.r, candidate.r))) ok.push(candidate);
       }
       const misses = [...nearMiss.values()].slice(0, 3);
-      if (!ok.length) return { status: 'no-match', offers: [], note: 'محصول مطابقی در ترب با اطمینان کافی پیدا نشد (' + tried.length + ' جست‌وجو)', nearMiss: misses, rejected: rejected.size, tried, candidates: [], query: tried[0] || '' };
+      if (!ok.length) return { status: 'no-match', offers: [], note: freeSearch ? `در ترب نتیجه‌ای برای «${query}» پیدا نشد` : 'محصول مطابقی در ترب با اطمینان کافی پیدا نشد (' + tried.length + ' جست‌وجو)', nearMiss: freeSearch ? [] : misses, rejected: rejected.size, tried, candidates: [], query: tried[0] || '' };
+      if (freeSearch) {
+        // A free-text search can describe several products. Fetch seller lists for
+        // a small set of distinct, relevant Torob results instead of comparing
+        // only the first result with the product open in the browser.
+        const selected = ok.slice(0, 4);
+        const groups = await Promise.all(selected.map(candidate => torob.sellers(prod, candidate.r, candidate.ev, candidate.searchId, { freeSearch: true })));
+        const unique = new Map();
+        for (const offer of groups.flat()) {
+          const key = `${offer.sellerKey || offer.seller}|${offer.price}|${offer.sellerUrl}|${U.normalize(offer.matchTitle)}`;
+          if (!unique.has(key)) unique.set(key, offer);
+        }
+        const offers = [...unique.values()];
+        return { status: offers.length ? 'ok' : 'empty', offers, note: `${U.toFa(selected.length)} محصول مرتبط با «${query}» در ترب بررسی شد`, nearMiss: [], rejected: rejected.size, tried, candidates: [], chosenKey: '', query };
+      }
       const pick = (pickKey && ok.find(x => x.r.random_key === pickKey)) || ok[0], base = pick.r;
       const baseTitle = torob.candidateTitle(base);
       Log.info('torob', `محصول انتخاب‌شده: ${baseTitle} [${pick.ev.level} ${pick.ev.score}]`);
@@ -978,19 +993,46 @@ const Sources = (() => {
     const matches = titles.map(source => Match.evaluate(source, title, { strict: true, brandAliases: aliases }));
     return matches.sort((a, b) => Number(b.ok) - Number(a.ok) || b.score - a.score)[0] || Match.evaluate(prod.title || '', title, { strict: true, brandAliases: aliases });
   }
+  function freeSearchMatch(query, title) {
+    const queryTokens = U.tokens(query), titleTokens = U.tokens(title);
+    if (!queryTokens.length || !titleTokens.length) return { ok: false, score: 0, level: 'low', flags: [], reasons: [] };
+    const queryCodes = Match.modelCodes(query), titleCodes = Match.modelCodes(title);
+    const codeCompatible = (a, b) => a === b || (Math.min(a.length, b.length) >= 4 && (a.endsWith(b) || b.endsWith(a)));
+    if (queryCodes.length && !queryCodes.every(a => titleCodes.some(b => codeCompatible(a, b)))) {
+      return { ok: false, score: 0, level: 'low', flags: ['model-mismatch'], reasons: ['کد مدل با عبارت جست‌وجو متفاوت است'] };
+    }
+    const queryBrands = Match.brandFamilies(query), titleBrands = Match.brandFamilies(title);
+    if (queryBrands.length && titleBrands.length && !queryBrands.some(brand => titleBrands.includes(brand))) {
+      return { ok: false, score: 0, level: 'low', flags: ['brand-mismatch'], reasons: ['برند با عبارت جست‌وجو متفاوت است'] };
+    }
+    const queryTypes = Match.productTypes(query), titleTypes = Match.productTypes(title);
+    if (queryTypes.length && titleTypes.length && !queryTypes.some(type => titleTypes.includes(type))) {
+      return { ok: false, score: 0, level: 'low', flags: ['category-mismatch'], reasons: ['نوع کالا با عبارت جست‌وجو متفاوت است'] };
+    }
+    const querySpecs = Match.specs(query), titleSpecs = Match.specs(title);
+    for (const unit of Object.keys(querySpecs)) if (titleSpecs[unit] && ![...querySpecs[unit]].some(value => titleSpecs[unit].has(value))) {
+      return { ok: false, score: 0, level: 'low', flags: ['spec-mismatch'], reasons: ['مشخصه با عبارت جست‌وجو متفاوت است'] };
+    }
+    const hasToken = queryToken => titleTokens.some(titleToken => titleToken === queryToken ||
+      (Math.min(queryToken.length, titleToken.length) >= 4 && (queryToken.startsWith(titleToken) || titleToken.startsWith(queryToken))));
+    const matched = queryTokens.filter(hasToken).length;
+    const required = queryTokens.length <= 2 ? queryTokens.length : Math.max(2, Math.ceil(queryTokens.length * 0.7));
+    const score = matched / queryTokens.length;
+    return { ok: matched >= required, score, level: matched >= required ? 'high' : 'low', flags: [], reasons: [] };
+  }
   function marketMatchReason(prod, title) {
     const ev = strictMatch(prod, title);
     return ev.reasons[0] || (ev.ok ? 'اطمینان تطبیق برای نمایش کافی نبود' : 'تطبیق دقیق مدل یا برند تأیید نشد');
   }
-  function mapMarketOffer(prod, row, { sourceId, title, price, seller, sellerUrl, allowedHosts, priceFactor = 1, dataSource, exclude } = {}) {
+  function mapMarketOffer(prod, row, { sourceId, title, price, seller, sellerUrl, allowedHosts, priceFactor = 1, dataSource, exclude, freeSearch = false, query = '' } = {}) {
     const name = String(title || '').trim(), url = safeMarketplaceUrl(sellerUrl, allowedHosts);
     if (!name || !url || (exclude && exclude(row, url))) return null;
-    const amount = parsePrice(price) * priceFactor, ev = strictMatch(prod, name);
-    if (!(amount > 0) || !ev.ok || ev.score < 0.65) return null;
+    const amount = parsePrice(price) * priceFactor, ev = freeSearch ? freeSearchMatch(query, name) : strictMatch(prod, name);
+    if (!(amount > 0) || !ev.ok || (!freeSearch && ev.score < 0.65)) return null;
     const storeName = String(seller || '').trim();
     const sellerKey = Extract.matchKnownSite(url) || Extract.matchKnownSite(storeName);
     return Model.offer({ sourceId, productId: prod.id, seller: storeName || sourceId, sellerKey: sellerKey || '', sellerUrl: url, price: amount,
-      ts: Date.now(), dataSource, matchConfidence: ev.score, matchLevel: ev.level, matchTitle: name, flags: ev.flags });
+      ts: Date.now(), dataSource, matchConfidence: freeSearch ? null : ev.score, matchLevel: freeSearch ? '' : ev.level, matchTitle: name, flags: freeSearch ? [] : ev.flags });
   }
   function marketResult(offers, tried, rejected, nearMiss = [], note = '', error = '') {
     const unique = new Map();
@@ -1019,7 +1061,7 @@ const Sources = (() => {
       return Net.json('https://emalls.ir/swservice/site_search', { method: 'POST', body: body.toString(), referer: EMALLS_REF, timeout: 18000, anonymous: true,
         headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8', 'X-Requested-With': 'XMLHttpRequest' } });
     },
-    async fetch(prod, { query } = {}) {
+    async fetch(prod, { query, freeSearch = false } = {}) {
       const tried = [], offers = [], nearMiss = [], failures = []; let rejected = 0;
       for (const q of searchTerms(prod, query)) {
         tried.push(q);
@@ -1034,15 +1076,15 @@ const Sources = (() => {
         for (const row of rows) {
           const name = row?.title || '', link = reverseEmallsLink(row?.buyLink);
           const seller = String(row?.buyTitle || '').replace(/^خرید[\u200c\u200e\s]*از[\u200c\u200e\s]*/u, '').trim();
-          const offer = mapMarketOffer(prod, row, { sourceId: 'emalls', title: name, price: row?.price, seller, sellerUrl: link, allowedHosts: ['click.emalls.ir'], dataSource: 'emalls:site_search/listitemv2', exclude: item => item?.agahi || item?.used === true });
-          if (offer) offers.push(offer); else { rejected++; if (name && nearMiss.length < 3) nearMiss.push({ title: name, reason: marketMatchReason(prod, name) }); }
+          const offer = mapMarketOffer(prod, row, { sourceId: 'emalls', title: name, price: row?.price, seller, sellerUrl: link, allowedHosts: ['click.emalls.ir'], dataSource: 'emalls:site_search/listitemv2', exclude: item => item?.agahi || item?.used === true, freeSearch, query });
+          if (offer) offers.push(offer); else { rejected++; if (!freeSearch && name && nearMiss.length < 3) nearMiss.push({ title: name, reason: marketMatchReason(prod, name) }); }
         }
       }
       const error = tried.length && failures.length === tried.length ? failures.join('؛ ') : '';
       const note = failures.length
         ? (error ? `تمام جست‌وجوهای ایمالز ناموفق بود: ${error}` : `یک یا چند عبارت ایمالز پاسخ نداد؛ ${offers.length ? `${offers.length} نتیجه از پاسخ‌های موفق` : 'در پاسخ‌های موفق نتیجهٔ همسانی پیدا نشد'}`)
         : '';
-      return marketResult(offers, tried, rejected, nearMiss, note, error);
+      return marketResult(offers, tried, rejected, freeSearch ? [] : nearMiss, note, error);
     }
   };
   const basalam = {
@@ -1052,7 +1094,7 @@ const Sources = (() => {
       const url = new URL(BASALAM_API); url.search = new URLSearchParams({ q, sort: 'rank', from: '0', size: '30' }).toString();
       return Net.json(url.href, { referer: 'https://basalam.com/', timeout: 18000, anonymous: true });
     },
-    async fetch(prod, { query } = {}) {
+    async fetch(prod, { query, freeSearch = false } = {}) {
       const tried = [], offers = [], nearMiss = []; let rejected = 0;
       for (const q of searchTerms(prod, query)) {
         tried.push(q);
@@ -1061,18 +1103,18 @@ const Sources = (() => {
           const slug = String(row?.vendor?.identifier || '').trim(), id = String(row?.id || '').trim();
           const url = slug && id ? `https://basalam.com/${encodeURIComponent(slug)}/product/${encodeURIComponent(id)}` : '';
           const offer = mapMarketOffer(prod, row, { sourceId: 'basalam', title: row?.name, price: row?.price, priceFactor: 0.1,
-            seller: row?.vendor?.name, sellerUrl: url, allowedHosts: ['basalam.com'], dataSource: 'basalam:guest-product-search', exclude: excludedBasalamProduct });
+            seller: row?.vendor?.name, sellerUrl: url, allowedHosts: ['basalam.com'], dataSource: 'basalam:guest-product-search', exclude: excludedBasalamProduct, freeSearch, query });
           if (offer && row?.IsSaleable !== false && row?.status?.title !== 'ناموجود') offers.push(offer);
-          else { rejected++; if (row?.name && nearMiss.length < 3) nearMiss.push({ title: row.name, reason: marketMatchReason(prod, row.name) }); }
+          else { rejected++; if (!freeSearch && row?.name && nearMiss.length < 3) nearMiss.push({ title: row.name, reason: marketMatchReason(prod, row.name) }); }
         }
       }
-      return marketResult(offers, tried, rejected, nearMiss);
+      return marketResult(offers, tried, rejected, freeSearch ? [] : nearMiss, freeSearch && !offers.length ? `در باسلام نتیجه‌ای برای «${query}» پیدا نشد` : '');
     }
   };
   const snappshop = {
     id: 'snappshop', label: 'اسنپ‌شاپ', icon: 'snappshop', kind: 'offers', implemented: true, hosts: ['apix.snappshop.ir'], cities: SNAPP_CITIES,
     note: 'جست‌وجوی زندهٔ قیمت در اسنپ‌شاپ',
-    async fetch(prod, { query, cityId } = {}) {
+    async fetch(prod, { query, cityId, freeSearch = false } = {}) {
       const savedCity = typeof Store !== 'undefined' ? Store.get()?.settings?.snappCity : '';
       const city = SNAPP_CITIES[cityId || savedCity] || SNAPP_CITIES.tehran;
       const coordinates = `lat=${encodeURIComponent(city.lat)}&lng=${encodeURIComponent(city.lng)}`;
@@ -1090,12 +1132,13 @@ const Sources = (() => {
           const rawPrice = row?.price?.discounted_price || row?.price?.price;
           const offer = mapMarketOffer(prod, row, { sourceId: 'snappshop', title: row?.title, price: rawPrice,
             seller: 'اسنپ‌شاپ', sellerUrl: url, allowedHosts: ['snappshop.ir'], dataSource: 'snappshop:search/v1',
-            exclude: item => item?.is_ads || item?.is_fake });
+            exclude: item => item?.is_ads || item?.is_fake, freeSearch, query });
           if (offer) offers.push(offer);
-          else { rejected++; if (row?.title && nearMiss.length < 3) nearMiss.push({ title: row.title, reason: marketMatchReason(prod, row.title) }); }
+          else { rejected++; if (!freeSearch && row?.title && nearMiss.length < 3) nearMiss.push({ title: row.title, reason: marketMatchReason(prod, row.title) }); }
         }
       }
-      return marketResult(offers, tried, rejected, nearMiss, offers.length ? `قیمت اسنپ‌شاپ · ${city.label}` : `برای این شهر (${city.label}) نتیجهٔ همسان با برند و کد مدل پیدا نشد`);
+      return marketResult(offers, tried, rejected, freeSearch ? [] : nearMiss,
+        freeSearch ? `قیمت‌های اسنپ‌شاپ · ${city.label}` : offers.length ? `قیمت اسنپ‌شاپ · ${city.label}` : `برای این شهر (${city.label}) نتیجهٔ همسان با برند و کد مدل پیدا نشد`);
     }
   };
 
@@ -1280,7 +1323,7 @@ const App = (() => {
     sources: {},              // id -> {status, count, note, error, ts, nearMiss}
     dk: null,                 // parsed Digikala product record
     chart: null, chartError: '', chartLoading: false, chartFromCache: false, chartFetchedAt: 0, chartStale: false, historyNotice: '', variantIdx: 0, variantExact: false, variantManual: false,
-    range: 90, tab: 'compare', running: false, sort: 'price', banner: '',
+    range: 90, tab: 'compare', running: false, sort: 'price', banner: '', freeSearch: false, searchQuery: '',
     dkFetching: false, dkTs: 0, historyCooldownUntil: 0, historyCooldownNote: ''
   };
   const subs = new Set(); const emit = () => subs.forEach(f => { try { f(state); } catch (e) { Log.error('ui', e.message); } });
@@ -1395,15 +1438,21 @@ const App = (() => {
 
   async function runCompare(opts = {}) {
     if (state.running) return;
-    const p = state.product || await refreshProduct();
-    if (!p.title) { state.banner = 'نام محصول در این صفحه پیدا نشد.'; emit(); return; }
+    const pageProduct = state.product || await refreshProduct();
+    const searchQuery = String(opts.query || '').trim();
+    const freeSearch = opts.freeSearch === true && !!searchQuery;
+    state.freeSearch = freeSearch; state.searchQuery = freeSearch ? searchQuery : '';
+    if (!pageProduct.title && !freeSearch) { state.offers = []; state.sources = {}; state.banner = 'نام محصول در این صفحه پیدا نشد.'; emit(); return; }
+    const p = freeSearch
+      ? Model.product({ id: `manual-search:${U.compact(searchQuery)}`, key: `manual-search:${U.compact(searchQuery)}`, host: 'manual-search', title: searchQuery })
+      : pageProduct;
     state.banner = ''; state.running = true; state.offers = []; state.sources = {};
     const reg = Sources.registry, cfg = settings().sources;
     for (const id of Object.keys(reg)) state.sources[id] = { status: reg[id].implemented ? (cfg[id] ? 'loading' : 'off') : 'unavailable', count: 0, note: reg[id].implemented ? '' : reg[id].note };
     emit();
     await Promise.all(Object.keys(reg).filter(id => reg[id].implemented && cfg[id]).map(async id => {
       try {
-        const r = await reg[id].fetch(p, opts);
+        const r = await reg[id].fetch(p, { ...opts, query: freeSearch ? searchQuery : opts.query, freeSearch });
         state.sources[id] = { status: r.status, count: r.offers.length, note: r.note || '', error: r.error || '', nearMiss: r.nearMiss || [], candidates: r.candidates || [], chosenKey: r.chosenKey || '', query: r.query || '', tried: r.tried || [], ts: Date.now() };
         state.offers.push(...r.offers);
       } catch (e) { state.sources[id] = { status: 'error', count: 0, error: e.message, ts: Date.now() }; Log.error(id, e.message); }
@@ -1619,7 +1668,7 @@ const UI = (() => {
 #panel.open{display:flex}
 #panel.wide{width:min(560px,calc(100vw - 20px))}
 header,.hero{flex-shrink:0}
-.tb{width:100%;border-collapse:collapse;font-size:12px}.tb td{padding:5px 3px;border-bottom:1px solid var(--line);vertical-align:middle}.tb tr.best td{background:rgba(52,211,153,.08)}.dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-left:4px}.dot.high{background:var(--acc2)}.dot.medium{background:var(--warn)}.dot.low{background:var(--bad)}
+.tb{width:100%;border-collapse:collapse;font-size:12px}.tb td{padding:5px 3px;border-bottom:1px solid var(--line);vertical-align:middle}.tb th{padding:4px 3px;color:var(--mut);font-size:10px;font-weight:600;text-align:right;border-bottom:1px solid var(--line)}.tb tr.best td{background:rgba(52,211,153,.08)}.dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-left:4px}.dot.high{background:var(--acc2)}.dot.medium{background:var(--warn)}.dot.low{background:var(--bad)}
 input[type=text]{min-width:0}#q{flex:1}
 .tabs{position:relative;z-index:2;background:var(--panel)}
 .body{min-height:0;overscroll-behavior:contain;position:relative}
@@ -1821,6 +1870,7 @@ details.card summary{cursor:pointer;list-style:none}details.card summary::-webki
 .offer-link .icon{width:16px;height:16px}.offer-price{flex:0 0 auto;text-align:left;font-size:15px;font-weight:800;white-space:nowrap}
 .offer-source{display:inline-flex;align-items:center;gap:5px;color:var(--mut);font-size:10px}.offer-source .brand-logo{width:15px;height:15px}
 .offer-source-score .match-score{font-size:10px}
+.free-search-product-title{padding-block-end:5px;border-bottom:1px solid var(--line);font-size:11px;line-height:1.55;font-weight:700;overflow-wrap:anywhere;color:var(--ink)}
 .offer a{color:var(--acc);text-decoration:none;font-size:11px}
 .pv{font-weight:800;font-size:15px;white-space:nowrap}
 select,input[type=number],input[type=text]{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:5px 8px;font-family:inherit;font-size:12px}
@@ -1930,45 +1980,51 @@ svg text{font-family:inherit}
   function tabCompare() {
     const p = S.product || {}, srcs = S.sources; let h = '';
     h += `<div class="compare-actions"><button class="btn primary-action" data-act="compare" ${S.running ? 'disabled' : ''}>${icon('search')}<span>${S.running ? 'در حال جست‌وجو…' : 'مقایسهٔ قیمت‌ها'}</span></button><button class="btn sec icon-btn icon-only" data-act="reread" title="بازخوانی محصول" aria-label="بازخوانی محصول">${icon('refresh')}</button><button class="btn sec icon-btn icon-only" data-act="manual" title="ثبت قیمت دستی" aria-label="ثبت قیمت دستی">${icon('wallet')}</button></div>`;
-    h += `<div class="manual-search"><input type="text" id="q" aria-label="جست‌وجوی دستی در منابع فعال" placeholder="نام یا مدل محصول را در منابع فعال جست‌وجو کنید" value="${U.esc(S.manualQuery || '')}"><button class="btn sec icon-btn" data-act="manualSearch" title="جست‌وجو در منابع فعال" aria-label="جست‌وجو در منابع فعال">${icon('search')}</button></div>`;
+    h += `<div class="manual-search"><input type="text" id="q" aria-label="جست‌وجوی آزاد در منابع فعال" placeholder="نام هر محصولی را برای دیدن قیمت فروشگاه‌ها جست‌وجو کنید" value="${U.esc(S.manualQuery || '')}"><button class="btn sec icon-btn" data-act="manualSearch" title="جست‌وجوی آزاد در منابع فعال" aria-label="جست‌وجوی آزاد در منابع فعال">${icon('search')}</button></div>`;
     const chips = Object.keys(Sources.registry).map(id => {
       const r = Sources.registry[id], st = srcs[id] || { status: Store.get().settings.sources[id] && r.implemented ? 'idle' : (r.implemented ? 'off' : 'unavailable') };
       const [lbl, cl] = STATUS[st.status] || ['آماده', ''];
       return `<span class="source-chip ${cl} source-${U.esc(id)}" title="${U.esc(st.error || st.note || r.note)}"><span class="source-chip-icon">${icon(r.icon || 'global')}</span><b>${U.esc(r.label)}</b><span>${lbl}${st.count ? ' · ' + U.toFa(st.count) : ''}</span></span>`;
     }).join('');
     h += `<div class="source-row" aria-label="وضعیت منابع">${chips}</div>`;
-    const tr = srcs.torob; if (tr && tr.candidates && tr.candidates.length > 1) h += `<div class="card"><div class="muted" style="margin-bottom:4px">محصول تطبیق‌یافته در ترب — اگر رنگ/مدل دیگری مدنظر است تغییر دهید</div><select data-sel="cand" style="width:100%">${tr.candidates.map(c => `<option value="${U.esc(c.key)}" ${c.key === tr.chosenKey ? 'selected' : ''}>${U.esc(c.title)}</option>`).join('')}</select></div>`;
+    const tr = srcs.torob; if (!S.freeSearch && tr && tr.candidates && tr.candidates.length > 1) h += `<div class="card"><div class="muted" style="margin-bottom:4px">محصول تطبیق‌یافته در ترب — اگر رنگ/مدل دیگری مدنظر است تغییر دهید</div><select data-sel="cand" style="width:100%">${tr.candidates.map(c => `<option value="${U.esc(c.key)}" ${c.key === tr.chosenKey ? 'selected' : ''}>${U.esc(c.title)}</option>`).join('')}</select></div>`;
     if (tr && tr.tried && tr.tried.length > 1) h += `<div class="muted" style="margin-bottom:6px">جست‌وجوی چندمرحله‌ای: ${U.toFa(tr.tried.length)} عبارت امتحان شد؛ عبارت موفق: «${U.esc(tr.query)}»</div>`;
     const sourceErrors = Object.entries(srcs).filter(([, st]) => st.error);
     const offers = S.offers.slice();
     offers.sort((a, b) => S.sort === 'name' ? a.seller.localeCompare(b.seller, 'fa') : S.sort === 'desc' ? b.price - a.price : a.price - b.price);
     if (S.offers.length) {
       h += `<div class="row" style="margin-bottom:8px"><span class="select-shell"><select data-sel="sort" aria-label="مرتب‌سازی فروشندگان"><option value="price" ${S.sort === 'price' ? 'selected' : ''}>ارزان‌ترین</option><option value="desc" ${S.sort === 'desc' ? 'selected' : ''}>گران‌ترین</option><option value="name" ${S.sort === 'name' ? 'selected' : ''}>نام فروشنده</option></select></span><button class="btn sec icon-btn" data-act="toggleTable" title="${S.table ? 'نمای کارتی' : 'نمای جدول'}" aria-label="${S.table ? 'نمای کارتی' : 'نمای جدول'}">${icon(S.table ? 'layers' : 'compare')}</button></div>`;
-      const a = App.advice();
-      h += `<div class="card"><b class="${a.tone === 'good' ? 'good' : a.tone === 'warn' ? 'warn' : ''}">مشاور خرید: ${U.esc(a.headline)}</b><ul>${a.points.map(x => `<li class="${x.k === 'good' ? 'good' : x.k === 'warn' ? 'warn' : ''}">${textWithCurrency(x.text)}</li>`).join('')}</ul><div class="muted" style="margin-top:6px">${a.caveats.map(U.esc).join('<br>')}</div></div>`;
-      const comparablePrices = [...new Set(S.offers.filter(o => o.matchLevel !== 'low' && o.price > 0).map(o => o.price))];
+      if (S.freeSearch) h += `<div class="card"><b>${icon('search', 15)} نتایج جست‌وجوی «${U.esc(S.searchQuery)}»</b><div class="muted" style="margin-top:5px">عنوان هر کالا در کارت خودش آمده؛ قیمت‌ها بین کالاهای متفاوت با هم مقایسه نشده‌اند.</div></div>`;
+      else {
+        const a = App.advice();
+        h += `<div class="card"><b class="${a.tone === 'good' ? 'good' : a.tone === 'warn' ? 'warn' : ''}">مشاور خرید: ${U.esc(a.headline)}</b><ul>${a.points.map(x => `<li class="${x.k === 'good' ? 'good' : x.k === 'warn' ? 'warn' : ''}">${textWithCurrency(x.text)}</li>`).join('')}</ul><div class="muted" style="margin-top:6px">${a.caveats.map(U.esc).join('<br>')}</div></div>`;
+      }
+      const comparablePrices = S.freeSearch ? [] : [...new Set(S.offers.filter(o => o.matchLevel !== 'low' && o.price > 0).map(o => o.price))];
       const comparableMedian = comparablePrices.length >= 3 ? U.median(comparablePrices) : null;
-      const bestPrice = Math.min(...S.offers.filter(o => o.matchLevel !== 'low').map(o => o.price));
+      const bestPrice = S.freeSearch ? null : Math.min(...S.offers.filter(o => o.matchLevel !== 'low').map(o => o.price));
       const shown = S.showAll ? offers : offers.slice(0, 5);
       if (S.table) {
-        h += '<table class="tb">' + shown.map(o => { const diff = p.price ? (o.price - p.price) / p.price * 100 : null, pct = matchPercent(o), lv = LV[o.matchLevel] || ['', '']; return `<tr class="${o.price === bestPrice && o.matchLevel !== 'low' ? 'best' : ''}"><td>${pct ? `<span class="chip ${lv[1]} match-score" title="${pct}" aria-label="${pct}">${pct}</span> ` : ''}${U.esc(o.seller)}</td><td><b>${money(o.price, 12)}</b></td><td class="${diff != null && diff < -0.5 ? 'good' : diff > 0.5 ? 'bad' : 'muted'}">${diff == null ? '' : (diff < 0 ? '−' : diff > 0 ? '+' : '') + U.fmtPct(Math.abs(diff))}</td><td>${o.sellerUrl ? `<a style="color:var(--acc)" href="${U.esc(o.sellerUrl)}" target="_blank" rel="noopener noreferrer" title="بازکردن صفحهٔ فروشنده" aria-label="بازکردن صفحهٔ فروشنده">${icon('link', 14, 'icon-sm')}</a>` : ''}</td></tr>`; }).join('') + '</table>';
+        if (S.freeSearch) h += '<table class="tb"><thead><tr><th>کالا</th><th>فروشنده</th><th>قیمت</th><th></th></tr></thead><tbody>' + shown.map(o => `<tr><td>${U.esc(o.matchTitle || S.searchQuery)}</td><td>${U.esc(o.seller)}</td><td><b>${money(o.price, 12)}</b></td><td>${o.sellerUrl ? `<a style="color:var(--acc)" href="${U.esc(o.sellerUrl)}" target="_blank" rel="noopener noreferrer" title="بازکردن صفحهٔ فروشنده" aria-label="بازکردن صفحهٔ فروشنده">${icon('link', 14, 'icon-sm')}</a>` : ''}</td></tr>`).join('') + '</tbody></table>';
+        else h += '<table class="tb">' + shown.map(o => { const diff = p.price ? (o.price - p.price) / p.price * 100 : null, pct = matchPercent(o), lv = LV[o.matchLevel] || ['', '']; return `<tr class="${o.price === bestPrice && o.matchLevel !== 'low' ? 'best' : ''}"><td>${pct ? `<span class="chip ${lv[1]} match-score" title="${pct}" aria-label="${pct}">${pct}</span> ` : ''}${U.esc(o.seller)}</td><td><b>${money(o.price, 12)}</b></td><td class="${diff != null && diff < -0.5 ? 'good' : diff > 0.5 ? 'bad' : 'muted'}">${diff == null ? '' : (diff < 0 ? '−' : diff > 0 ? '+' : '') + U.fmtPct(Math.abs(diff))}</td><td>${o.sellerUrl ? `<a style="color:var(--acc)" href="${U.esc(o.sellerUrl)}" target="_blank" rel="noopener noreferrer" title="بازکردن صفحهٔ فروشنده" aria-label="بازکردن صفحهٔ فروشنده">${icon('link', 14, 'icon-sm')}</a>` : ''}</td></tr>`; }).join('') + '</table>';
       }
       else for (const o of shown) {
-        const diff = p.price ? (o.price - p.price) / p.price * 100 : null, lv = LV[o.matchLevel] || ['', ''];
+        const diff = !S.freeSearch && p.price ? (o.price - p.price) / p.price * 100 : null, lv = LV[o.matchLevel] || ['', ''];
         const dd = diff == null ? '' : Math.abs(diff) < 0.5 ? '<span class="muted">هم‌قیمت با این صفحه</span>' : diff < 0 ? `<span class="good">${U.fmtPct(-diff)} ارزان‌تر · صرفه‌جویی ${money(p.price - o.price, 12)}</span>` : `<span class="bad">${U.fmtPct(diff)} گران‌تر</span>`;
         const pct = matchPercent(o), source = Sources.registry[o.sourceId], checked = new Date(o.ts).toLocaleTimeString('fa-IR');
         const infoTags = [offerInfoTag('روش ارسال', 'bag', o.shippingInfo), offerInfoTag('گارانتی', 'shield', o.warrantyInfo)].filter(Boolean).join('');
-        const lowPrice = comparableMedian && o.matchLevel !== 'low' && o.price <= comparableMedian * .65;
+        const lowPrice = !S.freeSearch && comparableMedian && o.matchLevel !== 'low' && o.price <= comparableMedian * .65;
         const priceSignal = lowPrice ? `<span class="chip warn" title="${U.toFa(Math.round((1 - o.price / comparableMedian) * 100))}٪ پایین‌تر از میانهٔ قیمت‌های همسان؛ شرایط فروش و موجودی را بررسی کنید.">قیمت غیرمعمول</span>` : '';
         const offerLink = o.sellerUrl ? `<a class="offer-link" href="${U.esc(o.sellerUrl)}" target="_blank" rel="noopener noreferrer" title="بازکردن صفحهٔ فروشنده" aria-label="بازکردن صفحهٔ فروشنده">${icon('link')}</a>` : '';
-        h += `<article class="card offer ${o.price === bestPrice && o.matchLevel !== 'low' ? 'best' : ''}"><div class="offer-top-row"><div class="offer-seller-group"><b>${U.esc(o.seller)}</b>${o.price === bestPrice && o.matchLevel !== 'low' ? '<span class="chip good">ارزان‌ترین</span>' : ''}<span class="offer-diff">${dd}</span>${priceSignal}${infoTags}</div>${offerLink}</div><div class="offer-bottom-row"><div class="offer-source-score"><span class="offer-source">${icon(source?.icon || 'global', 15)}<span>${U.esc(source?.label || o.sourceId)} · ${checked}</span></span>${pct ? `<span class="chip ${lv[1]} match-score" title="${pct}" aria-label="${pct}">${pct}</span>` : ''}</div><strong class="offer-price">${money(o.price, 14)}</strong></div></article>`;
+        const productTitle = S.freeSearch ? `<div class="free-search-product-title">${U.esc(o.matchTitle || S.searchQuery)}</div>` : '';
+        const bestBadge = !S.freeSearch && o.price === bestPrice && o.matchLevel !== 'low' ? '<span class="chip good">ارزان‌ترین</span>' : '';
+        h += `<article class="card offer ${bestBadge ? 'best' : ''}">${productTitle}<div class="offer-top-row"><div class="offer-seller-group"><b>${U.esc(o.seller)}</b>${bestBadge}<span class="offer-diff">${dd}</span>${priceSignal}${infoTags}</div>${offerLink}</div><div class="offer-bottom-row"><div class="offer-source-score"><span class="offer-source">${icon(source?.icon || 'global', 15)}<span>${U.esc(source?.label || o.sourceId)} · ${checked}</span></span>${pct ? `<span class="chip ${lv[1]} match-score" title="${pct}" aria-label="${pct}">${pct}</span>` : ''}</div><strong class="offer-price">${money(o.price, 14)}</strong></div></article>`;
       }
       if (offers.length > 5) h += `<div class="btns"><button class="btn sec" data-act="toggleAll">${S.showAll ? 'نمایش کمتر' : 'نمایش همهٔ ' + U.toFa(offers.length) + ' مورد'}</button></div>`;
     } else if (!S.running && sourceErrors.length) {
       const [sourceId, sourceError] = sourceErrors[0], sourceName = Sources.registry[sourceId]?.label || sourceId;
-      h += `<div class="empty-state" role="status"><span class="empty-state-icon">${icon('shield', 18)}</span><div class="empty-state-copy"><b>پاسخ قیمت‌ها دریافت نشد</b><p>${U.esc(sourceName)} خطا داد: ${U.esc(sourceError.error)}. پس از رفع محدودیت سرویس، دوباره تلاش کنید.</p></div><button class="btn sec icon-btn empty-state-action" data-act="compare">${iconText('refresh', 'تلاش دوباره')}</button></div>`;
-    } else if (!S.running && Object.keys(srcs).length) h += `<div class="empty-state" role="status"><span class="empty-state-icon">${icon('search', 18)}</span><div class="empty-state-copy"><b>فروشندهٔ مطابق پیدا نشد</b><p>برای این محصول نتیجهٔ قابل‌اتکایی در منابع فعال پیدا نشد. مدل یا عبارت جست‌وجو را بررسی کنید؛ قیمت حدسی نمایش داده نمی‌شود.</p></div><button class="btn sec icon-btn empty-state-action" data-act="manual">${iconText('wallet', 'ثبت قیمت دستی')}</button></div>`;
-    const rejectedGroups = Object.entries(srcs).filter(([, st]) => st.nearMiss?.length);
+      h += `<div class="empty-state" role="status"><span class="empty-state-icon">${icon('shield', 18)}</span><div class="empty-state-copy"><b>پاسخ قیمت‌ها دریافت نشد</b><p>${U.esc(sourceName)} خطا داد: ${U.esc(sourceError.error)}. پس از رفع محدودیت سرویس، دوباره تلاش کنید.</p></div><button class="btn sec icon-btn empty-state-action" data-act="${S.freeSearch ? 'manualSearch' : 'compare'}">${iconText('refresh', 'تلاش دوباره')}</button></div>`;
+    } else if (!S.running && Object.keys(srcs).length) h += `<div class="empty-state" role="status"><span class="empty-state-icon">${icon('search', 18)}</span><div class="empty-state-copy"><b>${S.freeSearch ? 'نتیجه‌ای برای عبارت جست‌وجو پیدا نشد' : 'فروشندهٔ مطابق پیدا نشد'}</b><p>${S.freeSearch ? `در منابع فعال کالای مرتبطی با «${U.esc(S.searchQuery)}» و قیمت قابل‌نمایش پیدا نشد. عبارت کوتاه‌تر یا دقیق‌تری امتحان کنید.` : 'برای این محصول نتیجهٔ قابل‌اتکایی در منابع فعال پیدا نشد. مدل یا عبارت جست‌وجو را بررسی کنید؛ قیمت حدسی نمایش داده نمی‌شود.'}</p></div>${S.freeSearch ? '' : `<button class="btn sec icon-btn empty-state-action" data-act="manual">${iconText('wallet', 'ثبت قیمت دستی')}</button>`}</div>`;
+    const rejectedGroups = S.freeSearch ? [] : Object.entries(srcs).filter(([, st]) => st.nearMiss?.length);
     if (rejectedGroups.length) {
       const rejectedCount = rejectedGroups.reduce((sum, [, st]) => sum + st.nearMiss.length, 0);
       h += `<details class="card rejected-results"><summary><b>نتایج دیگر محصولات</b><small>${U.toFa(rejectedCount)} مورد</small></summary>${rejectedGroups.map(([id, st]) => { const source = Sources.registry[id]; return `<div class="rejected-provider"><div class="rejected-provider-title">${icon(source?.icon || 'global', 15)}<span>${U.esc(source?.label || id)}</span></div><ul>${st.nearMiss.map(item => `<li>${U.esc(item.title)} — ${U.esc(item.reason)}</li>`).join('')}</ul></div>`; }).join('')}</details>`;
@@ -2307,16 +2363,18 @@ svg text{font-family:inherit}
     if (appRenderFrame) { cancelFrame(appRenderFrame); appRenderFrame = 0; }
     queuedAppRender = false;
     if (tabMorphActive) cancelTabMorph();
-    const st = Store.get().settings, p = S.product || {};
+    const st = Store.get().settings, p = S.product || {}, freeSearchView = S.freeSearch && S.tab === 'compare';
     const pn = $('#panel'); if (!pn) return;
     pn.classList.toggle('wide', !!st.wide);
     const wideLabel = st.wide ? 'باریک‌کردن پنل' : 'عریض‌کردن پنل'; $('#wide').title = wideLabel; $('#wide').setAttribute('aria-label', wideLabel);
     pn.style.width = pn.style.height = pn.style.maxHeight = '';
     $('.wrap').className = 'wrap ' + (st.theme === 'light' ? 'light' : 'dark');
-    $('#name').textContent = Extract.coreTitle(p.title) || p.title || 'نام محصول شناسایی نشد';
-    $('#name').setAttribute('title', p.title || '');
-    $('#price').innerHTML = p.price ? money(p.price, 20) : '<span class="warn" style="font-size:16px">قیمت شناسایی نشد — «ثبت دستی قیمت»</span>';
-    $('#meta').innerHTML = [p.seller ? 'فروشنده: ' + U.esc(p.seller) : '', p.warranty ? 'گارانتی: ' + U.esc(p.warranty) : ''].filter(Boolean).join(' · ');
+    $('#name').textContent = freeSearchView ? S.searchQuery : Extract.coreTitle(p.title) || p.title || 'نام محصول شناسایی نشد';
+    $('#name').setAttribute('title', freeSearchView ? S.searchQuery : p.title || '');
+    $('#price').hidden = freeSearchView;
+    $('#price').innerHTML = freeSearchView ? '' : p.price ? money(p.price, 20) : '<span class="warn" style="font-size:16px">قیمت شناسایی نشد — «ثبت دستی قیمت»</span>';
+    $('#meta').hidden = freeSearchView;
+    $('#meta').innerHTML = freeSearchView ? '' : [p.seller ? 'فروشنده: ' + U.esc(p.seller) : '', p.warranty ? 'گارانتی: ' + U.esc(p.warranty) : ''].filter(Boolean).join(' · ');
     const indicatorTargetRect = renderTabs(transition.indicatorRect || null);
     const morphOriginRect = transition.originRect || indicatorTargetRect;
     const body = { compare: tabCompare, history: tabHistory, inspect: tabInspector, watch: tabWatch, settings: tabSettings, log: tabLog }[S.tab]();
@@ -2405,7 +2463,7 @@ svg text{font-family:inherit}
       const a = t.dataset.act;
       if (a === 'compare') App.runCompare();
       else if (a === 'toggleTable') { S.table = !S.table; db.settings.table = S.table; Store.save(); render(); }
-      else if (a === 'manualSearch') { S.manualQuery = ($('#q').value || '').trim(); App.runCompare(S.manualQuery ? { query: S.manualQuery } : {}); }
+      else if (a === 'manualSearch') { S.manualQuery = ($('#q').value || '').trim(); App.runCompare(S.manualQuery ? { query: S.manualQuery, freeSearch: true } : {}); }
       else if (a === 'toggleAll') { S.showAll = !S.showAll; render(); }
       else if (a === 'reread') App.refreshProduct();
       else if (a === 'manual') { const v = Number(U.digits(prompt('قیمت فعلی محصول (تومان):', '') || '').replace(/\D/g, '')); if (v > 0) App.setManualPrice(v); }
@@ -2474,7 +2532,7 @@ svg text{font-family:inherit}
       }
     });
     root.addEventListener('keydown', e => {
-      if (e.target.id === 'q' && e.key === 'Enter') { e.preventDefault(); S.manualQuery = e.target.value.trim(); App.runCompare(S.manualQuery ? { query: S.manualQuery } : {}); }
+      if (e.target.id === 'q' && e.key === 'Enter') { e.preventDefault(); S.manualQuery = e.target.value.trim(); App.runCompare(S.manualQuery ? { query: S.manualQuery, freeSearch: true } : {}); }
       else if (e.target.id === 'tgt' && e.key === 'Enter') { e.preventDefault(); root.querySelector('[data-act="setTarget"]')?.click(); }
       else if ((e.target.id === 'collectionName' || e.target.id === 'collectionEditName') && e.key === 'Enter') {
         e.preventDefault(); root.querySelector(`[data-act="${e.target.id === 'collectionName' ? 'createCollection' : 'saveCollection'}"]`)?.click();
@@ -2547,7 +2605,7 @@ const Main = (() => {
     };
     const run = () => { try { check(); } catch (e) { Log.error('main', e.message); } };
     setTimeout(run, 600); setInterval(run, 1500);
-    Log.info('main', 'تخفیف‌سنج 15.2.37 آماده شد');
+    Log.info('main', 'تخفیف‌سنج 15.2.38 آماده شد');
   }
   return { init };
 })();
