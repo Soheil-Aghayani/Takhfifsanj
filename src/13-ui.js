@@ -226,7 +226,10 @@ select,input[type=number],input[type=text]{background:var(--card);color:var(--in
 .select-shell:after{content:"";position:absolute;left:11px;top:calc(50% - 3px);width:7px;height:7px;border-left:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(-45deg);pointer-events:none;color:var(--mut)}
 .select-shell select{appearance:none;padding:5px 12px 5px 30px;min-width:116px}
 .setting-city-select{flex:0 1 178px}.setting-city-select select{width:100%;min-width:0;height:36px}
-.diagnostics-back{margin-bottom:12px}
+.diagnostics-actions{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.diagnostics-copy-group{display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap}
+.diagnostics-copy-status{min-height:1em;color:var(--good);font-size:10.5px;line-height:1.4}
+.diagnostics-copy-status:empty{display:none}.diagnostics-copy-status.bad{color:var(--bad)}
 .about-copy p{margin:4px 0 8px;color:var(--mut);font-size:11px;line-height:1.6}
 .about-data-layout{display:grid;gap:11px;padding:6px 2px}
 .about-data-actions{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
@@ -518,23 +521,70 @@ svg text{font-family:inherit}
     h += settingsSection('درباره، تماس و داده‌ها', 'tag', aboutData);
     return h;
   }
+  function diagnosticsVersion() {
+    try {
+      const runtime = typeof browser !== 'undefined' && browser.runtime?.getManifest
+        ? browser.runtime
+        : typeof chrome !== 'undefined' && chrome.runtime?.getManifest ? chrome.runtime : null;
+      const value = runtime?.getManifest().version;
+      if (value) return U.toFa(value);
+    } catch {}
+    try { if (typeof GM_info !== 'undefined' && GM_info.script?.version) return U.toFa(GM_info.script.version); } catch {}
+    return '—';
+  }
+  function diagnosticsSummary() {
+    const product = S.product || {};
+    return `نسخه ${diagnosticsVersion()} · محصول: ${S.key} · منبع قیمت: ${product.priceSource || '—'}${product.priceNote ? ' · ' + product.priceNote : ''}`;
+  }
+  function diagnosticsLogRows() {
+    return Log.all().slice(-60).reverse().map(entry => ({
+      className: entry.level === 'error' ? 'e' : entry.level === 'warn' ? 'w' : '',
+      text: `${new Date(entry.t).toLocaleTimeString('en-GB')} [${entry.scope}] ${entry.msg}`
+    }));
+  }
+  async function copyDiagnostics() {
+    const status = $('#diagnosticsCopyStatus');
+    const button = $('[data-act="copyDiagnostics"]');
+    if (!status || !button) return;
+    const rows = diagnosticsLogRows();
+    const report = [diagnosticsSummary(), ...(rows.length ? rows.map(row => row.text) : ['بدون رویداد'])].join('\n');
+    button.disabled = true;
+    status.classList.remove('bad');
+    status.textContent = '';
+    try {
+      let copied = false;
+      try {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(report);
+          copied = true;
+        }
+      } catch {}
+      if (!copied && typeof document.execCommand === 'function') {
+        const field = document.createElement('textarea');
+        field.value = report;
+        field.setAttribute('readonly', '');
+        Object.assign(field.style, { position: 'fixed', left: '-9999px', top: '0', opacity: '0' });
+        (document.body || document.documentElement).appendChild(field);
+        field.focus(); field.select(); field.setSelectionRange(0, report.length);
+        copied = document.execCommand('copy');
+        field.remove();
+      }
+      if (!copied) throw new Error('Clipboard is unavailable');
+      status.textContent = 'گزارش عیب‌یابی کپی شد';
+    } catch {
+      status.classList.add('bad');
+      status.textContent = 'کپی انجام نشد؛ دوباره تلاش کنید';
+    } finally {
+      button.disabled = false;
+    }
+  }
   function tabLog() {
     const legacy = ['ghpro12-host', 'ghafel-pc-btn', 'ghafel-pc-panel'].filter(id => document.getElementById(id));
     let h = legacy.length ? `<div class="banner">نسخه‌های قدیمی هم‌زمان فعال‌اند (${legacy.join('، ')}). در Tampermonkey آن‌ها را غیرفعال کنید تا فقط یک پنل بماند.</div>` : '';
-    h += `<button type="button" class="btn sec icon-btn diagnostics-back" data-tab="settings">${iconText('settings', 'بازگشت به تنظیمات')}</button>`;
-    const version = (() => {
-      try {
-        const runtime = typeof browser !== 'undefined' && browser.runtime?.getManifest
-          ? browser.runtime
-          : typeof chrome !== 'undefined' && chrome.runtime?.getManifest ? chrome.runtime : null;
-        const value = runtime?.getManifest().version;
-        if (value) return U.toFa(value);
-      } catch {}
-      try { if (typeof GM_info !== 'undefined' && GM_info.script?.version) return U.toFa(GM_info.script.version); } catch {}
-      return '—';
-    })();
-    h += `<div class="card muted">نسخه ${U.esc(version)} · محصول: ${U.esc(S.key)} · منبع قیمت: ${U.esc((S.product || {}).priceSource || '—')}${(S.product || {}).priceNote ? ' · ' + U.esc(S.product.priceNote) : ''}</div>`;
-    h += `<div class="card log">${Log.all().slice(-60).reverse().map(e => `<div class="${e.level === 'error' ? 'e' : e.level === 'warn' ? 'w' : ''}">${new Date(e.t).toLocaleTimeString('en-GB')} [${U.esc(e.scope)}] ${U.esc(e.msg)}</div>`).join('') || 'بدون رویداد'}</div>`;
+    h += `<div class="diagnostics-actions"><button type="button" class="btn sec icon-btn" data-tab="settings">${iconText('settings', 'بازگشت به تنظیمات')}</button><div class="diagnostics-copy-group"><button type="button" class="btn sec icon-btn" data-act="copyDiagnostics" title="کپی گزارش عیب‌یابی">${iconText('clipboardCopy', 'کپی گزارش')}</button><span class="diagnostics-copy-status" id="diagnosticsCopyStatus" role="status" aria-live="polite"></span></div></div>`;
+    h += `<div class="card muted">${U.esc(diagnosticsSummary())}</div>`;
+    const rows = diagnosticsLogRows();
+    h += `<div class="card log">${rows.map(row => `<div class="${row.className}">${U.esc(row.text)}</div>`).join('') || 'بدون رویداد'}</div>`;
     return h;
   }
 
@@ -814,7 +864,8 @@ svg text{font-family:inherit}
       if (t.dataset.range) { S.range = +t.dataset.range; return render(); }
       if (t.dataset.rm) { const p = db.products[t.dataset.rm]; if (p) p.watch = false; Store.save(); return render(); }
       const a = t.dataset.act;
-      if (a === 'compare') App.runCompare();
+      if (a === 'copyDiagnostics') return copyDiagnostics();
+      else if (a === 'compare') App.runCompare();
       else if (a === 'toggleTable') { S.table = !S.table; db.settings.table = S.table; Store.save(); render(); }
       else if (a === 'manualSearch') { S.manualQuery = ($('#q').value || '').trim(); App.runCompare(S.manualQuery ? { query: S.manualQuery, freeSearch: true } : {}); }
       else if (a === 'toggleAll') { S.showAll = !S.showAll; render(); }

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         تخفیف‌سنج
 // @namespace    ghafel-com-pro
-// @version      15.2.40
+// @version      15.2.41
 // @description  مقایسهٔ قیمت فروشندگان، تاریخچهٔ قیمت دیجی‌کالا، بازرس تخفیف، واچ‌لیست و هشدار قیمت
 // @author       GHAFEL_com (Original Creator)
 // @contributor  RealMahdi_a (Upgrade & Development)
@@ -22,7 +22,7 @@
 // @noframes
 // @run-at       document-idle
 // ==/UserScript==
-/* تخفیف‌سنج 15.2.40 — Original Creator: GHAFEL_com (https://t.me/GHAFEL_com) · Upgrade & Development: RealMahdi_a (https://t.me/RealMahdi_a) · Website: https://aqilistudio.ir/
+/* تخفیف‌سنج 15.2.41 — Original Creator: GHAFEL_com (https://t.me/GHAFEL_com) · Upgrade & Development: RealMahdi_a (https://t.me/RealMahdi_a) · Website: https://aqilistudio.ir/
    Built from readable modules in /src. The 8.7 engine logic is preserved in src/06-extract.js (extraction),
    src/07-match.js (baseline rule) and src/08-sources.js (Torob flow). */
 (function () {
@@ -1635,6 +1635,7 @@ const Exporter = (() => {
 /* Solar Icon Set by 480 Design, licensed CC BY 4.0: https://github.com/480-Design/Solar-Icon-Set */
 const SolarIcons = {
   toman: "<path fill=\"currentColor\" d=\"M1.14878 6.91843C1.44428 6.91843 1.70285 6.87142 1.92447 6.77739C2.15282 6.68337 2.34422 6.55577 2.49869 6.39458C2.65316 6.2334 2.77069 6.04535 2.85128 5.83044C2.93187 5.62224 2.97888 5.40062 2.99231 5.16556H1.98492C1.6424 5.16556 1.36033 5.12862 1.1387 5.05474C0.917077 4.98087 0.742461 4.87341 0.614858 4.73238C0.487254 4.59134 0.396588 4.42344 0.34286 4.22868C0.295849 4.0272 0.272343 3.80221 0.272343 3.55372C0.272343 3.29852 0.309281 3.05674 0.383156 2.8284C0.457032 2.60005 0.564488 2.39857 0.705523 2.22396C0.846559 2.04934 1.02117 1.91167 1.22937 1.81093C1.44428 1.70347 1.68941 1.64974 1.96477 1.64974C2.1864 1.64974 2.39795 1.68668 2.59943 1.76056C2.80091 1.83443 2.97888 1.95196 3.13335 2.11315C3.28782 2.26761 3.40871 2.47245 3.49601 2.72766C3.59004 2.97615 3.63705 3.27837 3.63705 3.63431V4.47045H4.60415C4.68474 4.47045 4.73847 4.50068 4.76533 4.56112C4.79891 4.61485 4.8157 4.6988 4.8157 4.81297C4.8157 4.93386 4.79891 5.02452 4.76533 5.08497C4.73847 5.13869 4.68474 5.16556 4.60415 5.16556H3.6169C3.60347 5.49464 3.53631 5.80693 3.41542 6.10244C3.30125 6.39794 3.14007 6.65651 2.93187 6.87813C2.72368 7.09976 2.47518 7.27438 2.1864 7.40198C1.89761 7.5363 1.57188 7.60346 1.20922 7.60346H0.141381L0.0809373 6.91843H1.14878ZM0.896929 3.51343C0.896929 3.68133 0.913719 3.82572 0.947299 3.94661C0.987594 4.0675 1.0514 4.16823 1.1387 4.24883C1.23273 4.3227 1.35697 4.37979 1.51144 4.42008C1.66591 4.45366 1.86067 4.47045 2.09573 4.47045H3.00239V3.71491C3.00239 3.21792 2.90501 2.86198 2.71024 2.64707C2.51548 2.43215 2.24684 2.3247 1.90433 2.3247C1.58196 2.3247 1.33347 2.43215 1.15885 2.64707C0.984237 2.86198 0.896929 3.15076 0.896929 3.51343ZM6.26895 4.47045C6.35626 4.47045 6.41335 4.50068 6.44021 4.56112C6.47379 4.61485 6.49058 4.6988 6.49058 4.81297C6.49058 4.93386 6.47379 5.02452 6.44021 5.08497C6.41335 5.13869 6.35626 5.16556 6.26895 5.16556H4.60675C4.51944 5.16556 4.46235 5.13869 4.43549 5.08497C4.40191 5.03124 4.38512 4.94729 4.38512 4.83312C4.38512 4.71223 4.40191 4.62156 4.43549 4.56112C4.46235 4.50068 4.51944 4.47045 4.60675 4.47045H6.26895ZM7.93155 4.47045C8.01886 4.47045 8.07594 4.50068 8.10281 4.56112C8.13639 4.61485 8.15318 4.6988 8.15318 4.81297C8.15318 4.93386 8.13639 5.02452 8.10281 5.08497C8.07594 5.13869 8.01886 5.16556 7.93155 5.16556H6.26935C6.18204 5.16556 6.12495 5.13869 6.09809 5.08497C6.06451 5.03124 6.04772 4.94729 6.04772 4.83312C6.04772 4.71223 6.06451 4.62156 6.09809 4.56112C6.12495 4.50068 6.18204 4.47045 6.26935 4.47045H7.93155ZM9.59415 4.47045C9.68146 4.47045 9.73854 4.50068 9.76541 4.56112C9.79899 4.61485 9.81578 4.6988 9.81578 4.81297C9.81578 4.93386 9.79899 5.02452 9.76541 5.08497C9.73854 5.13869 9.68146 5.16556 9.59415 5.16556H7.93194C7.84464 5.16556 7.78755 5.13869 7.76069 5.08497C7.72711 5.03124 7.71032 4.94729 7.71032 4.83312C7.71032 4.71223 7.72711 4.62156 7.76069 4.56112C7.78755 4.50068 7.84464 4.47045 7.93194 4.47045H9.59415ZM11.2567 4.47045C11.3441 4.47045 11.4011 4.50068 11.428 4.56112C11.4616 4.61485 11.4784 4.6988 11.4784 4.81297C11.4784 4.93386 11.4616 5.02452 11.428 5.08497C11.4011 5.13869 11.3441 5.16556 11.2567 5.16556H9.59454C9.50723 5.16556 9.45015 5.13869 9.42328 5.08497C9.3897 5.03124 9.37291 4.94729 9.37291 4.83312C9.37291 4.71223 9.3897 4.62156 9.42328 4.56112C9.45015 4.50068 9.50723 4.47045 9.59454 4.47045H11.2567ZM12.1638 4.47045C12.4257 4.47045 12.6339 4.39994 12.7884 4.2589C12.9496 4.11787 13.0302 3.9231 13.0302 3.67461V2.2844H13.685V3.67461C13.685 4.15144 13.5506 4.52082 13.282 4.78275C13.0201 5.03795 12.6608 5.16556 12.2041 5.16556H11.2571C11.1698 5.16556 11.1127 5.13869 11.0859 5.08497C11.0523 5.03124 11.0355 4.94729 11.0355 4.83312C11.0355 4.71223 11.0523 4.62156 11.0859 4.56112C11.1127 4.50068 11.1698 4.47045 11.2571 4.47045H12.1638ZM13.7857 0.994934H12.9798V0.279683H13.7857V0.994934ZM12.5063 0.994934H11.7004V0.279683H12.5063V0.994934ZM5.64177 12.9641C5.64177 13.3267 5.58468 13.6659 5.47051 13.9815C5.35634 14.3039 5.1918 14.5826 4.97689 14.8177C4.76198 15.0595 4.50005 15.2509 4.19112 15.3919C3.8889 15.5329 3.54638 15.6035 3.16357 15.6035H2.56921C1.81702 15.6035 1.23273 15.3718 0.816337 14.9084C0.399946 14.445 0.191751 13.8103 0.191751 13.0044V11.2414H0.836485V12.9842C0.836485 13.273 0.870065 13.5349 0.937225 13.77C1.0111 14.0051 1.12191 14.2065 1.26967 14.3744C1.42413 14.549 1.61554 14.6834 1.84388 14.7774C2.07223 14.8714 2.34758 14.9184 2.66995 14.9184H3.1132C3.42885 14.9184 3.70421 14.8647 3.93927 14.7572C4.17433 14.6565 4.36909 14.5188 4.52356 14.3442C4.68474 14.1696 4.80227 13.9648 4.87615 13.7297C4.95674 13.4946 4.99703 13.2495 4.99703 12.9943V10.2844H5.64177V12.9641ZM3.21394 10.0628H2.36773V9.32738H3.21394V10.0628ZM8.24526 13.1656C8.07064 13.1656 7.90274 13.1421 7.74156 13.095C7.58038 13.0413 7.43598 12.954 7.30838 12.8331C7.18749 12.7122 7.09011 12.5544 7.01624 12.3596C6.94236 12.1582 6.90542 11.9097 6.90542 11.6142V6.9197H7.56023V11.4933C7.56023 11.7754 7.62067 12.0104 7.74156 12.1985C7.86916 12.3798 8.074 12.4705 8.35607 12.4705H8.52733C8.67508 12.4705 8.74896 12.5846 8.74896 12.813C8.74896 13.048 8.67508 13.1656 8.52733 13.1656H8.24526ZM8.69324 12.4705C8.95516 12.4705 9.15328 12.4067 9.2876 12.279C9.42192 12.1514 9.48908 11.9802 9.48908 11.7653V11.3825C9.48908 10.7982 9.63683 10.3415 9.93233 10.0124C10.2346 9.68332 10.6509 9.51878 11.1815 9.51878C11.4569 9.51878 11.6986 9.56243 11.9068 9.64974C12.115 9.73705 12.2863 9.8613 12.4206 10.0225C12.5616 10.1837 12.6657 10.3751 12.7329 10.5967C12.8001 10.8183 12.8336 11.0635 12.8336 11.3321C12.8336 11.9097 12.6825 12.3596 12.3803 12.682C12.0781 13.0044 11.6651 13.1656 11.1412 13.1656C10.8726 13.1656 10.614 13.1152 10.3655 13.0144C10.117 12.907 9.92226 12.7189 9.78123 12.4503C9.72078 12.6048 9.64691 12.729 9.5596 12.823C9.47229 12.9171 9.38162 12.9909 9.2876 13.0447C9.19358 13.0917 9.09284 13.1253 8.98538 13.1454C8.88464 13.1588 8.78726 13.1656 8.69324 13.1656H8.53205C8.44475 13.1656 8.38766 13.1387 8.3608 13.085C8.32722 13.0312 8.31043 12.9473 8.31043 12.8331C8.31043 12.7122 8.32722 12.6216 8.3608 12.5611C8.38766 12.5007 8.44475 12.4705 8.53205 12.4705H8.69324ZM12.1889 11.3925C12.1889 11.0433 12.1117 10.7612 11.9572 10.5463C11.8027 10.3247 11.5375 10.2139 11.1614 10.2139C10.4629 10.2139 10.1137 10.6202 10.1137 11.4328C10.1137 11.7754 10.2077 12.0339 10.3957 12.2085C10.5905 12.3831 10.839 12.4705 11.1412 12.4705C11.4837 12.4705 11.7423 12.3764 11.9169 12.1884C12.0982 12.0003 12.1889 11.7351 12.1889 11.3925Z\"/>",
+  clipboardCopy: "<g fill='none' stroke='currentColor' stroke-linecap='round' stroke-width='1.5'><path d='M16 4C18.175 4.014 19.353 4.11 20.121 4.879C21 5.758 21 7.172 21 10V16C21 18.829 21 20.243 20.121 21.121C19.243 22 17.828 22 15 22H9C6.172 22 4.757 22 3.879 21.121C3 20.243 3 18.829 3 16V10C3 7.172 3 5.758 3.879 4.879C4.647 4.11 5.825 4.014 8 4'/><path d='M9.5 6H14.5C15.328 6 16 5.328 16 4.5V3.5C16 2.672 15.328 2 14.5 2H9.5C8.672 2 8 2.672 8 3.5V4.5C8 5.328 8.672 6 9.5 6Z'/><path stroke-linejoin='round' d='M15 14H9M11.5 11.5L9 14L11.5 16.5'/></g>",
   check: "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"><path d=\"M5 12.5L10 17.5L20 7.5\"/></g>",
   tag: "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\"><path d=\"M2.85574 7.39057L2.57231 8.61875C2.08083 10.7485 1.83509 11.8134 2.12264 12.816C2.41018 13.8186 3.18295 14.5914 4.72848 16.1369L6.55812 17.9665C9.24711 20.6555 10.5916 22 12.2623 22C13.933 22 15.2775 20.6555 17.9665 17.9665C20.6555 15.2775 22 13.933 22 12.2623C22 10.5916 20.6555 9.24711 17.9665 6.55812L16.1369 4.72848C14.5914 3.18295 13.8186 2.41018 12.816 2.12264C11.8134 1.83509 10.7485 2.08083 8.61875 2.57231L7.39057 2.85574C5.59881 3.26922 4.70292 3.47597 4.08944 4.08944C3.47597 4.70292 3.26922 5.59881 2.85574 7.39057Z\"/><circle cx=\"8.607\" cy=\"8.879\" r=\"2\"/><path d=\"M11.5413 18.4998L18.5203 11.5205\"/></g>",
   pen: "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"><path d=\"M13.5 6.5L17.5 10.5\"/><path d=\"M4.5 19.5L8.4 18.7L19.6 7.5C20.4 6.7 20.4 5.3 19.6 4.5C18.8 3.7 17.4 3.7 16.6 4.5L5.3 15.7L4.5 19.5Z\"/><path d=\"M4 22H20\"/></g>",
@@ -1907,7 +1908,10 @@ select,input[type=number],input[type=text]{background:var(--card);color:var(--in
 .select-shell:after{content:"";position:absolute;left:11px;top:calc(50% - 3px);width:7px;height:7px;border-left:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(-45deg);pointer-events:none;color:var(--mut)}
 .select-shell select{appearance:none;padding:5px 12px 5px 30px;min-width:116px}
 .setting-city-select{flex:0 1 178px}.setting-city-select select{width:100%;min-width:0;height:36px}
-.diagnostics-back{margin-bottom:12px}
+.diagnostics-actions{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.diagnostics-copy-group{display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap}
+.diagnostics-copy-status{min-height:1em;color:var(--good);font-size:10.5px;line-height:1.4}
+.diagnostics-copy-status:empty{display:none}.diagnostics-copy-status.bad{color:var(--bad)}
 .about-copy p{margin:4px 0 8px;color:var(--mut);font-size:11px;line-height:1.6}
 .about-data-layout{display:grid;gap:11px;padding:6px 2px}
 .about-data-actions{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
@@ -2199,23 +2203,70 @@ svg text{font-family:inherit}
     h += settingsSection('درباره، تماس و داده‌ها', 'tag', aboutData);
     return h;
   }
+  function diagnosticsVersion() {
+    try {
+      const runtime = typeof browser !== 'undefined' && browser.runtime?.getManifest
+        ? browser.runtime
+        : typeof chrome !== 'undefined' && chrome.runtime?.getManifest ? chrome.runtime : null;
+      const value = runtime?.getManifest().version;
+      if (value) return U.toFa(value);
+    } catch {}
+    try { if (typeof GM_info !== 'undefined' && GM_info.script?.version) return U.toFa(GM_info.script.version); } catch {}
+    return '—';
+  }
+  function diagnosticsSummary() {
+    const product = S.product || {};
+    return `نسخه ${diagnosticsVersion()} · محصول: ${S.key} · منبع قیمت: ${product.priceSource || '—'}${product.priceNote ? ' · ' + product.priceNote : ''}`;
+  }
+  function diagnosticsLogRows() {
+    return Log.all().slice(-60).reverse().map(entry => ({
+      className: entry.level === 'error' ? 'e' : entry.level === 'warn' ? 'w' : '',
+      text: `${new Date(entry.t).toLocaleTimeString('en-GB')} [${entry.scope}] ${entry.msg}`
+    }));
+  }
+  async function copyDiagnostics() {
+    const status = $('#diagnosticsCopyStatus');
+    const button = $('[data-act="copyDiagnostics"]');
+    if (!status || !button) return;
+    const rows = diagnosticsLogRows();
+    const report = [diagnosticsSummary(), ...(rows.length ? rows.map(row => row.text) : ['بدون رویداد'])].join('\n');
+    button.disabled = true;
+    status.classList.remove('bad');
+    status.textContent = '';
+    try {
+      let copied = false;
+      try {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(report);
+          copied = true;
+        }
+      } catch {}
+      if (!copied && typeof document.execCommand === 'function') {
+        const field = document.createElement('textarea');
+        field.value = report;
+        field.setAttribute('readonly', '');
+        Object.assign(field.style, { position: 'fixed', left: '-9999px', top: '0', opacity: '0' });
+        (document.body || document.documentElement).appendChild(field);
+        field.focus(); field.select(); field.setSelectionRange(0, report.length);
+        copied = document.execCommand('copy');
+        field.remove();
+      }
+      if (!copied) throw new Error('Clipboard is unavailable');
+      status.textContent = 'گزارش عیب‌یابی کپی شد';
+    } catch {
+      status.classList.add('bad');
+      status.textContent = 'کپی انجام نشد؛ دوباره تلاش کنید';
+    } finally {
+      button.disabled = false;
+    }
+  }
   function tabLog() {
     const legacy = ['ghpro12-host', 'ghafel-pc-btn', 'ghafel-pc-panel'].filter(id => document.getElementById(id));
     let h = legacy.length ? `<div class="banner">نسخه‌های قدیمی هم‌زمان فعال‌اند (${legacy.join('، ')}). در Tampermonkey آن‌ها را غیرفعال کنید تا فقط یک پنل بماند.</div>` : '';
-    h += `<button type="button" class="btn sec icon-btn diagnostics-back" data-tab="settings">${iconText('settings', 'بازگشت به تنظیمات')}</button>`;
-    const version = (() => {
-      try {
-        const runtime = typeof browser !== 'undefined' && browser.runtime?.getManifest
-          ? browser.runtime
-          : typeof chrome !== 'undefined' && chrome.runtime?.getManifest ? chrome.runtime : null;
-        const value = runtime?.getManifest().version;
-        if (value) return U.toFa(value);
-      } catch {}
-      try { if (typeof GM_info !== 'undefined' && GM_info.script?.version) return U.toFa(GM_info.script.version); } catch {}
-      return '—';
-    })();
-    h += `<div class="card muted">نسخه ${U.esc(version)} · محصول: ${U.esc(S.key)} · منبع قیمت: ${U.esc((S.product || {}).priceSource || '—')}${(S.product || {}).priceNote ? ' · ' + U.esc(S.product.priceNote) : ''}</div>`;
-    h += `<div class="card log">${Log.all().slice(-60).reverse().map(e => `<div class="${e.level === 'error' ? 'e' : e.level === 'warn' ? 'w' : ''}">${new Date(e.t).toLocaleTimeString('en-GB')} [${U.esc(e.scope)}] ${U.esc(e.msg)}</div>`).join('') || 'بدون رویداد'}</div>`;
+    h += `<div class="diagnostics-actions"><button type="button" class="btn sec icon-btn" data-tab="settings">${iconText('settings', 'بازگشت به تنظیمات')}</button><div class="diagnostics-copy-group"><button type="button" class="btn sec icon-btn" data-act="copyDiagnostics" title="کپی گزارش عیب‌یابی">${iconText('clipboardCopy', 'کپی گزارش')}</button><span class="diagnostics-copy-status" id="diagnosticsCopyStatus" role="status" aria-live="polite"></span></div></div>`;
+    h += `<div class="card muted">${U.esc(diagnosticsSummary())}</div>`;
+    const rows = diagnosticsLogRows();
+    h += `<div class="card log">${rows.map(row => `<div class="${row.className}">${U.esc(row.text)}</div>`).join('') || 'بدون رویداد'}</div>`;
     return h;
   }
 
@@ -2495,7 +2546,8 @@ svg text{font-family:inherit}
       if (t.dataset.range) { S.range = +t.dataset.range; return render(); }
       if (t.dataset.rm) { const p = db.products[t.dataset.rm]; if (p) p.watch = false; Store.save(); return render(); }
       const a = t.dataset.act;
-      if (a === 'compare') App.runCompare();
+      if (a === 'copyDiagnostics') return copyDiagnostics();
+      else if (a === 'compare') App.runCompare();
       else if (a === 'toggleTable') { S.table = !S.table; db.settings.table = S.table; Store.save(); render(); }
       else if (a === 'manualSearch') { S.manualQuery = ($('#q').value || '').trim(); App.runCompare(S.manualQuery ? { query: S.manualQuery, freeSearch: true } : {}); }
       else if (a === 'toggleAll') { S.showAll = !S.showAll; render(); }
@@ -2639,7 +2691,7 @@ const Main = (() => {
     };
     const run = () => { try { check(); } catch (e) { Log.error('main', e.message); } };
     setTimeout(run, 600); setInterval(run, 1500);
-    Log.info('main', 'تخفیف‌سنج 15.2.40 آماده شد');
+    Log.info('main', 'تخفیف‌سنج 15.2.41 آماده شد');
   }
   return { init };
 })();
