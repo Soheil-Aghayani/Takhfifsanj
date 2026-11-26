@@ -228,6 +228,12 @@ select,input[type=number],input[type=text]{background:var(--card);color:var(--in
 .setting-city-select{flex:0 1 178px}.setting-city-select select{width:100%;min-width:0;height:36px}
 .diagnostics-back{margin-bottom:12px}
 .about-copy p{margin:4px 0 8px;color:var(--mut);font-size:11px;line-height:1.6}
+.about-data-layout{display:grid;gap:11px;padding:6px 2px}
+.about-data-actions{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.saved-data-section{border-top:1px solid var(--line);padding-top:10px}
+.saved-data-heading{display:flex;align-items:center;gap:6px;margin:0 2px 8px;font-size:11.5px;font-weight:800}
+.saved-data-heading .icon{width:16px;height:16px;color:var(--acc2)}
+.saved-data-actions .btns{margin:0}
 .about-repo,.contact-links{display:flex;align-items:center;gap:8px}
 .about-repo a,.contact-links a{display:grid;place-items:center;width:38px;height:38px;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--acc2);text-decoration:none}
 .about-repo a{display:inline-flex;width:auto;gap:6px;padding:0 10px;font-size:10.5px}
@@ -507,10 +513,9 @@ svg text{font-family:inherit}
     h += settingsSection('هشدار قیمت', 'bell', alertSettings);
     const diagnostics = `<div class="diagnostics-option"><div class="diagnostics-option-copy">${icon('bug')}<div><b>گزارش و عیب‌یابی</b><small>نسخهٔ افزونه، رویدادها و خطاهای اخیر</small></div></div><button type="button" class="btn sec icon-btn diagnostics-open" data-tab="log" aria-controls="body" title="بازکردن گزارش و عیب‌یابی">${iconText('bug', 'بازکردن')}</button></div>`;
     h += settingsSection('عیب‌یابی', 'bug', diagnostics);
-    h += settingsSection('دربارهٔ تخفیف‌سنج', 'tag', `<div class="about-copy"><b>تخفیف‌سنج</b><p>ابزاری برای مقایسهٔ قیمت، بررسی سابقه و پیگیری کاهش قیمت محصولات در فروشگاه‌های پشتیبانی‌شده.</p></div><div class="about-repo"><a href="https://github.com/Soheil-Aghayani/Takhfifsanj" target="_blank" rel="noopener noreferrer" aria-label="مخزن تخفیف‌سنج در گیت‌هاب" title="مخزن تخفیف‌سنج در گیت‌هاب">${icon('global')}<span>مخزن پروژه</span></a></div>`);
-    h += settingsSection('تماس با ما', 'chat', `<div class="contact-links"><a href="mailto:soheyl.aghayani@gmail.com" aria-label="ارسال ایمیل" title="ایمیل">${icon('letter')}</a><a href="https://t.me/env_soh" target="_blank" rel="noopener noreferrer" aria-label="تماس در تلگرام" title="تلگرام">${icon('chat')}</a></div>`);
     const dataActions = `<div class="btns"><button class="btn sec icon-btn" data-act="expCsv">${iconText('download', 'خروجی CSV')}</button><button class="btn sec icon-btn" data-act="expJson">${iconText('download', 'خروجی JSON')}</button><button class="btn sec icon-btn" data-act="impCsv">${iconText('upload', 'ورود CSV')}</button><button class="btn bad icon-btn" data-act="clearProd" title="پاک‌کردن تاریخچهٔ محلی این محصول">${iconText('trash', 'حذف محصول')}</button><button class="btn bad icon-btn" data-act="clearAll" title="پاک‌کردن همهٔ داده‌ها و تنظیمات">${iconText('trash', 'حذف همه')}</button></div><input type="file" id="file" accept=".csv" style="display:none">`;
-    h += settingsSection('داده‌های ذخیره‌شده', 'file', dataActions);
+    const aboutData = `<div class="about-data-layout"><div><div class="about-copy"><b>تخفیف‌سنج</b><p>ابزاری برای مقایسهٔ قیمت، بررسی سابقه و پیگیری کاهش قیمت محصولات در فروشگاه‌های پشتیبانی‌شده.</p></div><div class="about-data-actions"><div class="about-repo"><a href="https://github.com/Soheil-Aghayani/Takhfifsanj" target="_blank" rel="noopener noreferrer" aria-label="مخزن تخفیف‌سنج در گیت‌هاب" title="مخزن تخفیف‌سنج در گیت‌هاب">${icon('global')}<span>مخزن پروژه</span></a></div><div class="contact-links" aria-label="راه‌های تماس"><a href="mailto:soheyl.aghayani@gmail.com" aria-label="ارسال ایمیل" title="ایمیل">${icon('letter')}</a><a href="https://t.me/env_soh" target="_blank" rel="noopener noreferrer" aria-label="تماس در تلگرام" title="تلگرام">${icon('chat')}</a></div></div></div><section class="saved-data-section" aria-labelledby="savedDataHeading"><h4 class="saved-data-heading" id="savedDataHeading">${icon('file')}<span>داده‌های ذخیره‌شده</span></h4><div class="saved-data-actions">${dataActions}</div></section></div>`;
+    h += settingsSection('درباره، تماس و داده‌ها', 'tag', aboutData);
     return h;
   }
   function tabLog() {

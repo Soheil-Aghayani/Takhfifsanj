@@ -43,7 +43,8 @@ const Sources = (() => {
       const en = (prod.altTitles || []).find(x => /^[\x00-\x7F\s]+$/.test(x));
       const core = Extract.coreTitle(prod.title) || prod.title || '';
       const codeQuery = codes.slice().sort((a, b) => b.length - a.length)[0] || '';
-      const prefix = U.tokens(core).filter(x => !codes.includes(x) && !SEARCH_QUERY_NOISE.has(x)).slice(0, 5).join(' ');
+      const searchTokens = text => U.tokens(text).filter(token => !/^\d+ch$/i.test(token));
+      const prefix = searchTokens(core).filter(x => !codes.includes(x) && !SEARCH_QUERY_NOISE.has(x)).slice(0, 5).join(' ');
       const focused = [prefix, codes.join(' ')].filter(Boolean).join(' ');
       const shortEnglish = en ? Extract.coreTitle(en) : '';
       const aliases = Array.isArray(prod.brandAliases) ? prod.brandAliases : [prod.brandAliases];
@@ -51,7 +52,7 @@ const Sources = (() => {
       const brandCodeQuery = searchableBrand && codeQuery ? `${String(searchableBrand).trim()} ${codeQuery}` : '';
       const candidates = codes.length
         ? [brandCodeQuery, focused, ...(brandCodeQuery ? [] : [codeQuery]), core, shortEnglish]
-        : [core, U.tokens(core).slice(0, 5).join(' '), shortEnglish];
+        : [core, searchTokens(core).slice(0, 5).join(' '), shortEnglish];
       return [...new Set(candidates.map(x => String(x || '').trim()).filter(Boolean))].slice(0, 4);
     },
     candidateTitle,

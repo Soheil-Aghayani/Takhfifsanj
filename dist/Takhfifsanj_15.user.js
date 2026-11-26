@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         تخفیف‌سنج
 // @namespace    ghafel-com-pro
-// @version      15.2.39
+// @version      15.2.40
 // @description  مقایسهٔ قیمت فروشندگان، تاریخچهٔ قیمت دیجی‌کالا، بازرس تخفیف، واچ‌لیست و هشدار قیمت
 // @author       GHAFEL_com (Original Creator)
 // @contributor  RealMahdi_a (Upgrade & Development)
@@ -22,7 +22,7 @@
 // @noframes
 // @run-at       document-idle
 // ==/UserScript==
-/* تخفیف‌سنج 15.2.39 — Original Creator: GHAFEL_com (https://t.me/GHAFEL_com) · Upgrade & Development: RealMahdi_a (https://t.me/RealMahdi_a) · Website: https://aqilistudio.ir/
+/* تخفیف‌سنج 15.2.40 — Original Creator: GHAFEL_com (https://t.me/GHAFEL_com) · Upgrade & Development: RealMahdi_a (https://t.me/RealMahdi_a) · Website: https://aqilistudio.ir/
    Built from readable modules in /src. The 8.7 engine logic is preserved in src/06-extract.js (extraction),
    src/07-match.js (baseline rule) and src/08-sources.js (Torob flow). */
 (function () {
@@ -588,7 +588,7 @@ const Match = (() => {
   function modelCodes(raw) {
     const t = U.digits(raw).replace(/[ـ]/g, '');
     const out = new Set();
-    const re = /[A-Za-z]+[A-Za-z0-9]*?[\s\/\-_.]?\d+[A-Za-z0-9]*|\d+[\s]?[A-Za-z]+[A-Za-z0-9]*/g; let m;
+    const re = /[A-Za-z]+[A-Za-z0-9]*?[\s\/\-_.]?\d+[A-Za-z0-9]*|(?<![\d.])\d+[\s]?[A-Za-z]+[A-Za-z0-9]*/g; let m;
     while ((m = re.exec(t))) { const c = m[0].toLowerCase().replace(/[^a-z0-9]/g, ''); if (c.length >= 3 && /[a-z]/.test(c) && /\d/.test(c)) out.add(c); }
     const numericModel = /(?:مدل|model)\s*[:#-]?\s*(\d{3,6})(?![A-Za-z0-9])/gi;
     while ((m = numericModel.exec(t))) out.add(m[1]);
@@ -602,7 +602,7 @@ const Match = (() => {
     const found = codes.filter(code => [...candidateCodes].some(candidate => compatible(code, candidate)));
     return { codes, found, missing: codes.filter(code => !found.includes(code)) };
   }
-  const UNITS = [['gb', /گیگابایت|گیگ|gb/], ['tb', /ترابایت|tb/], ['ml', /میلی ?لیتر|ml/], ['l', /لیتر/], ['kg', /کیلوگرم|کیلو|kg/], ['g', /گرم|gr|(?<![a-z])g(?![a-z])/], ['mah', /mah|میلی ?آمپر/], ['w', /وات|(?<![a-z])w(?![a-z])/], ['inch', /اینچ|inch/], ['cm', /سانتی ?متر|cm/], ['mm', /میلی ?متر|mm/]];
+  const UNITS = [['channel', /channel|ch|کاناله/], ['gb', /گیگابایت|گیگ|gb/], ['tb', /ترابایت|tb/], ['ml', /میلی ?لیتر|ml/], ['l', /لیتر/], ['kg', /کیلوگرم|کیلو|kg/], ['g', /گرم|gr|(?<![a-z])g(?![a-z])/], ['mah', /mah|میلی ?آمپر/], ['w', /وات|(?<![a-z])w(?![a-z])/], ['inch', /اینچ|inch/], ['cm', /سانتی ?متر|cm/], ['mm', /میلی ?متر|mm/]];
   const BRAND_FAMILIES = [
     ['romoss', ['romoss', 'روموس', 'رومس']], ['baseus', ['baseus', 'باسئوس', 'بیسوس']],
     ['sadoer', ['sadoer', 'سادور', 'سادوئر']],
@@ -648,9 +648,9 @@ const Match = (() => {
     return null;
   }
   function specs(raw) {
-    const t = U.normalize(raw).replace(/(\d)\s+(?=[a-zآ-ی])/g, '$1'), out = {};
+    const t = U.normalize(raw).replace(/(\d+)\s+(\d+)(?=\s*(?:channel\b|ch\b|کاناله))/gi, '$1.$2').replace(/(\d)\s+(?=[a-zآ-ی])/g, '$1'), out = {};
     for (const [u, re] of UNITS) {
-      const rx = new RegExp('(\\d+)(?:' + re.source + ')', 'g'); let m;
+      const rx = new RegExp('(\\d+(?:\\.\\d+)?)(?:' + re.source + ')', 'g'); let m;
       while ((m = rx.exec(t))) (out[u] ||= new Set()).add(Number(m[1]));
     }
     return out;
@@ -749,7 +749,8 @@ const Sources = (() => {
       const en = (prod.altTitles || []).find(x => /^[\x00-\x7F\s]+$/.test(x));
       const core = Extract.coreTitle(prod.title) || prod.title || '';
       const codeQuery = codes.slice().sort((a, b) => b.length - a.length)[0] || '';
-      const prefix = U.tokens(core).filter(x => !codes.includes(x) && !SEARCH_QUERY_NOISE.has(x)).slice(0, 5).join(' ');
+      const searchTokens = text => U.tokens(text).filter(token => !/^\d+ch$/i.test(token));
+      const prefix = searchTokens(core).filter(x => !codes.includes(x) && !SEARCH_QUERY_NOISE.has(x)).slice(0, 5).join(' ');
       const focused = [prefix, codes.join(' ')].filter(Boolean).join(' ');
       const shortEnglish = en ? Extract.coreTitle(en) : '';
       const aliases = Array.isArray(prod.brandAliases) ? prod.brandAliases : [prod.brandAliases];
@@ -757,7 +758,7 @@ const Sources = (() => {
       const brandCodeQuery = searchableBrand && codeQuery ? `${String(searchableBrand).trim()} ${codeQuery}` : '';
       const candidates = codes.length
         ? [brandCodeQuery, focused, ...(brandCodeQuery ? [] : [codeQuery]), core, shortEnglish]
-        : [core, U.tokens(core).slice(0, 5).join(' '), shortEnglish];
+        : [core, searchTokens(core).slice(0, 5).join(' '), shortEnglish];
       return [...new Set(candidates.map(x => String(x || '').trim()).filter(Boolean))].slice(0, 4);
     },
     candidateTitle,
@@ -1908,6 +1909,12 @@ select,input[type=number],input[type=text]{background:var(--card);color:var(--in
 .setting-city-select{flex:0 1 178px}.setting-city-select select{width:100%;min-width:0;height:36px}
 .diagnostics-back{margin-bottom:12px}
 .about-copy p{margin:4px 0 8px;color:var(--mut);font-size:11px;line-height:1.6}
+.about-data-layout{display:grid;gap:11px;padding:6px 2px}
+.about-data-actions{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.saved-data-section{border-top:1px solid var(--line);padding-top:10px}
+.saved-data-heading{display:flex;align-items:center;gap:6px;margin:0 2px 8px;font-size:11.5px;font-weight:800}
+.saved-data-heading .icon{width:16px;height:16px;color:var(--acc2)}
+.saved-data-actions .btns{margin:0}
 .about-repo,.contact-links{display:flex;align-items:center;gap:8px}
 .about-repo a,.contact-links a{display:grid;place-items:center;width:38px;height:38px;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--acc2);text-decoration:none}
 .about-repo a{display:inline-flex;width:auto;gap:6px;padding:0 10px;font-size:10.5px}
@@ -2187,10 +2194,9 @@ svg text{font-family:inherit}
     h += settingsSection('هشدار قیمت', 'bell', alertSettings);
     const diagnostics = `<div class="diagnostics-option"><div class="diagnostics-option-copy">${icon('bug')}<div><b>گزارش و عیب‌یابی</b><small>نسخهٔ افزونه، رویدادها و خطاهای اخیر</small></div></div><button type="button" class="btn sec icon-btn diagnostics-open" data-tab="log" aria-controls="body" title="بازکردن گزارش و عیب‌یابی">${iconText('bug', 'بازکردن')}</button></div>`;
     h += settingsSection('عیب‌یابی', 'bug', diagnostics);
-    h += settingsSection('دربارهٔ تخفیف‌سنج', 'tag', `<div class="about-copy"><b>تخفیف‌سنج</b><p>ابزاری برای مقایسهٔ قیمت، بررسی سابقه و پیگیری کاهش قیمت محصولات در فروشگاه‌های پشتیبانی‌شده.</p></div><div class="about-repo"><a href="https://github.com/Soheil-Aghayani/Takhfifsanj" target="_blank" rel="noopener noreferrer" aria-label="مخزن تخفیف‌سنج در گیت‌هاب" title="مخزن تخفیف‌سنج در گیت‌هاب">${icon('global')}<span>مخزن پروژه</span></a></div>`);
-    h += settingsSection('تماس با ما', 'chat', `<div class="contact-links"><a href="mailto:soheyl.aghayani@gmail.com" aria-label="ارسال ایمیل" title="ایمیل">${icon('letter')}</a><a href="https://t.me/env_soh" target="_blank" rel="noopener noreferrer" aria-label="تماس در تلگرام" title="تلگرام">${icon('chat')}</a></div>`);
     const dataActions = `<div class="btns"><button class="btn sec icon-btn" data-act="expCsv">${iconText('download', 'خروجی CSV')}</button><button class="btn sec icon-btn" data-act="expJson">${iconText('download', 'خروجی JSON')}</button><button class="btn sec icon-btn" data-act="impCsv">${iconText('upload', 'ورود CSV')}</button><button class="btn bad icon-btn" data-act="clearProd" title="پاک‌کردن تاریخچهٔ محلی این محصول">${iconText('trash', 'حذف محصول')}</button><button class="btn bad icon-btn" data-act="clearAll" title="پاک‌کردن همهٔ داده‌ها و تنظیمات">${iconText('trash', 'حذف همه')}</button></div><input type="file" id="file" accept=".csv" style="display:none">`;
-    h += settingsSection('داده‌های ذخیره‌شده', 'file', dataActions);
+    const aboutData = `<div class="about-data-layout"><div><div class="about-copy"><b>تخفیف‌سنج</b><p>ابزاری برای مقایسهٔ قیمت، بررسی سابقه و پیگیری کاهش قیمت محصولات در فروشگاه‌های پشتیبانی‌شده.</p></div><div class="about-data-actions"><div class="about-repo"><a href="https://github.com/Soheil-Aghayani/Takhfifsanj" target="_blank" rel="noopener noreferrer" aria-label="مخزن تخفیف‌سنج در گیت‌هاب" title="مخزن تخفیف‌سنج در گیت‌هاب">${icon('global')}<span>مخزن پروژه</span></a></div><div class="contact-links" aria-label="راه‌های تماس"><a href="mailto:soheyl.aghayani@gmail.com" aria-label="ارسال ایمیل" title="ایمیل">${icon('letter')}</a><a href="https://t.me/env_soh" target="_blank" rel="noopener noreferrer" aria-label="تماس در تلگرام" title="تلگرام">${icon('chat')}</a></div></div></div><section class="saved-data-section" aria-labelledby="savedDataHeading"><h4 class="saved-data-heading" id="savedDataHeading">${icon('file')}<span>داده‌های ذخیره‌شده</span></h4><div class="saved-data-actions">${dataActions}</div></section></div>`;
+    h += settingsSection('درباره، تماس و داده‌ها', 'tag', aboutData);
     return h;
   }
   function tabLog() {
@@ -2633,7 +2639,7 @@ const Main = (() => {
     };
     const run = () => { try { check(); } catch (e) { Log.error('main', e.message); } };
     setTimeout(run, 600); setInterval(run, 1500);
-    Log.info('main', 'تخفیف‌سنج 15.2.39 آماده شد');
+    Log.info('main', 'تخفیف‌سنج 15.2.40 آماده شد');
   }
   return { init };
 })();

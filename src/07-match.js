@@ -12,7 +12,7 @@ const Match = (() => {
   function modelCodes(raw) {
     const t = U.digits(raw).replace(/[ـ]/g, '');
     const out = new Set();
-    const re = /[A-Za-z]+[A-Za-z0-9]*?[\s\/\-_.]?\d+[A-Za-z0-9]*|\d+[\s]?[A-Za-z]+[A-Za-z0-9]*/g; let m;
+    const re = /[A-Za-z]+[A-Za-z0-9]*?[\s\/\-_.]?\d+[A-Za-z0-9]*|(?<![\d.])\d+[\s]?[A-Za-z]+[A-Za-z0-9]*/g; let m;
     while ((m = re.exec(t))) { const c = m[0].toLowerCase().replace(/[^a-z0-9]/g, ''); if (c.length >= 3 && /[a-z]/.test(c) && /\d/.test(c)) out.add(c); }
     const numericModel = /(?:مدل|model)\s*[:#-]?\s*(\d{3,6})(?![A-Za-z0-9])/gi;
     while ((m = numericModel.exec(t))) out.add(m[1]);
@@ -26,7 +26,7 @@ const Match = (() => {
     const found = codes.filter(code => [...candidateCodes].some(candidate => compatible(code, candidate)));
     return { codes, found, missing: codes.filter(code => !found.includes(code)) };
   }
-  const UNITS = [['gb', /گیگابایت|گیگ|gb/], ['tb', /ترابایت|tb/], ['ml', /میلی ?لیتر|ml/], ['l', /لیتر/], ['kg', /کیلوگرم|کیلو|kg/], ['g', /گرم|gr|(?<![a-z])g(?![a-z])/], ['mah', /mah|میلی ?آمپر/], ['w', /وات|(?<![a-z])w(?![a-z])/], ['inch', /اینچ|inch/], ['cm', /سانتی ?متر|cm/], ['mm', /میلی ?متر|mm/]];
+  const UNITS = [['channel', /channel|ch|کاناله/], ['gb', /گیگابایت|گیگ|gb/], ['tb', /ترابایت|tb/], ['ml', /میلی ?لیتر|ml/], ['l', /لیتر/], ['kg', /کیلوگرم|کیلو|kg/], ['g', /گرم|gr|(?<![a-z])g(?![a-z])/], ['mah', /mah|میلی ?آمپر/], ['w', /وات|(?<![a-z])w(?![a-z])/], ['inch', /اینچ|inch/], ['cm', /سانتی ?متر|cm/], ['mm', /میلی ?متر|mm/]];
   const BRAND_FAMILIES = [
     ['romoss', ['romoss', 'روموس', 'رومس']], ['baseus', ['baseus', 'باسئوس', 'بیسوس']],
     ['sadoer', ['sadoer', 'سادور', 'سادوئر']],
@@ -72,9 +72,9 @@ const Match = (() => {
     return null;
   }
   function specs(raw) {
-    const t = U.normalize(raw).replace(/(\d)\s+(?=[a-zآ-ی])/g, '$1'), out = {};
+    const t = U.normalize(raw).replace(/(\d+)\s+(\d+)(?=\s*(?:channel\b|ch\b|کاناله))/gi, '$1.$2').replace(/(\d)\s+(?=[a-zآ-ی])/g, '$1'), out = {};
     for (const [u, re] of UNITS) {
-      const rx = new RegExp('(\\d+)(?:' + re.source + ')', 'g'); let m;
+      const rx = new RegExp('(\\d+(?:\\.\\d+)?)(?:' + re.source + ')', 'g'); let m;
       while ((m = rx.exec(t))) (out[u] ||= new Set()).add(Number(m[1]));
     }
     return out;
