@@ -49,6 +49,24 @@ const Extract = (() => {
     } catch { return ''; }
   }
 
+  function pageHeading(root) {
+    const headings = [...root.querySelectorAll('h1')];
+    const visible = headings.filter(el => {
+      if (!el.textContent?.trim() || el.closest('[hidden], [aria-hidden="true"]')) return false;
+      try {
+        const style = getComputedStyle(el), rect = el.getBoundingClientRect();
+        return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0' && rect.width > 0 && rect.height > 0;
+      } catch { return false; }
+    });
+    // Torob may put a zero-sized "popular products" heading before the real
+    // product H1. Prefer the most descriptive rendered heading on its product page.
+    const choices = isTorobHost() ? visible.sort((a, b) => {
+      const aText = cleanTitle(a.textContent), bText = cleanTitle(b.textContent);
+      return U.tokens(bText).length - U.tokens(aText).length || bText.length - aText.length;
+    }) : visible;
+    return (choices[0] || headings[0])?.textContent?.trim() || '';
+  }
+
   // ---- strike-through detection ----
   const STRIKE_CLASS = /line-through|strikethrough|(^|[\s_:-])(old|del|strike|discount)(?=$|[\s_:-])/i;
   const isStruck = el => {
@@ -189,6 +207,19 @@ const Extract = (() => {
     return null;
   }
 
+  function torobCheapestPrice(root) {
+    if (!isTorobHost() || !isTorobProductPath()) return null;
+    for (const link of root.querySelectorAll('a[href*="/v4/product-page/redirect/"]')) {
+      try {
+        const url = new URL(link.href, location.href);
+        if (url.searchParams.get('buy_box_reason') !== 'cheapest') continue;
+        const amounts = [...new Set(U.pricesWithCurrency(link.innerText || link.textContent || ''))];
+        if (amounts.length === 1) return amounts[0];
+      } catch {}
+    }
+    return null;
+  }
+
   function selectedColor() {
     const m = U.digits(document.body.innerText || '').match(/رنگ\s*[:：]\s*([^\n\r]{1,30})/); return m ? m[1].trim() : '';
   }
@@ -207,7 +238,7 @@ const Extract = (() => {
     }
     const ld = jsonLd(root) || {};
     const meta = sel => root.querySelector(sel)?.getAttribute('content') || '';
-    const h1 = root.querySelector('h1')?.textContent?.trim() || '';
+    const h1 = pageHeading(root);
     const cands = [h1, ld.name, meta('meta[property="og:title"]'), root.title, titleFromUrl()].map(cleanTitle).filter(c => c && !isStoreName(c) && !/^فروشگاه\s*اینترنتی/.test(c));
     let name = cands[0] || '';
     if (U.tokens(name).length < 3) { const alt = cands.find(c => U.tokens(c).length >= 3); if (alt) name = alt; }
@@ -215,9 +246,11 @@ const Extract = (() => {
     for (const c of cands) { const cn = U.normalize(c); if (nn && cn.length > nn.length && cn.includes(nn) && c.length <= 120) { name = c; break; } }
 
     let price = null, src = '';
+    const torobPrice = torobCheapestPrice(root);
     const buyBoxPrice = digikalaBuyBoxPrice();
     const visible = buyBoxPrice || buyBarPrice(), rec = reconcileJsonLd(ld, visible);
-    if (buyBoxPrice) { price = buyBoxPrice; src = 'data-testid'; }
+    if (torobPrice) { price = torobPrice; src = 'ترب: ارزان‌ترین فروشنده'; }
+    else if (buyBoxPrice) { price = buyBoxPrice; src = 'data-testid'; }
     else if (rec) { price = rec.price; src = 'JSON-LD' + rec.note; }
     if (!price && visible) { price = visible; src = 'نوار خرید'; }
     if (!price) { const v = Number(meta('meta[property="product:price:amount"]').replace(/[^\d]/g, '')); if (v > 0) { price = v; src = 'متای صفحه'; } }
