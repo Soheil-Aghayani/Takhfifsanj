@@ -403,13 +403,13 @@ const Sources = (() => {
     const ev = strictMatch(prod, title);
     return ev.reasons[0] || (ev.ok ? 'اطمینان تطبیق برای نمایش کافی نبود' : 'تطبیق دقیق مدل یا برند تأیید نشد');
   }
-  function mapMarketOffer(prod, row, { sourceId, title, price, seller, sellerUrl, allowedHosts, priceFactor = 1, dataSource, exclude, freeSearch = false, query = '' } = {}) {
+  function mapMarketOffer(prod, row, { sourceId, title, price, seller, sellerUrl, allowedHosts, priceFactor = 1, dataSource, exclude, freeSearch = false, query = '', dedupeSellerKey = '' } = {}) {
     const name = String(title || '').trim(), url = safeMarketplaceUrl(sellerUrl, allowedHosts);
     if (!name || !url || (exclude && exclude(row, url))) return null;
     const amount = parsePrice(price) * priceFactor, ev = freeSearch ? freeSearchMatch(query, name) : strictMatch(prod, name);
     if (!(amount > 0) || !ev.ok || (!freeSearch && ev.score < 0.65)) return null;
     const storeName = String(seller || '').trim();
-    const sellerKey = Extract.matchKnownSite(url) || Extract.matchKnownSite(storeName);
+    const sellerKey = dedupeSellerKey || Extract.matchKnownSite(url) || Extract.matchKnownSite(storeName);
     return Model.offer({ sourceId, productId: prod.id, seller: storeName || sourceId, sellerKey: sellerKey || '', sellerUrl: url, price: amount,
       ts: Date.now(), dataSource, matchConfidence: freeSearch ? null : ev.score, matchLevel: freeSearch ? '' : ev.level, matchTitle: name, flags: freeSearch ? [] : ev.flags });
   }
@@ -421,6 +421,43 @@ const Sources = (() => {
     }
     const list = [...unique.values()];
     return { status: list.length ? 'ok' : (error ? 'error' : 'no-match'), offers: list, note: note || (list.length ? `${list.length} نتیجهٔ همسان` : 'نتیجهٔ همسان با برند و کد مدل پیدا نشد'), error, tried, rejected, nearMiss: nearMiss.slice(0, 3) };
+  }
+  function emallsText(element) {
+    return String(element?.innerText || element?.textContent || '')
+      .replace(/[\u200c\u200e\u200f]/g, ' ').replace(/\s+/g, ' ').trim();
+  }
+  function emallsPrices(text) {
+    const normalized = U.digits(String(text || ''));
+    return [...normalized.matchAll(/(?:\d{1,3}(?:[,\u066c\u060c. ]\d{3})+|\d{5,})/g)]
+      .map(match => ({ value: parsePrice(match[0]), index: match.index, text: match[0] }))
+      .filter(match => match.value > 0);
+  }
+  function parseEmallsSearchPage(html) {
+    if (typeof DOMParser !== 'function') throw new Error('DOMParser برای خواندن نتایج ایمالز در دسترس نیست');
+    const doc = new DOMParser().parseFromString(String(html || ''), 'text/html');
+    const root = doc.getElementById('mainlist');
+    if (!root) throw new Error('ساختار صفحهٔ جست‌وجوی عمومی ایمالز شناخته نشد');
+    const rows = [], seen = new Set();
+    const cards = root.querySelectorAll('.item.product-block');
+    for (const card of cards) {
+      const name = emallsText(card.querySelector('.prd-name, h2')) || emallsText(card.querySelector('img[alt]'));
+      const priceText = emallsText(card.querySelector('.prd-price, .price-box'));
+      const prices = emallsPrices(priceText);
+      const shop = card.querySelector('.btn-buyshop');
+      const seller = emallsText(shop).replace(/^خرید\s*از\s*/u, '').trim();
+      if (!name || prices.length !== 1 || !seller) continue;
+
+      // Emalls stores its signed click-through URL reversed in a data attribute on the offer card.
+      // Read the URL it supplied verbatim; never manufacture its nonce/signature.
+      const encodedLink = shop.getAttribute('data-esrever') || card.querySelector('[data-esrever]')?.getAttribute('data-esrever');
+      const buyLink = reverseEmallsLink(encodedLink);
+      if (!buyLink) continue;
+      const identity = U.normalize(name) + '|' + U.normalize(seller) + '|' + prices[0].value;
+      if (seen.has(identity)) continue;
+      seen.add(identity);
+      rows.push({ title: name, price: prices[0].value, buyTitle: seller, buyLink });
+    }
+    return { rows, productCount: cards.length };
   }
   function reverseEmallsLink(value) {
     try {
@@ -436,9 +473,17 @@ const Sources = (() => {
     id: 'emalls', label: 'ایمالز', icon: 'emalls', kind: 'offers', implemented: true, hosts: ['emalls.ir'],
     note: 'جست‌وجوی زندهٔ ایمالز؛ تطبیق برند و مدل پیش از نمایش قیمت',
     async search(q) {
+      if (typeof DOMParser === 'function') {
+        const url = 'https://emalls.ir/' + encodeURIComponent('لیست-قیمت~skey~') + encodeURIComponent(q);
+        const html = await Net.request(url, { accept: 'text/html,application/xhtml+xml', referer: EMALLS_REF, timeout: 18000, anonymous: true });
+        return parseEmallsSearchPage(html);
+      }
+      // The background service worker has no DOMParser; keep its legacy JSON path available there.
       const body = new URLSearchParams({ findstr: q, entekhab: 'listitemv2', pagenum: '1' });
-      return Net.json('https://emalls.ir/swservice/site_search', { method: 'POST', body: body.toString(), referer: EMALLS_REF, timeout: 18000, anonymous: true,
+      const result = await Net.json('https://emalls.ir/swservice/site_search', { method: 'POST', body: body.toString(), referer: EMALLS_REF, timeout: 18000, anonymous: true,
         headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8', 'X-Requested-With': 'XMLHttpRequest' } });
+      const legacyRows = Array.isArray(result?.lstsearchresualt) ? result.lstsearchresualt : [];
+      return { rows: legacyRows.map(row => ({ ...row, buyLink: reverseEmallsLink(row?.buyLink), dataSource: 'emalls:site_search/listitemv2' })), productCount: legacyRows.length };
     },
     async fetch(prod, { query, freeSearch = false } = {}) {
       const tried = [], offers = [], nearMiss = [], failures = []; let rejected = 0;
@@ -451,11 +496,12 @@ const Sources = (() => {
           Log.warn('emalls', `عبارت «${q}» ناموفق بود: ${e.message}`);
           continue;
         }
-        const rows = Array.isArray(result?.lstsearchresualt) ? result.lstsearchresualt : [];
+        const rows = Array.isArray(result?.rows) ? result.rows : [];
+        Log.info('emalls', U.toFa(result?.productCount || rows.length) + ' کارت قیمت در صفحهٔ عمومی؛ ' + U.toFa(rows.length) + ' پیشنهاد دارای فروشگاه و قیمت');
         for (const row of rows) {
-          const name = row?.title || '', link = reverseEmallsLink(row?.buyLink);
-          const seller = String(row?.buyTitle || '').replace(/^خرید[\u200c\u200e\s]*از[\u200c\u200e\s]*/u, '').trim();
-          const offer = mapMarketOffer(prod, row, { sourceId: 'emalls', title: name, price: row?.price, seller, sellerUrl: link, allowedHosts: ['click.emalls.ir'], dataSource: 'emalls:site_search/listitemv2', exclude: item => item?.agahi || item?.used === true, freeSearch, query });
+          const name = row?.title || '', link = row?.buyLink;
+          const seller = String(row?.buyTitle || '').trim();
+          const offer = mapMarketOffer(prod, row, { sourceId: 'emalls', title: name, price: row?.price, seller, sellerUrl: link, allowedHosts: ['emalls.ir', 'click.emalls.ir'], dataSource: row?.dataSource || 'emalls:public-search-page', dedupeSellerKey: Extract.matchKnownSite(seller) || 'emalls:' + U.normalize(seller), exclude: item => item?.agahi || item?.used === true, freeSearch, query });
           if (offer) offers.push(offer); else { rejected++; if (!freeSearch && name && nearMiss.length < 3) nearMiss.push({ title: name, reason: marketMatchReason(prod, name) }); }
         }
       }
