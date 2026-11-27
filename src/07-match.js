@@ -13,7 +13,7 @@ const Match = (() => {
     const t = U.digits(raw).replace(/[ـ]/g, '');
     const out = new Set();
     const re = /[A-Za-z]+[A-Za-z0-9]*?[\s\/\-_.]?\d+[A-Za-z0-9]*|(?<![\d.])\d+[\s]?[A-Za-z]+[A-Za-z0-9]*/g; let m;
-    while ((m = re.exec(t))) { const c = m[0].toLowerCase().replace(/[^a-z0-9]/g, ''); if (c.length >= 3 && /[a-z]/.test(c) && /\d/.test(c)) out.add(c); }
+    while ((m = re.exec(t))) { const c = m[0].toLowerCase().replace(/[^a-z0-9]/g, ''); if (c.length >= 3 && /[a-z]/.test(c) && /\d/.test(c) && !/^spf\d+(?:\.\d+)?$/.test(c)) out.add(c); }
     const numericModel = /(?:مدل|model)\s*[:#-]?\s*(\d{3,6})(?![A-Za-z0-9])/gi;
     while ((m = numericModel.exec(t))) out.add(m[1]);
     return [...out];
@@ -35,9 +35,11 @@ const Match = (() => {
     ['xiaomi', ['xiaomi', 'شیائومی', 'شیاومی']], ['samsung', ['samsung', 'سامسونگ']],
     ['apple', ['apple', 'اپل']], ['huawei', ['huawei', 'هواوی']],
     ['ugreen', ['ugreen', 'یوگرین']], ['ldnio', ['ldnio', 'الدینیو']],
+    ['prime', ['prime', 'پرایم']], ['defacto', ['defacto', 'دفکتو', 'دفاکتو']],
     ['hoco', ['hoco', 'هوکو']], ['borofone', ['borofone', 'بروفون']]
   ];
   const PRODUCT_TYPES = [
+    ['sun-care', ['ضد آفتاب', 'ضدآفتاب', 'sunscreen', 'sunblock']],
     ['headphones', ['هدفون', 'هدست', 'هندزفری', 'ایرفون', 'headphone', 'headphones', 'headset', 'earphone', 'earphones', 'earbud', 'earbuds']],
     ['speakers', ['اسپیکر', 'بلندگو', 'speaker', 'speakers', 'soundbar', 'ساندبار']],
     ['cables', ['کابل', 'cable', 'کابل شارژ', 'کابل تایپ سی', 'usb cable', 'charging cable']],
@@ -77,6 +79,8 @@ const Match = (() => {
       const rx = new RegExp('(\\d+(?:\\.\\d+)?)(?:' + re.source + ')', 'g'); let m;
       while ((m = rx.exec(t))) (out[u] ||= new Set()).add(Number(m[1]));
     }
+    const spf = /\bspf\s*(\d+(?:\.\d+)?)/gi; let match;
+    while ((match = spf.exec(t))) (out.spf ||= new Set()).add(Number(match[1]));
     return out;
   }
   function evaluate(src, cand, { strict = false, brandAliases = [] } = {}) {

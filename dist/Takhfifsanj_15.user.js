@@ -598,7 +598,7 @@ const Match = (() => {
     const t = U.digits(raw).replace(/[ـ]/g, '');
     const out = new Set();
     const re = /[A-Za-z]+[A-Za-z0-9]*?[\s\/\-_.]?\d+[A-Za-z0-9]*|(?<![\d.])\d+[\s]?[A-Za-z]+[A-Za-z0-9]*/g; let m;
-    while ((m = re.exec(t))) { const c = m[0].toLowerCase().replace(/[^a-z0-9]/g, ''); if (c.length >= 3 && /[a-z]/.test(c) && /\d/.test(c)) out.add(c); }
+    while ((m = re.exec(t))) { const c = m[0].toLowerCase().replace(/[^a-z0-9]/g, ''); if (c.length >= 3 && /[a-z]/.test(c) && /\d/.test(c) && !/^spf\d+(?:\.\d+)?$/.test(c)) out.add(c); }
     const numericModel = /(?:مدل|model)\s*[:#-]?\s*(\d{3,6})(?![A-Za-z0-9])/gi;
     while ((m = numericModel.exec(t))) out.add(m[1]);
     return [...out];
@@ -620,9 +620,11 @@ const Match = (() => {
     ['xiaomi', ['xiaomi', 'شیائومی', 'شیاومی']], ['samsung', ['samsung', 'سامسونگ']],
     ['apple', ['apple', 'اپل']], ['huawei', ['huawei', 'هواوی']],
     ['ugreen', ['ugreen', 'یوگرین']], ['ldnio', ['ldnio', 'الدینیو']],
+    ['prime', ['prime', 'پرایم']], ['defacto', ['defacto', 'دفکتو', 'دفاکتو']],
     ['hoco', ['hoco', 'هوکو']], ['borofone', ['borofone', 'بروفون']]
   ];
   const PRODUCT_TYPES = [
+    ['sun-care', ['ضد آفتاب', 'ضدآفتاب', 'sunscreen', 'sunblock']],
     ['headphones', ['هدفون', 'هدست', 'هندزفری', 'ایرفون', 'headphone', 'headphones', 'headset', 'earphone', 'earphones', 'earbud', 'earbuds']],
     ['speakers', ['اسپیکر', 'بلندگو', 'speaker', 'speakers', 'soundbar', 'ساندبار']],
     ['cables', ['کابل', 'cable', 'کابل شارژ', 'کابل تایپ سی', 'usb cable', 'charging cable']],
@@ -662,6 +664,8 @@ const Match = (() => {
       const rx = new RegExp('(\\d+(?:\\.\\d+)?)(?:' + re.source + ')', 'g'); let m;
       while ((m = rx.exec(t))) (out[u] ||= new Set()).add(Number(m[1]));
     }
+    const spf = /\bspf\s*(\d+(?:\.\d+)?)/gi; let match;
+    while ((match = spf.exec(t))) (out.spf ||= new Set()).add(Number(match[1]));
     return out;
   }
   function evaluate(src, cand, { strict = false, brandAliases = [] } = {}) {
@@ -1215,7 +1219,7 @@ const Sources = (() => {
       const tokenData = await Net.json(`${SNAPP_API}guest/v2/token?${coordinates}`, { timeout: 15000, anonymous: true });
       const token = tokenData?.data?.token || tokenData?.token;
       if (!token) throw new Error('توکن مهمان اسنپ‌شاپ در پاسخ پیدا نشد');
-      const tried = [], offers = [], nearMiss = []; let rejected = 0;
+      const tried = [], offers = [], nearMiss = []; let rejected = 0, loggedOffers = 0;
       for (const q of searchTerms(prod, query)) {
         tried.push(q);
         const result = await Net.json(`${SNAPP_API}search/v1?${coordinates}`, { method: 'POST', timeout: 18000, anonymous: true,
@@ -1227,10 +1231,18 @@ const Sources = (() => {
           const offer = mapMarketOffer(prod, row, { sourceId: 'snappshop', title: row?.title, price: rawPrice,
             seller: 'اسنپ‌شاپ', sellerUrl: url, allowedHosts: ['snappshop.ir'], dataSource: 'snappshop:search/v1',
             exclude: item => item?.is_ads || item?.is_fake, freeSearch, query });
-          if (offer) offers.push(offer);
+          if (offer) {
+            offers.push(offer);
+            if (loggedOffers < 5) {
+              loggedOffers++;
+              const score = offer.matchConfidence == null ? '' : ' · تطبیق ' + U.toFa(Math.round(offer.matchConfidence * 100)) + '٪';
+              Log.info('snappshop', 'پیشنهاد پذیرفته شد: «' + offer.matchTitle + '»' + score);
+            }
+          }
           else { rejected++; if (!freeSearch && row?.title && nearMiss.length < 3) nearMiss.push({ title: row.title, reason: marketMatchReason(prod, row.title) }); }
         }
       }
+      if (rejected && nearMiss.length) Log.info('snappshop', U.toFa(rejected) + ' نتیجه رد شد؛ نمونه: «' + nearMiss[0].title + '» · ' + nearMiss[0].reason);
       return marketResult(offers, tried, rejected, freeSearch ? [] : nearMiss,
         freeSearch ? `قیمت‌های اسنپ‌شاپ · ${city.label}` : offers.length ? `قیمت اسنپ‌شاپ · ${city.label}` : `برای این شهر (${city.label}) نتیجهٔ همسان با برند و کد مدل پیدا نشد`);
     }
@@ -1418,10 +1430,17 @@ const App = (() => {
     dk: null,                 // parsed Digikala product record
     chart: null, chartError: '', chartLoading: false, chartFromCache: false, chartFetchedAt: 0, chartStale: false, historyNotice: '', variantIdx: 0, variantExact: false, variantManual: false,
     range: 90, tab: 'compare', running: false, sort: 'price', banner: '', freeSearch: false, searchQuery: '',
-    dkFetching: false, dkTs: 0, historyCooldownUntil: 0, historyCooldownNote: ''
+    dkFetching: false, dkTs: 0, dkPromise: null, dkProductId: '', historyCooldownUntil: 0, historyCooldownNote: ''
   };
   const subs = new Set(); const emit = () => subs.forEach(f => { try { f(state); } catch (e) { Log.error('ui', e.message); } });
   const on = f => subs.add(f);
+
+  function applyDigikalaMatchMetadata(product, data) {
+    if (!product || !data) return;
+    product.altTitles = [data.title, data.titleEn].filter(Boolean);
+    product.brand = data.brand; product.brandEn = data.brandEn;
+    product.brandAliases = [...new Set([data.brand, data.brandEn].filter(Boolean))];
+  }
 
   const settings = () => Store.get().settings;
   const keyFor = p => `${p.host}:${p.id || U.compact(location.pathname).slice(0, 60)}`;
@@ -1433,7 +1452,7 @@ const App = (() => {
     p.key = keyFor(p);
     // keep a manual price if extraction failed
     if (!p.price && prev && prev.key === p.key && prev.priceSource === 'دستی') { p.price = prev.price; p.priceSource = 'دستی'; }
-    if (state.key && state.key !== p.key) { state.offers = []; state.sources = {}; state.chart = null; state.chartError = ''; state.chartFromCache = false; state.chartFetchedAt = 0; state.chartStale = false; state.historyNotice = ''; state.dk = null; state.dkTs = 0; state.dkFetching = false; state.variantIdx = 0; state.variantExact = false; state.variantManual = false; }
+    if (state.key && state.key !== p.key) { state.offers = []; state.sources = {}; state.chart = null; state.chartError = ''; state.chartFromCache = false; state.chartFetchedAt = 0; state.chartStale = false; state.historyNotice = ''; state.dk = null; state.dkTs = 0; state.dkPromise = null; state.dkProductId = ''; state.dkFetching = false; state.variantIdx = 0; state.variantExact = false; state.variantManual = false; }
     state.product = p; state.key = p.key;
     const rec = Store.touchProduct(p.key, { host: p.host, pid: p.id, title: p.title || '', url: p.url, variantTitle: x.color || '', variantId: p.variantId });
     // Only trustworthy readings enter local history (page still loading / weak heuristics would pollute it).
@@ -1446,19 +1465,25 @@ const App = (() => {
     // in flight must NOT see "!state.dk" as a green light — that was the bug behind the 429 storm.
     if (p.id && p.host.endsWith('digikala.com') && !state.dkFetching && (!state.dk || Date.now() - state.dkTs > 120000)) {
       state.dkFetching = true; state.dkTs = Date.now();
-      loadDigikala(p, x.color).finally(() => { state.dkFetching = false; });
+      state.dkProductId = String(p.id);
+      const pending = loadDigikala(p, x.color);
+      state.dkPromise = pending;
+      const clearPending = () => {
+        if (state.dkPromise === pending) { state.dkPromise = null; state.dkFetching = false; }
+      };
+      pending.then(clearPending, clearPending);
     }
     return p;
   }
 
   async function loadDigikala(p, color) {
     try {
-      state.dk = await Sources.dk.product(p.id, p.variantId);
-      const d = state.dk;
+      const d = await Sources.dk.product(p.id, p.variantId);
+      if (state.product?.key !== p.key || state.dkProductId !== String(p.id)) return;
+      state.dk = d;
       if (d) {
-        p.altTitles = [d.title, d.titleEn].filter(Boolean);
-        p.brand = d.brand; p.brandEn = d.brandEn;
-        p.brandAliases = [...new Set([d.brand, d.brandEn].filter(Boolean))];
+        applyDigikalaMatchMetadata(p, d);
+        if (state.product !== p) applyDigikalaMatchMetadata(state.product, d);
       }
       if (d && d.chosen) {
         p.seller = d.chosen.seller; p.warranty = d.chosen.warranty; p.variantTitle = d.chosen.title;
@@ -1541,6 +1566,16 @@ const App = (() => {
       ? Model.product({ id: `manual-search:${U.compact(searchQuery)}`, key: `manual-search:${U.compact(searchQuery)}`, host: 'manual-search', title: searchQuery })
       : pageProduct;
     state.banner = ''; state.running = true; state.offers = []; state.sources = {};
+    emit();
+    if (!freeSearch && p.host.endsWith('digikala.com')) {
+      const pending = state.dkProductId === String(p.id) ? state.dkPromise : null;
+      if (pending) await pending;
+      if (state.product?.key !== p.key) { state.running = false; emit(); return; }
+      if (state.product?.key === p.key && state.dkProductId === String(p.id) && state.dk) {
+        applyDigikalaMatchMetadata(p, state.dk);
+        if (state.product !== p) applyDigikalaMatchMetadata(state.product, state.dk);
+      }
+    }
     const reg = Sources.registry, cfg = settings().sources;
     for (const id of Object.keys(reg)) state.sources[id] = { status: reg[id].implemented ? (cfg[id] ? 'loading' : 'off') : 'unavailable', count: 0, note: reg[id].implemented ? '' : reg[id].note };
     emit();

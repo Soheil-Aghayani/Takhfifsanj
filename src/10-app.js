@@ -8,10 +8,17 @@ const App = (() => {
     dk: null,                 // parsed Digikala product record
     chart: null, chartError: '', chartLoading: false, chartFromCache: false, chartFetchedAt: 0, chartStale: false, historyNotice: '', variantIdx: 0, variantExact: false, variantManual: false,
     range: 90, tab: 'compare', running: false, sort: 'price', banner: '', freeSearch: false, searchQuery: '',
-    dkFetching: false, dkTs: 0, historyCooldownUntil: 0, historyCooldownNote: ''
+    dkFetching: false, dkTs: 0, dkPromise: null, dkProductId: '', historyCooldownUntil: 0, historyCooldownNote: ''
   };
   const subs = new Set(); const emit = () => subs.forEach(f => { try { f(state); } catch (e) { Log.error('ui', e.message); } });
   const on = f => subs.add(f);
+
+  function applyDigikalaMatchMetadata(product, data) {
+    if (!product || !data) return;
+    product.altTitles = [data.title, data.titleEn].filter(Boolean);
+    product.brand = data.brand; product.brandEn = data.brandEn;
+    product.brandAliases = [...new Set([data.brand, data.brandEn].filter(Boolean))];
+  }
 
   const settings = () => Store.get().settings;
   const keyFor = p => `${p.host}:${p.id || U.compact(location.pathname).slice(0, 60)}`;
@@ -23,7 +30,7 @@ const App = (() => {
     p.key = keyFor(p);
     // keep a manual price if extraction failed
     if (!p.price && prev && prev.key === p.key && prev.priceSource === 'دستی') { p.price = prev.price; p.priceSource = 'دستی'; }
-    if (state.key && state.key !== p.key) { state.offers = []; state.sources = {}; state.chart = null; state.chartError = ''; state.chartFromCache = false; state.chartFetchedAt = 0; state.chartStale = false; state.historyNotice = ''; state.dk = null; state.dkTs = 0; state.dkFetching = false; state.variantIdx = 0; state.variantExact = false; state.variantManual = false; }
+    if (state.key && state.key !== p.key) { state.offers = []; state.sources = {}; state.chart = null; state.chartError = ''; state.chartFromCache = false; state.chartFetchedAt = 0; state.chartStale = false; state.historyNotice = ''; state.dk = null; state.dkTs = 0; state.dkPromise = null; state.dkProductId = ''; state.dkFetching = false; state.variantIdx = 0; state.variantExact = false; state.variantManual = false; }
     state.product = p; state.key = p.key;
     const rec = Store.touchProduct(p.key, { host: p.host, pid: p.id, title: p.title || '', url: p.url, variantTitle: x.color || '', variantId: p.variantId });
     // Only trustworthy readings enter local history (page still loading / weak heuristics would pollute it).
@@ -36,19 +43,25 @@ const App = (() => {
     // in flight must NOT see "!state.dk" as a green light — that was the bug behind the 429 storm.
     if (p.id && p.host.endsWith('digikala.com') && !state.dkFetching && (!state.dk || Date.now() - state.dkTs > 120000)) {
       state.dkFetching = true; state.dkTs = Date.now();
-      loadDigikala(p, x.color).finally(() => { state.dkFetching = false; });
+      state.dkProductId = String(p.id);
+      const pending = loadDigikala(p, x.color);
+      state.dkPromise = pending;
+      const clearPending = () => {
+        if (state.dkPromise === pending) { state.dkPromise = null; state.dkFetching = false; }
+      };
+      pending.then(clearPending, clearPending);
     }
     return p;
   }
 
   async function loadDigikala(p, color) {
     try {
-      state.dk = await Sources.dk.product(p.id, p.variantId);
-      const d = state.dk;
+      const d = await Sources.dk.product(p.id, p.variantId);
+      if (state.product?.key !== p.key || state.dkProductId !== String(p.id)) return;
+      state.dk = d;
       if (d) {
-        p.altTitles = [d.title, d.titleEn].filter(Boolean);
-        p.brand = d.brand; p.brandEn = d.brandEn;
-        p.brandAliases = [...new Set([d.brand, d.brandEn].filter(Boolean))];
+        applyDigikalaMatchMetadata(p, d);
+        if (state.product !== p) applyDigikalaMatchMetadata(state.product, d);
       }
       if (d && d.chosen) {
         p.seller = d.chosen.seller; p.warranty = d.chosen.warranty; p.variantTitle = d.chosen.title;
@@ -131,6 +144,16 @@ const App = (() => {
       ? Model.product({ id: `manual-search:${U.compact(searchQuery)}`, key: `manual-search:${U.compact(searchQuery)}`, host: 'manual-search', title: searchQuery })
       : pageProduct;
     state.banner = ''; state.running = true; state.offers = []; state.sources = {};
+    emit();
+    if (!freeSearch && p.host.endsWith('digikala.com')) {
+      const pending = state.dkProductId === String(p.id) ? state.dkPromise : null;
+      if (pending) await pending;
+      if (state.product?.key !== p.key) { state.running = false; emit(); return; }
+      if (state.product?.key === p.key && state.dkProductId === String(p.id) && state.dk) {
+        applyDigikalaMatchMetadata(p, state.dk);
+        if (state.product !== p) applyDigikalaMatchMetadata(state.product, state.dk);
+      }
+    }
     const reg = Sources.registry, cfg = settings().sources;
     for (const id of Object.keys(reg)) state.sources[id] = { status: reg[id].implemented ? (cfg[id] ? 'loading' : 'off') : 'unavailable', count: 0, note: reg[id].implemented ? '' : reg[id].note };
     emit();

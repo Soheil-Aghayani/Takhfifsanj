@@ -500,7 +500,7 @@ const Sources = (() => {
       const tokenData = await Net.json(`${SNAPP_API}guest/v2/token?${coordinates}`, { timeout: 15000, anonymous: true });
       const token = tokenData?.data?.token || tokenData?.token;
       if (!token) throw new Error('توکن مهمان اسنپ‌شاپ در پاسخ پیدا نشد');
-      const tried = [], offers = [], nearMiss = []; let rejected = 0;
+      const tried = [], offers = [], nearMiss = []; let rejected = 0, loggedOffers = 0;
       for (const q of searchTerms(prod, query)) {
         tried.push(q);
         const result = await Net.json(`${SNAPP_API}search/v1?${coordinates}`, { method: 'POST', timeout: 18000, anonymous: true,
@@ -512,10 +512,18 @@ const Sources = (() => {
           const offer = mapMarketOffer(prod, row, { sourceId: 'snappshop', title: row?.title, price: rawPrice,
             seller: 'اسنپ‌شاپ', sellerUrl: url, allowedHosts: ['snappshop.ir'], dataSource: 'snappshop:search/v1',
             exclude: item => item?.is_ads || item?.is_fake, freeSearch, query });
-          if (offer) offers.push(offer);
+          if (offer) {
+            offers.push(offer);
+            if (loggedOffers < 5) {
+              loggedOffers++;
+              const score = offer.matchConfidence == null ? '' : ' · تطبیق ' + U.toFa(Math.round(offer.matchConfidence * 100)) + '٪';
+              Log.info('snappshop', 'پیشنهاد پذیرفته شد: «' + offer.matchTitle + '»' + score);
+            }
+          }
           else { rejected++; if (!freeSearch && row?.title && nearMiss.length < 3) nearMiss.push({ title: row.title, reason: marketMatchReason(prod, row.title) }); }
         }
       }
+      if (rejected && nearMiss.length) Log.info('snappshop', U.toFa(rejected) + ' نتیجه رد شد؛ نمونه: «' + nearMiss[0].title + '» · ' + nearMiss[0].reason);
       return marketResult(offers, tried, rejected, freeSearch ? [] : nearMiss,
         freeSearch ? `قیمت‌های اسنپ‌شاپ · ${city.label}` : offers.length ? `قیمت اسنپ‌شاپ · ${city.label}` : `برای این شهر (${city.label}) نتیجهٔ همسان با برند و کد مدل پیدا نشد`);
     }
