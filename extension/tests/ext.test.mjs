@@ -46,8 +46,8 @@ function wireBackground(chromeMock, fetchImpl) {
   return api;
 }
 
-function makeContentEnv(html, chromeMock) {
-  const dom = new JSDOM(html, { url: 'https://www.digikala.com/product/dkp-23083919/x/?variant_id=91941577', runScripts: 'outside-only', pretendToBeVisual: true });
+function makeContentEnv(html, chromeMock, url = 'https://www.digikala.com/product/dkp-23083919/x/?variant_id=91941577') {
+  const dom = new JSDOM(html, { url, runScripts: 'outside-only', pretendToBeVisual: true });
   const w = dom.window;
   const BLOCK = /^(DIV|P|SECTION|LI|H[1-6]|BUTTON|A|UL|ARTICLE|HEADER|FOOTER)$/;
   const it = el => { let s = ''; for (const n of el.childNodes) { if (n.nodeType === 3) s += n.textContent; else if (n.nodeType === 1) { if (['SCRIPT', 'STYLE'].includes(n.tagName)) continue; const t = it(n); s += BLOCK.test(n.tagName) ? '\n' + t + '\n' : t; } } return s.replace(/\n+/g, '\n').trim(); };
@@ -95,6 +95,27 @@ test('action popup: toggle remains available and attribution link chips stay out
   const html = read('popup.html');
   assert.match(html, /id="toggle"/);
   assert.doesNotMatch(html, /class="links"|class="credit"|aqilistudio\.ir|RealMahdi_a|GHAFEL_com/);
+});
+
+test('extension main: rapid SPA URL changes debounce automatic product refresh', async () => {
+  const html = `<html><head><script type="application/ld+json">{"@type":"Product","name":"محصول آزمایشی"}</script></head><body><h1>محصول آزمایشی</h1></body></html>`;
+  const chromeMock = makeBus(), { w, api } = makeContentEnv(html, chromeMock, 'https://shop.example.com/product/1');
+  const timers = [], intervals = [];
+  w.setTimeout = (fn, ms) => { const timer = { fn, ms, cancelled: false }; timers.push(timer); return timer; };
+  w.clearTimeout = timer => { if (timer) timer.cancelled = true; };
+  w.setInterval = fn => { intervals.push(fn); return intervals.length; };
+  api.UI.mount = () => { const host = w.document.createElement('div'); host.id = api.UI.HOST_ID; w.document.body.append(host); };
+  api.UI.unmount = () => w.document.getElementById(api.UI.HOST_ID)?.remove();
+  let refreshes = 0; api.App.refreshProduct = () => { refreshes++; };
+  await api.Main.init();
+  timers.find(t => t.ms === 600).fn();
+  w.history.pushState({}, '', '/product/2'); intervals[0]();
+  w.history.pushState({}, '', '/product/3'); intervals[0]();
+  const pending = timers.filter(t => t.ms === 1200 && !t.cancelled);
+  assert.equal(pending.length, 1);
+  pending[0].fn();
+  assert.equal(refreshes, 1);
+  w.close();
 });
 
 const BUYBOX = `<html><head><title>هدفون بلوتوثی موزیک آپولو مدل YRB/22 | دیجی‌کالا</title></head><body>

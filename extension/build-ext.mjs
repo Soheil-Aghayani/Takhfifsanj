@@ -27,7 +27,7 @@ const BACKGROUND = [
 
 fs.writeFileSync(path.join(root, 'dist', 'content.readable.js'), HEADER + `(function(){\n'use strict';\n${bundle(CONTENT)}\nMain.init();\n})();\n`);
 fs.writeFileSync(path.join(root, 'dist', 'background.readable.js'), HEADER + `(function(){\n'use strict';\n${bundle(BACKGROUND)}\n})();\n`);
-fs.writeFileSync(path.join(root, 'dist', 'content.test.js'), `(function(){\n'use strict';\n${bundle(CONTENT.slice(0, -1))}\nreturn {Ext,CreditGuard,U,Log,Model,Extract,Match,Store,Net,Sources,Analysis,App,Alerts,Exporter,UI,Main:{init(){}}};\n})()`);
+fs.writeFileSync(path.join(root, 'dist', 'content.test.js'), `(function(){\n'use strict';\n${bundle(CONTENT)}\nreturn {Ext,CreditGuard,U,Log,Model,Extract,Match,Store,Net,Sources,Analysis,App,Alerts,Exporter,UI,Main};\n})()`);
 fs.writeFileSync(path.join(root, 'dist', 'background.test.js'), `(function(){\n'use strict';\n${bundle(BACKGROUND.slice(0, -1))}\nreturn {Ext,U,Log,Model,Net,Sources,StoreBG,AlertsBG};\n})()`);
 
 // Minified/mangled build — this is what the manifests load by default. See docs/ANTI_TAMPER_FA.md for what this
